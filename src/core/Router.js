@@ -1,4 +1,7 @@
 import { DashboardView } from '../ui/DashboardView.js?v=6';
+import { DesktopView } from '../ui/DesktopView.js';
+import { CalendarView } from '../ui/CalendarView.js';
+import { AcademicView } from '../ui/AcademicView.js';
 import { PlanningView } from '../ui/PlanningView.js?v=8';
 import { FocusView } from '../ui/FocusView.js?v=10';
 import { BilanView } from '../ui/BilanView.js?v=4';
@@ -10,6 +13,9 @@ import { AgentView } from '../ui/AgentView.js';
 export class Router {
     constructor(containerId, app) {
         this.views = {
+            desktop: new DesktopView(containerId, app),
+            calendar: new CalendarView(containerId, app),
+            academic: new AcademicView(containerId, app),
             coach: new DashboardView(containerId, app),
             planning: new PlanningView(containerId, app),
             focus: new FocusView(containerId, app),
@@ -33,6 +39,9 @@ export class Router {
             if (viewName === 'journal') data = state.currentJournal;
             if (viewName === 'portfolio') data = state;
             if (viewName === 'program') data = state.fullProgram;
+            if (viewName === 'desktop') data = state;
+            if (viewName === 'calendar') data = state;
+            if (viewName === 'academic') data = state;
             
             view.render(data);
         } else {

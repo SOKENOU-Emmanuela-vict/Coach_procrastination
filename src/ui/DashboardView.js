@@ -10,9 +10,42 @@ export class DashboardView {
         
         let insightsHtml = "";
         if (state.coachInsights && state.coachInsights.length > 0) {
+            insightsHtml += `<div class="stats" style="border-left: 5px solid #00f2fe; background: #0e1e26; margin-bottom: 20px;">
+                <h3 style="color:#00f2fe; margin-bottom:12px; display:flex; justify-content:space-between; align-items:center;">
+                    <span>🤖 RECOMMANDATIONS DU COACH</span>
+                    <span style="font-size:12px; background:#00f2fe; color:#0f2027; padding:2px 8px; border-radius:12px;">${state.coachInsights.length}</span>
+                </h3>`;
             state.coachInsights.forEach(insight => {
-                insightsHtml += `<p style="margin-bottom:5px;"><strong>${insight.type === 'warning' ? '⚠️' : '✅'} ${insight.text}</strong></p>`;
+                let icon = '💡';
+                let color = '#88a7b7';
+                
+                if (insight.type === 'CRITICAL') { icon = '🚨'; color = '#f44336'; }
+                else if (insight.type === 'WARNING') { icon = '⚠️'; color = '#ff9800'; }
+                else if (insight.type === 'SUCCESS') { icon = '✅'; color = '#4caf50'; }
+                else if (insight.type === 'SUGGESTION') { icon = '✨'; color = '#00f2fe'; }
+                else if (insight.type === 'INFO') { icon = 'ℹ️'; color = '#a8d8ea'; }
+
+                insightsHtml += `
+                    <div style="background:#0b1a20; border-left:4px solid ${color}; padding:12px; border-radius:6px; margin-bottom:10px;">
+                        <div style="display:flex; justify-content:space-between; align-items:center;">
+                            <span style="font-size:14px; font-weight:bold; color:#fff;">${icon} ${insight.title || 'Recommandation'}</span>
+                        </div>
+                        <div style="font-size:13px; color:#e0e0e0; margin-top:6px;">${insight.message || insight.text}</div>
+                        ${insight.actionable ? `
+                            <div style="margin-top:10px; display:flex; gap:10px;">
+                                <button data-action="accept-coach-event" data-event='${JSON.stringify(insight.suggestedEvent)}' style="background:${color}; color:#0f2027; font-weight:bold; padding:8px 12px; border:none; border-radius:4px; cursor:pointer; font-size:12px;">
+                                    Accepter la proposition
+                                </button>
+                                <button data-action="refuse-coach-event" style="background:transparent; color:${color}; border:1px solid ${color}; font-weight:bold; padding:8px 12px; border-radius:4px; cursor:pointer; font-size:12px;">
+                                    Refuser
+                                </button>
+                            </div>
+                            <div class="action-feedback" style="margin-top:8px; font-size:12px; font-weight:bold; display:none;"></div>
+                        ` : ''}
+                    </div>
+                `;
             });
+            insightsHtml += `</div>`;
         }
         
         let skillsHtml = "";
@@ -78,42 +111,21 @@ export class DashboardView {
             `;
         }
 
-        let todayBlocsHtml = "";
         const sessions = state.dailyPlan && state.dailyPlan.sessions ? state.dailyPlan.sessions : [];
-        if (sessions.length > 0) {
-            sessions.forEach(s => {
-                const blockBadge = s.block ? `<span style="background:#0f2027; border: 1px solid #00f2fe; padding: 2px 6px; border-radius: 4px; font-size:11px; margin-right:6px; color:#00f2fe;">${s.block}</span>` : '';
-                todayBlocsHtml += `
-                    <div style="background:#0b1a20; border-left:4px solid #00f2fe; padding:12px; border-radius:6px; margin-bottom:10px;">
-                        <div style="display:flex; justify-content:space-between; align-items:center;">
-                            <span style="font-size:14px; font-weight:bold; color:#fff;">${blockBadge}${s.title}</span>
-                            <span style="font-size:12px;">⭐ ${s.difficulty || '🟢'} | 🏆 <strong style="color:#ffd700;">+${s.xp || 60} XP</strong></span>
-                        </div>
-                        <div style="font-size:12px; color:#a8d8ea; margin-top:4px;">⏱ <strong>${s.expectedDuration} min</strong> ${s.startTime ? `(${s.startTime})` : ''} | <span style="color:#ff9800; font-weight:bold;">${s.skillLabel || ''}</span></div>
-                        ${s.objective ? `<div style="font-size:13px; color:#e0e0e0; margin-top:6px;">🎯 <strong>Objectif :</strong> ${s.objective}</div>` : ''}
-                        ${s.expectedResult ? `<div style="font-size:12px; color:#a8d8ea; margin-top:3px;">📌 <strong>Résultat attendu :</strong> ${s.expectedResult}</div>` : ''}
-                        ${s.proof ? `<div style="font-size:12px; color:#ffb74d; margin-top:3px;">📝 <strong>Preuve :</strong> ${s.proof}</div>` : ''}
-                        ${s.resourceLink ? `<div style="margin-top:5px;"><a href="${s.resourceLink}" target="_blank" style="font-size:12px; color:#00f2fe; text-decoration:underline;">🔗 Ouvrir la ressource</a></div>` : ''}
-                    </div>
-                `;
-            });
-        } else {
-            todayBlocsHtml = `<p style="color:#88a7b7;">Aucune session assignée pour ce jour.</p>`;
-        }
 
         this.container.innerHTML = `
             <h2>🏠 Poste de Pilotage</h2>
             
-            <div class="stats" style="border-left: 5px solid #00f2fe; background: #0e1e26; margin-bottom: 20px;">
-                <h3 style="color:#00f2fe; margin-bottom:12px; display:flex; justify-content:space-between; align-items:center;">
-                    <span>🔥 BLOCS & SÉANCES DU JOUR (9,3/10 Coach)</span>
-                    <span style="font-size:12px; background:#00f2fe; color:#0f2027; padding:2px 8px; border-radius:12px;">${sessions.length} Séances</span>
-                </h3>
-                <p style="font-size:12px; color:#88a7b7; margin-bottom:12px;">Chaque bloc affiche son objectif précis et la preuve à produire.</p>
-                ${todayBlocsHtml}
-                <button id="btn-dash-plan-top" style="margin-top:15px; width:100%; background:#00f2fe; color:#0f2027; font-weight:bold; padding:12px; border:none; border-radius:6px; cursor:pointer;">
-                    📋 Ouvrir le planning interactif & valider mes preuves
-                </button>
+            <div class="stats" style="border-left: 5px solid #00f2fe; background: #0e1e26; margin-bottom: 20px; padding: 15px; border-radius: 6px;">
+                <div style="display:flex; justify-content:space-between; align-items:center;">
+                    <div>
+                        <h3 style="color:#00f2fe; margin:0;">📋 Programme du Jour</h3>
+                        <p style="font-size:12px; color:#88a7b7; margin:5px 0 0 0;">${sessions.length} séances assignées aujourd'hui.</p>
+                    </div>
+                    <button id="btn-dash-plan-top" style="background:#00f2fe; color:#0f2027; font-weight:bold; padding:10px 15px; border:none; border-radius:6px; cursor:pointer;">
+                        Ouvrir le Planning détaillé
+                    </button>
+                </div>
             </div>
             
             <div class="stats" style="border-left: 5px solid #ff9800;">
@@ -121,10 +133,7 @@ export class DashboardView {
                 <p style="font-style:italic; font-size:14px; margin-bottom:10px; color:#88a7b7;">${objective}</p>
                 ${missionsHtml}
             </div>
-            
-
-
-
+                ${insightsHtml}
 
             <div style="margin-top: 25px; text-align: center;">
                 <button id="btn-open-agent" style="background: linear-gradient(90deg, #ff9800, #ff5722); color: white; border: none; padding: 12px 20px; border-radius: 20px; font-weight: bold; cursor: pointer; box-shadow: 0 4px 15px rgba(255,152,0,0.4); width: 100%;">
@@ -146,5 +155,51 @@ export class DashboardView {
                 }
             });
         }
+        
+        const acceptBtns = this.container.querySelectorAll('[data-action="accept-coach-event"]');
+        acceptBtns.forEach(btn => {
+            btn.addEventListener('click', async (e) => {
+                const btnElement = e.target;
+                const feedbackEl = btnElement.closest('div').nextElementSibling;
+                const containerEl = btnElement.closest('div').parentElement;
+                
+                // Double-click protection
+                if (btnElement.disabled) return;
+                btnElement.disabled = true;
+                btnElement.textContent = "Planification en cours...";
+                feedbackEl.style.display = "none";
+                
+                const eventData = JSON.parse(btnElement.dataset.event);
+                if (this.app.acceptCoachSuggestion) {
+                    try {
+                        await this.app.acceptCoachSuggestion(eventData);
+                        feedbackEl.textContent = "✅ Planification réussie !";
+                        feedbackEl.style.color = "#4caf50";
+                        feedbackEl.style.display = "block";
+                        // Success -> remove the suggestion from the UI after a short delay
+                        setTimeout(() => {
+                            containerEl.remove();
+                            if (this.app.renderView) this.app.renderView('dashboard');
+                        }, 1500);
+                    } catch (error) {
+                        feedbackEl.textContent = "❌ Erreur : " + error.message;
+                        feedbackEl.style.color = "#f44336";
+                        feedbackEl.style.display = "block";
+                        
+                        // Re-enable button on error
+                        btnElement.disabled = false;
+                        btnElement.textContent = "Accepter la proposition";
+                    }
+                }
+            });
+        });
+
+        const refuseBtns = this.container.querySelectorAll('[data-action="refuse-coach-event"]');
+        refuseBtns.forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                const containerEl = e.target.closest('div').parentElement;
+                containerEl.remove();
+            });
+        });
     }
 }

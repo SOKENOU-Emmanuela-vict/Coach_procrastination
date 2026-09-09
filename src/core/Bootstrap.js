@@ -5,6 +5,8 @@ import { StudyRecordEngine } from '../engines/StudyRecordEngine.js';
 import { AnalyticsEngine } from '../engines/AnalyticsEngine.js';
 import { LearningCoachEngine } from '../engines/LearningCoachEngine.js';
 import { AIGeneratorEngine } from '../engines/AIGeneratorEngine.js';
+import { AcademicEngine } from '../engines/AcademicEngine.js';
+import { AcademicSeeder } from '../data/AcademicSeeder.js';
 import { App } from './App.js?v=13';
 import { AppLogger } from '../utils/AppLogger.js';
 
@@ -70,6 +72,12 @@ export class Bootstrap {
         if (!storage || !scheduler || !xpEngine || !studyRecordEngine || !analyticsEngine || !coachEngine || !aiEngine) {
             throw new Error("Impossible d'initialiser les moteurs critiques.");
         }
+        
+        try {
+            const academicEngine = new AcademicEngine(storage);
+            const seeder = new AcademicSeeder(academicEngine);
+            await seeder.seed();
+        } catch (e) { AppLogger.error("Erreur Seeder: " + e.message); }
         
         const app = new App(storage, scheduler, xpEngine, studyRecordEngine, analyticsEngine, coachEngine, aiEngine);
         try {

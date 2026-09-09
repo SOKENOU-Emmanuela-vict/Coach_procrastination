@@ -4,6 +4,8 @@ import { AnalyticsEngine } from '../engines/AnalyticsEngine.js?v=3';
 import { LearningGraphEngine } from '../engines/LearningGraphEngine.js?v=2';
 import { GoalEngine } from '../engines/GoalEngine.js';
 import { ReflectionEngine } from '../engines/ReflectionEngine.js';
+import { AcademicEngine } from '../engines/AcademicEngine.js';
+import { PlanningEngine } from '../engines/PlanningEngine.js';
 
 export class App {
     constructor(storage, scheduler, xpEngine, studyRecordEngine, analyticsEngine, coachEngine, aiEngine) {
@@ -18,9 +20,11 @@ export class App {
         this.learningGraphEngine = new LearningGraphEngine(storage);
         this.goalEngine = new GoalEngine(storage);
         this.reflectionEngine = new ReflectionEngine(storage);
+        this.academicEngine = new AcademicEngine(storage);
+        this.planningEngine = new PlanningEngine(storage);
         
         this.state = {
-            currentView: 'coach',
+            currentView: 'desktop',
             dailyPlan: { habits: [], sessions: [] },
             dailyStats: null,
             userProfile: null,
@@ -34,7 +38,14 @@ export class App {
             reflections: null,
             monthlyReport: null,
             allJournals: {},
-            fullProgram: []
+            fullProgram: [],
+            academicSummary: null,
+            todayEvents: [],
+            calendarData: {
+                events: [],
+                availabilities: [],
+                conflicts: []
+            }
         };
         this.router = new Router('app-root', this);
     }
@@ -63,7 +74,7 @@ export class App {
         await this.refreshUserStats();
         
         document.getElementById('app-root').innerHTML = '<p style="text-align:center;">Génération du planning... (Etape 4)</p>';
-        this.renderView('coach');
+        this.renderView('desktop');
     }
     
     async refreshUserStats() {
@@ -74,22 +85,119 @@ export class App {
         const yesterdayDate = dYesterday.toLocaleDateString('fr-CA');
 
         this.state.dailyStats = await this.studyRecordEngine.getDailyStats(localDate);
-        this.state.userProfile = await this.storage.loadData('user_profile') || { xpTotal: 0, streak: 1, lastActive: null };
+        const loadedProfile = await this.storage.loadData('user_profile');
+        this.state.userProfile = loadedProfile || { 
+            xpTotal: 0, 
+            streak: 1, 
+            lastActive: null,
+            name: "Étudiant",
+            formation: null,
+            niveau: null,
+            groupe: null,
+            currentSemesterId: 's4' // Valeur par défaut pour l'anomalie S4 du prototype
+        };
         this.state.currentJournal = await this.studyRecordEngine.getJournal(localDate);
         this.state.yesterdayJournal = await this.studyRecordEngine.getJournal(yesterdayDate);
         this.state.fullHistory = await this.studyRecordEngine.getFullHistory();
         
         this.state.analytics = await this.analyticsEngine.generateInsights(localDate);
         this.state.systemHealth = await this.analyticsEngine.generateHealth();
-        this.state.coachInsights = this.coachEngine.generateInsights(this.state.analytics);
+
         
         this.state.learningGraph = await this.learningGraphEngine.evaluateGraph();
         this.state.reflections = await this.reflectionEngine.analyzeJournalTrends();
         this.state.monthlyReport = await this.analyticsEngine.generateMonthlyReport(dToday.getFullYear(), dToday.getMonth());
         this.state.allJournals = await this.storage.loadData('daily_journals') || {};
         this.state.fullProgram = await this.scheduler.getFullProgram();
+        
+        // Données pour le Bureau (Desktop) et Espace Académique
+        const semesterId = this.state.userProfile.currentSemesterId || null;
+        this.state.academicSummary = semesterId ? await this.academicEngine.getSemesterSummary(semesterId, localDate) : null;
+
+        // Construction du contexte temporel pour le Coach (J à J+5)
+        const temporalEvents = [];
+        const availableSlots = [];
+        for (let i = 0; i <= 5; i++) {
+            const d = new Date(dToday);
+            d.setDate(d.getDate() + i);
+            const dateStr = d.toLocaleDateString('fr-CA');
+            
+            const evs = await this.planningEngine.getEventsForDate(dateStr);
+            temporalEvents.push(...evs);
+            
+            const slots = await this.planningEngine.getAvailableSlots(dateStr);
+            slots.forEach(s => availableSlots.push({ date: dateStr, ...s }));
+        }
+
+        const coachContext = {
+            dateRef: localDate,
+            academicSummary: this.state.academicSummary,
+            temporal: {
+                events: temporalEvents,
+                availableSlots: availableSlots
+            },
+            userContext: this.state.userProfile,
+            analytics: this.state.analytics
+        };
+
+        this.state.coachInsights = this.coachEngine.generateInsights(coachContext);
+        this.state.todayEvents = await this.planningEngine.getEventsForDate(localDate);
+        await this.refreshCalendarData();
+    }
+
+    async acceptCoachSuggestion(eventData) {
+        if (!this.planningEngine) return;
+        await this.planningEngine.saveEvent(eventData);
+        await this.refreshUserStats();
+        // Le DashboardView gère l'affichage du succès et rechargera la vue si nécessaire
     }
     
+    async refreshCalendarData() {
+        // Charge toutes les données brutes pour le CalendarView (pas optimal pour 1000 events, mais ok pour la V1)
+        this.state.calendarData.events = await this.planningEngine.getEvents();
+        this.state.calendarData.availabilities = await this.planningEngine.getAvailabilityWindows();
+        
+        // Les conflits sont calculés dynamiquement par le CalendarView via App
+        // mais pour simplifier, on peut fournir un helper
+    }
+
+    async getConflictsForDate(date) {
+        return await this.planningEngine.detectConflicts(date);
+    }
+
+    async getAvailableSlots(date) {
+        return await this.planningEngine.getAvailableSlots(date);
+    }
+    
+    // --- RELAIS CRUD CALENDRIER ---
+    async saveCalendarEvent(eventData) {
+        await this.planningEngine.saveEvent(eventData);
+        await this.refreshCalendarData();
+        await this.refreshUserStats();
+        this.renderView('calendar');
+    }
+
+    async deleteCalendarEvent(eventId) {
+        await this.planningEngine.deleteEvent(eventId);
+        await this.refreshCalendarData();
+        await this.refreshUserStats();
+        this.renderView('calendar');
+    }
+
+    async saveCalendarAvailability(windowData) {
+        await this.planningEngine.saveAvailabilityWindow(windowData);
+        await this.refreshCalendarData();
+        await this.refreshUserStats();
+        this.renderView('calendar');
+    }
+
+    async deleteCalendarAvailability(windowId) {
+        await this.planningEngine.deleteAvailabilityWindow(windowId);
+        await this.refreshCalendarData();
+        await this.refreshUserStats();
+        this.renderView('calendar');
+    }
+
     setupNavigation() {
         document.querySelectorAll('#bottom-nav button[data-view]').forEach(btn => {
             btn.addEventListener('click', (e) => {
@@ -100,7 +208,7 @@ export class App {
     }
     
     async renderView(viewName) {
-        if (viewName === 'journal' || viewName === 'portfolio' || viewName === 'coach' || viewName === 'bilan') {
+        if (viewName === 'journal' || viewName === 'portfolio' || viewName === 'coach' || viewName === 'bilan' || viewName === 'desktop' || viewName === 'calendar' || viewName === 'academic') {
             await this.refreshUserStats();
         }
         
