@@ -307,8 +307,8 @@ export class CalendarView {
                     </select>
 
                     <select id="ev-lock" style="width:100%; padding:8px; margin-bottom:10px; background:#152b36; color:#fff; border:1px solid #1a3644; border-radius:4px;">
-                        <option value="locked" ${event && event.lockStatus === 'locked' ? 'selected' : ''}>🔒 Fixe (Locked)</option>
-                        <option value="flexible" ${event && event.lockStatus === 'flexible' ? 'selected' : ''}>🔓 Flexible</option>
+                        <option value="locked" ${event && event.lockStatus === 'locked' ? 'selected' : ''}>🔒 Fixe (FIXED)</option>
+                        <option value="flexible" ${event && event.lockStatus === 'flexible' ? 'selected' : ''}>🔓 Optimisable (OPTIMIZABLE)</option>
                     </select>
 
                     <select id="ev-priority" style="width:100%; padding:8px; margin-bottom:10px; background:#152b36; color:#fff; border:1px solid #1a3644; border-radius:4px;">

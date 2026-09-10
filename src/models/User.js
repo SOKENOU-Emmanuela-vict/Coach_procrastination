@@ -19,7 +19,18 @@ export class User {
         this.preferences = {
             theme: "dark",
             focusDuration: 25,
-            breakDuration: 5
+            breakDuration: 5,
+            desktop: {
+                widgets: {
+                    now: true,
+                    today: true,
+                    upcoming: true,
+                    academic: true,
+                    languages: true,
+                    shortcuts: true
+                },
+                shortcuts: [] // e.g. { label: 'GitHub', url: 'https://github.com' }
+            }
         };
     }
 }
