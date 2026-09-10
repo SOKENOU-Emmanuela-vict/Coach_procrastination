@@ -24,237 +24,58 @@ export class DesktopView {
         const svgCoach = `<svg viewBox="0 0 24 24"><path d="M12 2v20"></path><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path></svg>`;
         const svgSettings = `<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>`;
         const svgBell = `<svg viewBox="0 0 24 24"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path><path d="M13.73 21a2 2 0 0 1-3.46 0"></path></svg>`;
+        const svgAdd = `<svg viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>`;
 
         let html = `
 <div class="bureau">
     <aside class="bureau-sidebar">
         <div class="bureau-brand">
-            <div class="brand-icon">
-                <svg viewBox="0 0 24 24">
-                    <path d="M12 2L2 12l10 10 10-10L12 2zm0 14.5L6.5 11 12 5.5 17.5 11 12 16.5z"/>
-                </svg>
-            </div>
-            <div class="brand-text">Learning OS</div>
+            <span class="bureau-brand-name">Learning OS</span>
         </div>
-        <nav class="bureau-nav">
-            <button class="nav-item active" data-route="desktop">
-                <span class="nav-icon">${svgHome}</span> Home
+        <nav class="bureau-navigation">
+            <button class="bureau-nav-item active" data-route="desktop">
+                <span class="bureau-nav-icon">${svgHome}</span> Bureau
             </button>
-            <button class="nav-item" data-route="planning">
-                <span class="nav-icon">${svgCalendar}</span> Calendar
+            <button class="bureau-nav-item" data-route="planning">
+                <span class="bureau-nav-icon">${svgCalendar}</span> Planning
             </button>
-            <button class="nav-item" data-route="academic">
-                <span class="nav-icon">${svgSchool}</span> Courses
+            <button class="bureau-nav-item" data-route="academic">
+                <span class="bureau-nav-icon">${svgSchool}</span> School
             </button>
-            <button class="nav-item" data-route="coach">
-                <span class="nav-icon">${svgCoach}</span> Community
+            <button class="bureau-nav-item" data-route="coach">
+                <span class="bureau-nav-icon">${svgCoach}</span> Coach
             </button>
         </nav>
     </aside>
 
-    <main class="bureau-main">
-        <header class="bureau-header">
-            <h1 class="header-title">Welcome back, ${state.userProfile?.name || 'Student'} 👋</h1>
-            <div class="header-actions">
-                <button class="action-btn" id="desktop-settings" aria-label="Settings">${svgSettings}</button>
-                <button class="action-btn" aria-label="Notifications">${svgBell}</button>
+    <main class="bureau-content">
+        <header class="bureau-topbar">
+            <div class="bureau-page-label">Overview</div>
+            <div class="bureau-topbar-actions">
+                <button id="desktop-settings" class="bureau-icon-button" aria-label="Settings">${svgSettings}</button>
+                <button class="bureau-icon-button" aria-label="Notifications">${svgBell}</button>
+                <button class="bureau-profile" aria-label="Profile">
+                    <div class="bureau-profile-dot"></div>
+                </button>
             </div>
         </header>
 
         <div class="bureau-dashboard">
-            <div class="dashboard-left">
-                <!-- TOP STATS -->
-                <div class="stats-row">`;
-                
-        // Card 1: Academic
-        if (widgets.academic) {
-            const acad = state.academicSummary;
-            let avgValue = 0;
-            if (acad && acad.average && acad.average.status === "complete") {
-                avgValue = acad.average.value;
-            }
-            html += `
-                    <div class="stat-card">
-                        <div class="stat-top">
-                            <div class="stat-icon green">
-                                <svg viewBox="0 0 24 24"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
-                            </div>
-                            <div class="stat-info">
-                                <span class="stat-value">${avgValue.toFixed(1)}</span>
-                                <span class="stat-label">Semester Avg</span>
-                            </div>
-                        </div>
-                        <div class="stat-bottom" data-route="academic">
-                            View details <svg viewBox="0 0 24 24"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
-                        </div>
-                    </div>`;
-        }
+            <!-- PRIMARY COLUMN -->
+            <div class="bureau-primary">`;
 
-        // Card 2: Events
-        if (widgets.today) {
-            const events = state.todayEvents || [];
-            html += `
-                    <div class="stat-card">
-                        <div class="stat-top">
-                            <div class="stat-icon purple">
-                                <svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
-                            </div>
-                            <div class="stat-info">
-                                <span class="stat-value">${events.length}</span>
-                                <span class="stat-label">Events Today</span>
-                            </div>
-                        </div>
-                        <div class="stat-bottom" data-route="planning">
-                            View details <svg viewBox="0 0 24 24"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
-                        </div>
-                    </div>`;
-        }
-
-        // Card 3: Focus
-        if (widgets.now) {
-            const sessions = state.dailyPlan && state.dailyPlan.sessions ? state.dailyPlan.sessions : [];
-            const nextSession = sessions.find(s => !s.completed);
-            let focusTime = 0;
-            if (nextSession) {
-                focusTime = nextSession.expectedDuration;
-            }
-            html += `
-                    <div class="stat-card">
-                        <div class="stat-top">
-                            <div class="stat-icon orange">
-                                <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-                            </div>
-                            <div class="stat-info">
-                                <span class="stat-value">${focusTime}</span>
-                                <span class="stat-label">Min Focus</span>
-                            </div>
-                        </div>
-                        <div class="stat-bottom" data-route="planning">
-                            View details <svg viewBox="0 0 24 24"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
-                        </div>
-                    </div>`;
-        }
-
-        html += `
-                </div>
-
-                <!-- LANGUAGES (Continue Learning) -->`;
-        if (widgets.languages) {
-            html += `
-                <div class="section-container">
-                    <div class="section-header">
-                        <h2 class="section-title">Continue Learning</h2>
-                        <button class="btn-see-all">See All</button>
-                    </div>
-                    <table class="lang-table">
-                        <thead>
-                            <tr>
-                                <th>Course Name</th>
-                                <th>Progress</th>
-                                <th style="text-align:right">Status</th>
-                            </tr>
-                        </thead>
-                        <tbody>`;
-            const graph = state.learningGraph;
-            if (graph && graph.nodes) {
-                const engNode = graph.nodes['english_speaking'];
-                const eloNode = graph.nodes['eloquence_fr'];
-                
-                let iconColors = ['blue', 'purple'];
-                [engNode, eloNode].forEach((node, idx) => {
-                    if (node) {
-                        const level = Math.floor(node.xp / 100) + 1;
-                        const progress = node.xp % 100;
-                        const statusClass = progress === 100 ? 'completed' : 'in-progress';
-                        const statusText = progress === 100 ? 'Completed' : 'In Progress';
-                        const color = iconColors[idx % 2];
-                        html += `
-                            <tr class="lang-row">
-                                <td>
-                                    <div class="lang-course">
-                                        <div class="lang-icon ${color}">
-                                            <svg viewBox="0 0 24 24"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
-                                        </div>
-                                        <div>
-                                            <div class="lang-name">${node.label}</div>
-                                            <div class="lang-level">Level ${level}</div>
-                                        </div>
-                                    </div>
-                                </td>
-                                <td class="lang-progress-cell">
-                                    <div class="lang-progress-wrapper">
-                                        <div class="lang-progress-bar">
-                                            <div class="lang-progress-fill" style="width: ${progress}%"></div>
-                                        </div>
-                                        <div class="lang-progress-text">${progress}%</div>
-                                    </div>
-                                </td>
-                                <td class="lang-status-cell">
-                                    <span class="status-badge ${statusClass}">${statusText}</span>
-                                </td>
-                            </tr>`;
-                    }
-                });
-            } else {
-                html += `<tr><td colspan="3"><div class="empty-state">Data unavailable.</div></td></tr>`;
-            }
-            html += `
-                        </tbody>
-                    </table>
-                </div>`;
-        }
-
-        // SHORTCUTS (Recommended for you)
-        if (widgets.shortcuts) {
-            html += `
-                <div class="section-container" style="border:none; padding:0; background:transparent; box-shadow:none;">
-                    <div class="section-header">
-                        <h2 class="section-title">Recommended for you</h2>
-                        <button id="btn-add-shortcut" class="action-btn" style="width:32px; height:32px;"><svg viewBox="0 0 24 24" style="width:16px; height:16px;"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></button>
-                    </div>
-                    <div class="rec-grid">`;
-            
-            if (shortcuts.length === 0) {
-                html += `<div class="empty-state" style="grid-column: span 3;">No shortcuts added.</div>`;
-            } else {
-                const colors = ['teal', 'yellow', 'blue', 'purple', 'orange'];
-                shortcuts.forEach((sc, i) => {
-                    const c = colors[i % colors.length];
-                    html += `
-                        <a href="${sc.url}" target="_blank" class="rec-card">
-                            <div class="rec-color-block ${c}">
-                                <div class="rec-icon-inner">
-                                    <svg viewBox="0 0 24 24"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path></svg>
-                                </div>
-                            </div>
-                            <div class="rec-info">
-                                <div class="rec-text">
-                                    <div class="rec-title">${sc.label}</div>
-                                    <div class="rec-desc">Shortcut</div>
-                                </div>
-                            </div>
-                        </a>`;
-                });
-            }
-            html += `
-                    </div>
-                </div>`;
-        }
-
-        html += `
-            </div>
-
-            <div class="dashboard-right">`;
-
-        // TODAY'S PLAN (Schedule List)
+        // TODAY'S PLAN
         if (widgets.today) {
             html += `
-                <div class="section-container">
-                    <div class="section-header" style="margin-bottom:16px;">
-                        <h2 class="section-title">Today's Schedule</h2>
+                <section class="bureau-panel">
+                    <div class="bureau-panel-heading">
+                        <div>
+                            <span class="bureau-kicker">TODAY</span>
+                            <h2>Today's Plan</h2>
+                        </div>
                     </div>
-                    <div class="schedule-list">`;
-            
+                    <div class="bureau-schedule">`;
+
             const events = state.todayEvents || [];
             const sessions = state.dailyPlan && state.dailyPlan.sessions ? state.dailyPlan.sessions : [];
             const sortedEvents = [...events].sort((a, b) => {
@@ -264,61 +85,206 @@ export class DesktopView {
             });
 
             if (sortedEvents.length === 0 && sessions.length === 0) {
-                html += `<div class="empty-state">No events planned today.</div>`;
+                html += `<div class="bureau-empty">No events planned today.</div>`;
             } else {
                 sortedEvents.forEach(e => {
                     const isFixed = e.lockStatus === 'locked';
-                    const c = isFixed ? 'fixed' : '';
+                    const statusClass = isFixed ? 'is-fixed' : '';
+                    const statusText = isFixed ? 'FIXED' : 'OPT';
                     html += `
-                        <div class="schedule-item">
-                            <div class="schedule-time">${e.startTime || '--:--'}</div>
-                            <div class="schedule-card ${c}">
-                                <div class="schedule-title">${e.title}</div>
-                                <div class="schedule-meta">${e.type || 'Event'}</div>
+                        <div class="bureau-schedule-row">
+                            <div class="bureau-schedule-time">${e.startTime || '--:--'}</div>
+                            <div class="bureau-schedule-content">
+                                <div class="bureau-schedule-title">${e.title}</div>
+                                <div class="bureau-schedule-meta">${e.type || 'Event'}</div>
                             </div>
+                            <div class="bureau-status ${statusClass}">${statusText}</div>
                         </div>`;
                 });
                 sessions.forEach(s => {
-                    const c = s.completed ? 'completed' : '';
+                    const completedClass = s.completed ? 'is-completed' : '';
                     html += `
-                        <div class="schedule-item">
-                            <div class="schedule-time">--:--</div>
-                            <div class="schedule-card ${c}">
-                                <div class="schedule-title">${s.title}</div>
-                                <div class="schedule-meta">${s.expectedDuration} min</div>
+                        <div class="bureau-schedule-row ${completedClass}">
+                            <div class="bureau-schedule-time">--:--</div>
+                            <div class="bureau-schedule-content">
+                                <div class="bureau-schedule-title">${s.title}</div>
+                                <div class="bureau-schedule-meta">${s.expectedDuration} min</div>
                             </div>
+                            <div class="bureau-status is-optimizable">OPT</div>
                         </div>`;
                 });
             }
             html += `
                     </div>
-                </div>`;
+                </section>`;
         }
 
-        // COUNTDOWNS (Upcoming)
+        // TASKS / SHORTCUTS
+        if (widgets.shortcuts) {
+            html += `
+                <section class="bureau-panel">
+                    <div class="bureau-panel-heading">
+                        <div>
+                            <span class="bureau-kicker">QUICK ACCESS</span>
+                            <h2>Shortcuts</h2>
+                        </div>
+                        <button id="btn-add-shortcut" class="bureau-add-button">${svgAdd}</button>
+                    </div>
+                    <div class="bureau-task-list">`;
+            
+            if (shortcuts.length === 0) {
+                html += `<div class="bureau-empty">No shortcuts added.</div>`;
+            } else {
+                shortcuts.forEach(sc => {
+                    html += `
+                        <div class="bureau-task">
+                            <div class="bureau-checkbox"></div>
+                            <a href="${sc.url}" target="_blank">${sc.label}</a>
+                        </div>`;
+                });
+            }
+            html += `
+                    </div>
+                </section>`;
+        }
+
+        // LANGUAGES
+        if (widgets.languages) {
+            html += `
+                <section class="bureau-panel">
+                    <div class="bureau-panel-heading">
+                        <div>
+                            <span class="bureau-kicker">PROGRESS</span>
+                            <h2>Languages</h2>
+                        </div>
+                    </div>
+                    <div>`;
+            
+            const graph = state.learningGraph;
+            if (graph && graph.nodes) {
+                const engNode = graph.nodes['english_speaking'];
+                const eloNode = graph.nodes['eloquence_fr'];
+                
+                [engNode, eloNode].forEach(node => {
+                    if (node) {
+                        const level = Math.floor(node.xp / 100) + 1;
+                        const progress = node.xp % 100;
+                        html += `
+                            <div class="bureau-language">
+                                <div class="bureau-language-heading">
+                                    <span>${node.label}</span>
+                                    <span class="bureau-language-level">LVL ${level}</span>
+                                </div>
+                                <div class="bureau-progress">
+                                    <span class="bureau-progress-value" style="width: ${progress}%;"></span>
+                                </div>
+                            </div>`;
+                    }
+                });
+            } else {
+                html += `<div class="bureau-empty">Data unavailable.</div>`;
+            }
+            html += `
+                    </div>
+                </section>`;
+        }
+
+        html += `
+            </div>
+            
+            <!-- SECONDARY COLUMN -->
+            <div class="bureau-secondary">`;
+
+        // FOCUS
+        if (widgets.now) {
+            const sessions = state.dailyPlan && state.dailyPlan.sessions ? state.dailyPlan.sessions : [];
+            const nextSession = sessions.find(s => !s.completed);
+            let focusTime = '00:00';
+            let focusSession = 'No active session';
+            if (nextSession) {
+                focusTime = `${nextSession.expectedDuration}:00`;
+                focusSession = nextSession.title;
+            }
+
+            html += `
+                <section class="bureau-panel bureau-panel-focus">
+                    <span class="bureau-kicker">NOW</span>
+                    <div class="bureau-focus-value">${focusTime}</div>
+                    <div class="bureau-focus-label">${focusSession}</div>
+                </section>`;
+        }
+
+        // ACADEMIC STATISTICS
+        if (widgets.academic) {
+            const acad = state.academicSummary;
+            let avgValue = 0;
+            let avgText = "--";
+            if (acad && acad.average && acad.average.status === "complete") {
+                avgValue = acad.average.value;
+                avgText = `${avgValue.toFixed(1)}`;
+            }
+            const percentage = (avgValue / 20) * 100;
+            const circumference = 251.2;
+            const offset = circumference - (percentage / 100) * circumference;
+
+            html += `
+                <section class="bureau-panel">
+                    <div class="bureau-panel-heading">
+                        <div>
+                            <span class="bureau-kicker">OVERVIEW</span>
+                            <h2>Academic</h2>
+                        </div>
+                    </div>
+                    <div class="bureau-statistics">
+                        <div class="bureau-ring">
+                            <svg viewBox="0 0 100 100">
+                                <circle class="bureau-ring-track" cx="50" cy="50" r="40"></circle>
+                                <circle class="bureau-ring-value" cx="50" cy="50" r="40" stroke-dasharray="${circumference}" stroke-dashoffset="${offset}"></circle>
+                            </svg>
+                            <span>${Math.round(percentage)}%</span>
+                        </div>
+                        <div class="bureau-stat-list">
+                            <div class="bureau-stat-item">
+                                <span>Semester</span>
+                                <strong>${acad?.semester?.name || 'S4'}</strong>
+                            </div>
+                            <div class="bureau-stat-item">
+                                <span>Average</span>
+                                <strong>${avgText}</strong>
+                            </div>
+                        </div>
+                    </div>
+                </section>`;
+        }
+
+        // COUNTDOWNS
         if (widgets.upcoming) {
             html += `
-                <div class="section-container">
-                    <div class="section-header" style="margin-bottom:12px;">
-                        <h2 class="section-title">Assessments</h2>
+                <section class="bureau-panel">
+                    <div class="bureau-panel-heading">
+                        <div>
+                            <span class="bureau-kicker">UPCOMING</span>
+                            <h2>Assessments</h2>
+                        </div>
                     </div>
-                    <div class="countdown-list">`;
+                    <div class="bureau-countdown-list">`;
             
             const acad = state.academicSummary;
             if (acad && acad.upcomingAssessments && acad.upcomingAssessments.length > 0) {
                 acad.upcomingAssessments.forEach(ass => {
                     html += `
-                        <div class="countdown-item">
-                            <span class="countdown-title">${ass.title}</span>
-                            <span class="countdown-days">${ass.daysRemaining} days left</span>
+                        <div class="bureau-countdown">
+                            <span>${ass.title}</span>
+                            <strong>${ass.daysRemaining}d</strong>
                         </div>`;
                 });
             } else {
-                html += `<div class="empty-state">No upcoming evaluations.</div>`;
+                html += `<div class="bureau-empty">No upcoming evaluations.</div>`;
             }
+            
             html += `
                     </div>
-                </div>`;
+                </section>`;
         }
 
         html += `
@@ -327,32 +293,34 @@ export class DesktopView {
     </main>
 </div>
 
-<div id="desktop-settings-modal" class="modal-overlay">
-    <div class="modal-content">
-        <h2 class="modal-title">Settings</h2>
-        <div class="modal-body">
-            <label class="modal-label">
-                <input type="checkbox" id="chk-w-academic" ${widgets.academic ? 'checked' : ''}> Academic Status
+<div id="desktop-settings-modal" class="bureau-overlay">
+    <div class="bureau-settings">
+        <div class="bureau-settings-header">
+            <h2 style="margin:0; font-size:16px; font-weight:600; color:var(--bureau-text);">Settings</h2>
+        </div>
+        <div class="bureau-settings-options">
+            <label class="bureau-setting">
+                <input type="checkbox" id="chk-w-now" ${widgets.now ? 'checked' : ''}> Focus Timer
             </label>
-            <label class="modal-label">
-                <input type="checkbox" id="chk-w-today" ${widgets.today ? 'checked' : ''}> Today's Schedule & Events
+            <label class="bureau-setting">
+                <input type="checkbox" id="chk-w-today" ${widgets.today ? 'checked' : ''}> Today's Plan
             </label>
-            <label class="modal-label">
-                <input type="checkbox" id="chk-w-now" ${widgets.now ? 'checked' : ''}> Focus Time
+            <label class="bureau-setting">
+                <input type="checkbox" id="chk-w-upcoming" ${widgets.upcoming ? 'checked' : ''}> Upcoming Countdowns
             </label>
-            <label class="modal-label">
-                <input type="checkbox" id="chk-w-languages" ${widgets.languages ? 'checked' : ''}> Continue Learning (Languages)
+            <label class="bureau-setting">
+                <input type="checkbox" id="chk-w-languages" ${widgets.languages ? 'checked' : ''}> Languages Progress
             </label>
-            <label class="modal-label">
-                <input type="checkbox" id="chk-w-shortcuts" ${widgets.shortcuts ? 'checked' : ''}> Recommended (Shortcuts)
+            <label class="bureau-setting">
+                <input type="checkbox" id="chk-w-shortcuts" ${widgets.shortcuts ? 'checked' : ''}> Quick Access Tasks
             </label>
-            <label class="modal-label">
-                <input type="checkbox" id="chk-w-upcoming" ${widgets.upcoming ? 'checked' : ''}> Upcoming Assessments
+            <label class="bureau-setting">
+                <input type="checkbox" id="chk-w-academic" ${widgets.academic ? 'checked' : ''}> Academic Statistics
             </label>
         </div>
-        <div class="modal-actions">
-            <button id="btn-close-settings" class="btn btn-secondary">Cancel</button>
-            <button id="btn-save-settings" class="btn btn-primary">Save Changes</button>
+        <div class="bureau-settings-actions">
+            <button id="btn-close-settings" class="bureau-button bureau-button-secondary">Cancel</button>
+            <button id="btn-save-settings" class="bureau-button bureau-button-primary">Save</button>
         </div>
     </div>
 </div>
@@ -361,16 +329,7 @@ export class DesktopView {
         this.container.innerHTML = html;
 
         // BINDINGS
-        this.container.querySelectorAll('.nav-item').forEach(btn => {
-            btn.addEventListener('click', (e) => {
-                const route = e.currentTarget.getAttribute('data-route');
-                if (this.app && typeof this.app.renderView === 'function') {
-                    this.app.renderView(route);
-                }
-            });
-        });
-        
-        this.container.querySelectorAll('.stat-bottom').forEach(btn => {
+        this.container.querySelectorAll('.bureau-nav-item').forEach(btn => {
             btn.addEventListener('click', (e) => {
                 const route = e.currentTarget.getAttribute('data-route');
                 if (this.app && typeof this.app.renderView === 'function') {
