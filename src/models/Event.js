@@ -14,6 +14,8 @@ export class Event {
             this.assessmentId = config.assessmentId || null;
             this.semesterId = config.semesterId || null;
             this.academicYearId = config.academicYearId || null;
+            this.projectId = config.projectId || null;
+            this.taskId = config.taskId || null;
             this.source = config.source || 'system';
             
             // Legacy compat
@@ -37,6 +39,8 @@ export class Event {
             this.assessmentId = null;
             this.semesterId = null;
             this.academicYearId = null;
+            this.projectId = null;
+            this.taskId = null;
             this.source = 'system';
         }
     }

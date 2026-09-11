@@ -65,6 +65,16 @@ export class PlanningEngine {
         return events.filter(e => e.assessmentId === assessmentId);
     }
 
+    async getEventsForProject(projectId) {
+        const events = await this.getEvents();
+        return events.filter(e => e.projectId === projectId);
+    }
+
+    async getEventsForTask(projectId, taskId) {
+        const events = await this.getEvents();
+        return events.filter(e => e.projectId === projectId && e.taskId === taskId);
+    }
+
     // --- Validation et Conflits ---
     
     _timeToMinutes(timeStr) {
@@ -87,6 +97,7 @@ export class PlanningEngine {
         const events = await this.getEventsForDate(date);
         const subjects = await this.storage.loadData('acad_subjects') || [];
         const assessments = await this.storage.loadData('acad_assessments') || [];
+        const projects = await this.storage.loadData('projects') || [];
         
         const conflicts = [];
 
@@ -99,12 +110,28 @@ export class PlanningEngine {
                 }
             }
 
-            // DATA_CONFLICT
+            // DATA_CONFLICT (Academic)
             if (ev.subjectId && !subjects.find(s => s.id === ev.subjectId)) {
                 conflicts.push({ type: 'DATA_CONFLICT', event: ev, message: `Le subjectId ${ev.subjectId} est introuvable` });
             }
             if (ev.assessmentId && !assessments.find(a => a.id === ev.assessmentId)) {
                 conflicts.push({ type: 'DATA_CONFLICT', event: ev, message: `L'assessmentId ${ev.assessmentId} est introuvable` });
+            }
+
+            // DATA_CONFLICT (Project)
+            if (ev.taskId && !ev.projectId) {
+                conflicts.push({ type: 'DATA_CONFLICT', event: ev, message: `taskId présent mais projectId manquant` });
+            }
+            if (ev.projectId) {
+                const project = projects.find(p => p.id === ev.projectId);
+                if (!project) {
+                    conflicts.push({ type: 'DATA_CONFLICT', event: ev, message: `Le projectId ${ev.projectId} est introuvable` });
+                } else if (ev.taskId) {
+                    const task = (project.tasks || []).find(t => t.id === ev.taskId);
+                    if (!task) {
+                        conflicts.push({ type: 'DATA_CONFLICT', event: ev, message: `Le taskId ${ev.taskId} est introuvable dans le projet` });
+                    }
+                }
             }
         }
 
