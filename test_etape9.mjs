@@ -14,7 +14,7 @@ const createMockContainer = () => {
         addEventListener: () => {},
         querySelectorAll: (selector) => {
             if (selector === '[data-action="accept-coach-event"]') return [{
-                dataset: { event: JSON.stringify({ id: 'sugg_1', date: '2026-10-10' }) },
+                dataset: { intent: JSON.stringify({ id: 'sugg_1', date: '2026-10-10' }) },
                 closest: () => ({ 
                     parentElement: { remove: () => {} },
                     nextElementSibling: { style: {} }
@@ -60,13 +60,14 @@ async function runEtape9Tests() {
             fullProgram: []
         },
         planningEngine: {
-            saveEvent: async (ev) => {
+            executeIntent: async (ev) => {
                 // Simulation de validation stricte (ex: date obligatoire)
                 if (!ev.date) throw new Error("Validation échouée : date requise");
                 savedEvents.push(ev);
             }
         },
         refreshUserStats: async () => {},
+        refreshCalendarData: async () => {},
         renderView: (viewName) => {
             if (viewName === 'dashboard') renderDashboardCalled++;
         }
@@ -84,7 +85,7 @@ async function runEtape9Tests() {
     const acceptListenerA = currentMockContainer.getListeners().find(l => l.type === 'accept');
     
     let btnA = {
-        dataset: { event: JSON.stringify({ id: 'sugg_1', date: '2026-10-10' }) },
+        dataset: { intent: JSON.stringify({ id: 'sugg_1', date: '2026-10-10' }) },
         closest: () => ({ 
             parentElement: { remove: () => {} },
             nextElementSibling: { style: {} }
@@ -93,7 +94,7 @@ async function runEtape9Tests() {
     };
     
     await acceptListenerA.cb({ target: btnA });
-    assert(savedEvents.length === 1 && savedEvents[0].id === 'sugg_1', "Test A: Acceptation -> App.acceptCoachSuggestion -> PlanningEngine.saveEvent");
+    assert(savedEvents.length === 1 && savedEvents[0].id === 'sugg_1', "Test A: Acceptation -> App.acceptCoachSuggestion -> PlanningEngine.executeIntent");
 
     // --- TEST B : Refus ---
     savedEvents = [];
@@ -120,7 +121,7 @@ async function runEtape9Tests() {
     
     let errorFeedbackShown = false;
     let btnC = {
-        dataset: { event: JSON.stringify({ id: 'sugg_err' }) }, // Manque la date => error mockée
+        dataset: { intent: JSON.stringify({ id: 'sugg_err' }) }, // Manque la date => error mockée
         closest: () => ({ 
             parentElement: { remove: () => {} },
             nextElementSibling: { 
@@ -144,7 +145,7 @@ async function runEtape9Tests() {
     const acceptListenerD = currentMockContainer.getListeners().find(l => l.type === 'accept');
     
     let btnD = {
-        dataset: { event: JSON.stringify({ id: 'sugg_2', date: '2026-10-10' }) },
+        dataset: { intent: JSON.stringify({ id: 'sugg_2', date: '2026-10-10' }) },
         closest: () => ({ 
             parentElement: { remove: () => {} },
             nextElementSibling: { style: {} }

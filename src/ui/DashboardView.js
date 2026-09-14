@@ -33,7 +33,7 @@ export class DashboardView {
                         <div style="font-size:13px; color:#e0e0e0; margin-top:6px;">${insight.message || insight.text}</div>
                         ${insight.actionable ? `
                             <div style="margin-top:10px; display:flex; gap:10px;">
-                                <button data-action="accept-coach-event" data-intent='${JSON.stringify(insight.intent)}' style="background:${color}; color:#0f2027; font-weight:bold; padding:8px 12px; border:none; border-radius:4px; cursor:pointer; font-size:12px;">
+                                <button data-action="accept-coach-event" data-intent='${insight.intent ? JSON.stringify(insight.intent) : "null"}' style="background:${color}; color:#0f2027; font-weight:bold; padding:8px 12px; border:none; border-radius:4px; cursor:pointer; font-size:12px;">
                                     Accepter la proposition
                                 </button>
                                 <button data-action="refuse-coach-event" style="background:transparent; color:${color}; border:1px solid ${color}; font-weight:bold; padding:8px 12px; border-radius:4px; cursor:pointer; font-size:12px;">
@@ -169,7 +169,17 @@ export class DashboardView {
                 btnElement.textContent = "Planification en cours...";
                 feedbackEl.style.display = "none";
                 
-                const intentData = JSON.parse(btnElement.dataset.intent);
+                const intentRaw = btnElement.dataset.intent;
+                if (!intentRaw || intentRaw === "undefined" || intentRaw === "null") {
+                    feedbackEl.textContent = "❌ Impossible : aucune donnée de planification valide.";
+                    feedbackEl.style.color = "#f44336";
+                    feedbackEl.style.display = "block";
+                    btnElement.disabled = false;
+                    btnElement.textContent = "Accepter la proposition";
+                    return;
+                }
+
+                const intentData = JSON.parse(intentRaw);
                 if (this.app.acceptCoachSuggestion) {
                     try {
                         await this.app.acceptCoachSuggestion(intentData);

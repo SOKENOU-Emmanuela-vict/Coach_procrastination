@@ -70,22 +70,13 @@ export class PlanningEngine {
             source: intent.payload.source || 'system'
         };
 
-        // Si des horaires sont fournis, on checke les conflits avant l'insertion
-        if (evConfig.date && evConfig.startTime && evConfig.endTime) {
-            // On simule l'ajout pour voir si ça génère un conflit critique
-            const currentEvents = await this.getEventsForDate(evConfig.date);
-            currentEvents.push(evConfig);
+        // Validation complète via detectConflicts
+        if (evConfig.date) {
+            const conflicts = await this.detectConflicts(evConfig.date, evConfig);
+            const blockingConflicts = conflicts.filter(c => c.type === 'CRITICAL_CONFLICT' || c.type === 'TIME_CONFLICT' || c.type === 'DATA_CONFLICT');
             
-            // Re-use du check interne de conflit
-            for (let i = 0; i < currentEvents.length - 1; i++) {
-                const ev1 = currentEvents[i];
-                if (!ev1.startTime || !ev1.endTime) continue;
-                
-                if (this._doTimesOverlap(ev1.startTime, ev1.endTime, evConfig.startTime, evConfig.endTime)) {
-                    if (ev1.lockStatus === 'locked' && evConfig.lockStatus === 'locked') {
-                        return { success: false, reason: "CRITICAL_CONFLICT: Cannot insert locked event over another locked event" };
-                    }
-                }
+            if (blockingConflicts.length > 0) {
+                return { success: false, reason: `${blockingConflicts[0].type}: ${blockingConflicts[0].message}` };
             }
         }
 
@@ -158,8 +149,11 @@ export class PlanningEngine {
         return (s1 < e2 && s2 < e1);
     }
 
-    async detectConflicts(date) {
+    async detectConflicts(date, additionalEvent = null) {
         const events = await this.getEventsForDate(date);
+        if (additionalEvent) {
+            events.push(additionalEvent);
+        }
         const subjects = await this.storage.loadData('acad_subjects') || [];
         const assessments = await this.storage.loadData('acad_assessments') || [];
         const projects = await this.storage.loadData('projects') || [];
