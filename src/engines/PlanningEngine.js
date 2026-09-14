@@ -28,6 +28,71 @@ export class PlanningEngine {
         }
     }
 
+    // --- Intent Execution ---
+    async executeIntent(intent) {
+        if (!intent || typeof intent.validateStructure !== 'function') return { success: false, reason: "Invalid Intent Object" };
+        
+        const structureCheck = intent.validateStructure();
+        if (!structureCheck.valid) return { success: false, reason: structureCheck.reason };
+
+        if (intent.target !== 'event') return { success: false, reason: "Target not supported" };
+        if (intent.action !== 'create') return { success: false, reason: "Action not supported" };
+
+        const subjects = await this.storage.loadData('acad_subjects') || [];
+        const assessments = await this.storage.loadData('acad_assessments') || [];
+        const projects = await this.storage.loadData('projects') || [];
+
+        // Validation des références
+        if (intent.payload.subjectId && !subjects.find(s => s.id === intent.payload.subjectId)) {
+            return { success: false, reason: `Subject ${intent.payload.subjectId} not found` };
+        }
+        if (intent.payload.assessmentId && !assessments.find(a => a.id === intent.payload.assessmentId)) {
+            return { success: false, reason: `Assessment ${intent.payload.assessmentId} not found` };
+        }
+
+        const evConfig = {
+            id: `ev_${Date.now()}_${Math.floor(Math.random() * 1000)}`,
+            title: intent.payload.title || 'Nouvel événement',
+            date: intent.constraints.date,
+            startTime: intent.constraints.startTime || null,
+            endTime: intent.constraints.endTime || null,
+            duration: intent.payload.duration || 0,
+            targetDuration: intent.payload.targetDuration || null,
+            type: intent.payload.type || 'defaut',
+            impact: 'bloc',
+            mandatory: true,
+            lockStatus: intent.payload.lockStatus || 'flexible',
+            priority: intent.payload.priority || 'high',
+            subjectId: intent.payload.subjectId || null,
+            assessmentId: intent.payload.assessmentId || null,
+            projectId: intent.payload.projectId || null,
+            taskId: intent.payload.taskId || null,
+            source: intent.payload.source || 'system'
+        };
+
+        // Si des horaires sont fournis, on checke les conflits avant l'insertion
+        if (evConfig.date && evConfig.startTime && evConfig.endTime) {
+            // On simule l'ajout pour voir si ça génère un conflit critique
+            const currentEvents = await this.getEventsForDate(evConfig.date);
+            currentEvents.push(evConfig);
+            
+            // Re-use du check interne de conflit
+            for (let i = 0; i < currentEvents.length - 1; i++) {
+                const ev1 = currentEvents[i];
+                if (!ev1.startTime || !ev1.endTime) continue;
+                
+                if (this._doTimesOverlap(ev1.startTime, ev1.endTime, evConfig.startTime, evConfig.endTime)) {
+                    if (ev1.lockStatus === 'locked' && evConfig.lockStatus === 'locked') {
+                        return { success: false, reason: "CRITICAL_CONFLICT: Cannot insert locked event over another locked event" };
+                    }
+                }
+            }
+        }
+
+        await this.saveEvent(evConfig);
+        return { success: true, eventId: evConfig.id };
+    }
+
     // --- CRUD Availability Windows ---
     async getAvailabilityWindows() {
         return await this.storage.loadData('availabilities') || [];

@@ -9,6 +9,16 @@ export class Event {
             this.startTime = config.startTime || null; // HH:MM
             this.endTime = config.endTime || null; // HH:MM
             this.lockStatus = config.lockStatus || 'flexible'; // 'locked', 'flexible'
+            
+            if (config.targetDuration !== undefined && config.targetDuration !== null) {
+                if (typeof config.targetDuration !== 'number' || isNaN(config.targetDuration) || config.targetDuration <= 0) {
+                    throw new Error("Invalid targetDuration: must be a positive number");
+                }
+                this.targetDuration = config.targetDuration;
+            } else {
+                this.targetDuration = null;
+            }
+
             this.priority = config.priority || 'medium'; // 'high', 'medium', 'low'
             this.subjectId = config.subjectId || null;
             this.assessmentId = config.assessmentId || null;
@@ -34,6 +44,7 @@ export class Event {
             // Nouvelles props par défaut
             this.startTime = null;
             this.endTime = null;
+            this.targetDuration = null;
             this.lockStatus = 'flexible';
             this.subjectId = null;
             this.assessmentId = null;

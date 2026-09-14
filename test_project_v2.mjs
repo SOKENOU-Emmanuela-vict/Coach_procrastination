@@ -107,6 +107,29 @@ async function runTests() {
     let c24 = conflictsDate.find(c => c.event.id === "e6" && c.message.includes("projectId p99 est introuvable"));
     console.assert(c24 !== undefined, "24. Project inexistant => DATA_CONFLICT");
 
+    // 25. Cross-project task (Project A / Task B1)
+    let pA = new Project("pA", "Project A");
+    pA.tasks.push({ id: "A1", title: "Task A1", status: "todo", estimatedDuration: 60, order: 1 });
+    
+    let pB = new Project("pB", "Project B");
+    pB.tasks.push({ id: "B1", title: "Task B1", status: "todo", estimatedDuration: 60, order: 1 });
+    
+    await storage.saveData('projects', [p, pA, pB]);
+
+    let e7 = new Event({ id: "e7", type: "Projet", date: "2026-10-01", projectId: "pA", taskId: "B1" });
+    await planningEngine.saveEvent(e7);
+    
+    let originalE7Start = e7.startTime;
+    let originalE7End = e7.endTime;
+    
+    conflictsDate = await planningEngine.detectConflicts("2026-10-01");
+    let c25 = conflictsDate.find(c => c.event.id === "e7" && c.message.includes("taskId B1 est introuvable"));
+    console.assert(c25 !== undefined, "25. Cross-project Task => DATA_CONFLICT");
+    
+    let e7After = (await planningEngine.getEventsForDate("2026-10-01")).find(e => e.id === "e7");
+    console.assert(e7After.startTime === originalE7Start, "25. Event startTime intact");
+    console.assert(e7After.endTime === originalE7End, "25. Event endTime intact");
+
     // 26-27. getEventsForProject, getEventsForTask
     let projEvents = await planningEngine.getEventsForProject("p1");
     console.assert(projEvents.length === 3, `Expected 3 proj events, got ${projEvents.length}`);

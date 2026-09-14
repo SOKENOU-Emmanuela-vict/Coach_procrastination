@@ -33,7 +33,7 @@ export class DashboardView {
                         <div style="font-size:13px; color:#e0e0e0; margin-top:6px;">${insight.message || insight.text}</div>
                         ${insight.actionable ? `
                             <div style="margin-top:10px; display:flex; gap:10px;">
-                                <button data-action="accept-coach-event" data-event='${JSON.stringify(insight.suggestedEvent)}' style="background:${color}; color:#0f2027; font-weight:bold; padding:8px 12px; border:none; border-radius:4px; cursor:pointer; font-size:12px;">
+                                <button data-action="accept-coach-event" data-intent='${JSON.stringify(insight.intent)}' style="background:${color}; color:#0f2027; font-weight:bold; padding:8px 12px; border:none; border-radius:4px; cursor:pointer; font-size:12px;">
                                     Accepter la proposition
                                 </button>
                                 <button data-action="refuse-coach-event" style="background:transparent; color:${color}; border:1px solid ${color}; font-weight:bold; padding:8px 12px; border-radius:4px; cursor:pointer; font-size:12px;">
@@ -169,10 +169,10 @@ export class DashboardView {
                 btnElement.textContent = "Planification en cours...";
                 feedbackEl.style.display = "none";
                 
-                const eventData = JSON.parse(btnElement.dataset.event);
+                const intentData = JSON.parse(btnElement.dataset.intent);
                 if (this.app.acceptCoachSuggestion) {
                     try {
-                        await this.app.acceptCoachSuggestion(eventData);
+                        await this.app.acceptCoachSuggestion(intentData);
                         feedbackEl.textContent = "✅ Planification réussie !";
                         feedbackEl.style.color = "#4caf50";
                         feedbackEl.style.display = "block";

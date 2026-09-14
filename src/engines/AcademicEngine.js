@@ -356,6 +356,51 @@ export class AcademicEngine {
         return upcoming;
     }
 
+    // 6.5 getPastDueAssessments
+    async getPastDueAssessments(semesterId, dateRef, options = {}) {
+        const subjects = (await this.getSubjects()).filter(s => s.semesterId === semesterId);
+        const subjectIds = subjects.map(s => s.id);
+        const allAssessments = await this.getAssessments();
+        const semesterAssessments = allAssessments.filter(a => subjectIds.includes(a.subjectId));
+        const grades = await this.getGrades();
+
+        const pastDue = [];
+        const refTime = new Date(dateRef).getTime();
+
+        for (const assessment of semesterAssessments) {
+            // Exclusion: sans date
+            if (!assessment.targetDate) continue;
+            
+            const targetTime = new Date(assessment.targetDate).getTime();
+            if (isNaN(targetTime)) continue; // Date invalide -> exclue
+
+            if (targetTime < refTime) {
+                const daysOverdue = Math.ceil((refTime - targetTime) / (1000 * 60 * 60 * 24));
+                const subject = subjects.find(s => s.id === assessment.subjectId);
+                
+                pastDue.push({
+                    id: assessment.id,
+                    title: assessment.title,
+                    subjectId: assessment.subjectId,
+                    subjectName: subject ? subject.name : "Unknown Subject",
+                    targetDate: assessment.targetDate,
+                    daysOverdue: daysOverdue
+                });
+            }
+        }
+
+        // Tri: date la plus ancienne en premier
+        pastDue.sort((a, b) => {
+            const timeA = new Date(a.targetDate).getTime();
+            const timeB = new Date(b.targetDate).getTime();
+            if (timeA !== timeB) return timeA - timeB;
+            if (a.title && b.title) return a.title.localeCompare(b.title);
+            return 0;
+        });
+
+        return pastDue;
+    }
+
     // 7. getAcademicAlerts
     async getAcademicAlerts(semesterId, dateRef, options = {}) {
         const alertThresholdAverage = options.alertThresholdAverage !== undefined ? options.alertThresholdAverage : 10;
@@ -419,6 +464,7 @@ export class AcademicEngine {
         const averageResult = await this.getSemesterAverage(semesterId);
         const cectStatus = await this.getCectStatus(semesterId);
         const upcomingAssessments = await this.getUpcomingAssessments(semesterId, dateRef, options);
+        const pastDueAssessments = await this.getPastDueAssessments(semesterId, dateRef, options);
         const alerts = await this.getAcademicAlerts(semesterId, dateRef, options);
 
         let mappedCectStatus = null;
@@ -455,6 +501,7 @@ export class AcademicEngine {
             subjects: subjects,
             cectStatus: mappedCectStatus,
             upcomingAssessments: upcomingAssessments,
+            pastDueAssessments: pastDueAssessments,
             alerts: alerts
         };
     }

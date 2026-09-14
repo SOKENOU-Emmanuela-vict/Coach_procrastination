@@ -6,22 +6,29 @@ import { GoalEngine } from '../engines/GoalEngine.js';
 import { ReflectionEngine } from '../engines/ReflectionEngine.js';
 import { AcademicEngine } from '../engines/AcademicEngine.js';
 import { PlanningEngine } from '../engines/PlanningEngine.js';
+import { PlanningIntelligence } from '../engines/PlanningIntelligence.js';
+import { CoachOrchestrator } from '../ai/CoachOrchestrator.js';
+import { KnowledgeEngine } from '../engines/KnowledgeEngine.js';
+import { KnowledgeRetriever } from '../engines/KnowledgeRetriever.js';
 
 export class App {
-    constructor(storage, scheduler, xpEngine, studyRecordEngine, analyticsEngine, coachEngine, aiEngine) {
+    constructor(storage, scheduler, xpEngine, studyRecordEngine, analyticsEngine, legacyCoachEngineIgnored, aiEngine) {
         this.storage = storage;
         this.scheduler = scheduler;
         this.xpEngine = xpEngine;
         this.studyRecordEngine = studyRecordEngine;
         
         this.analyticsEngine = analyticsEngine;
-        this.coachEngine = coachEngine;
         this.aiEngine = aiEngine;
         this.learningGraphEngine = new LearningGraphEngine(storage);
         this.goalEngine = new GoalEngine(storage);
         this.reflectionEngine = new ReflectionEngine(storage);
         this.academicEngine = new AcademicEngine(storage);
         this.planningEngine = new PlanningEngine(storage);
+        this.planningIntelligence = new PlanningIntelligence(this.planningEngine);
+        this.knowledgeEngine = new KnowledgeEngine(storage);
+        this.knowledgeRetriever = new KnowledgeRetriever(this.knowledgeEngine);
+        this.coachEngine = new CoachOrchestrator(this.planningIntelligence, this.knowledgeRetriever);
         
         this.state = {
             currentView: 'desktop',
@@ -117,6 +124,7 @@ export class App {
         // Construction du contexte temporel pour le Coach (J à J+5)
         const temporalEvents = [];
         const availableSlots = [];
+        const conflicts = [];
         for (let i = 0; i <= 5; i++) {
             const d = new Date(dToday);
             d.setDate(d.getDate() + i);
@@ -127,29 +135,34 @@ export class App {
             
             const slots = await this.planningEngine.getAvailableSlots(dateStr);
             slots.forEach(s => availableSlots.push({ date: dateStr, ...s }));
+
+            const dayConflicts = await this.planningEngine.detectConflicts(dateStr);
+            conflicts.push(...dayConflicts);
         }
 
-        const coachContext = {
-            dateRef: localDate,
+        const coachContextData = {
+            userProfile: this.state.userProfile,
             academicSummary: this.state.academicSummary,
-            temporal: {
-                events: temporalEvents,
-                availableSlots: availableSlots
-            },
-            userContext: this.state.userProfile,
-            analytics: this.state.analytics
+            projects: await this.storage.loadData('projects') || [],
+            temporalEvents: temporalEvents,
+            availableSlots: availableSlots,
+            conflicts: conflicts,
+            analytics: this.state.analytics,
+            currentDate: localDate
         };
 
-        this.state.coachInsights = this.coachEngine.generateInsights(coachContext);
+        this.state.coachInsights = await this.coachEngine.getInsights(coachContextData);
         this.state.todayEvents = await this.planningEngine.getEventsForDate(localDate);
         await this.refreshCalendarData();
     }
 
-    async acceptCoachSuggestion(eventData) {
-        if (!this.planningEngine) return;
-        await this.planningEngine.saveEvent(eventData);
+    async acceptCoachSuggestion(intent) {
+        if (!this.planningEngine || !intent) return;
+        
+        await this.planningEngine.executeIntent(intent);
+        
+        await this.refreshCalendarData();
         await this.refreshUserStats();
-        // Le DashboardView gère l'affichage du succès et rechargera la vue si nécessaire
     }
     
     async refreshCalendarData() {
@@ -157,8 +170,9 @@ export class App {
         this.state.calendarData.events = await this.planningEngine.getEvents();
         this.state.calendarData.availabilities = await this.planningEngine.getAvailabilityWindows();
         
-        // Les conflits sont calculés dynamiquement par le CalendarView via App
-        // mais pour simplifier, on peut fournir un helper
+        this.state.calendarData.subjects = await this.storage.loadData('acad_subjects') || [];
+        this.state.calendarData.assessments = await this.storage.loadData('acad_assessments') || [];
+        this.state.calendarData.projects = await this.storage.loadData('projects') || [];
     }
 
     async getConflictsForDate(date) {

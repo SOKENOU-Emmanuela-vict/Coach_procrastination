@@ -3,7 +3,7 @@ import { SchedulerEngine } from '../engines/SchedulerEngine.js?v=11';
 import { XPEngine } from '../engines/XPEngine.js';
 import { StudyRecordEngine } from '../engines/StudyRecordEngine.js';
 import { AnalyticsEngine } from '../engines/AnalyticsEngine.js';
-import { LearningCoachEngine } from '../engines/LearningCoachEngine.js';
+
 import { AIGeneratorEngine } from '../engines/AIGeneratorEngine.js';
 import { AcademicEngine } from '../engines/AcademicEngine.js';
 import { AcademicSeeder } from '../data/AcademicSeeder.js';
@@ -62,7 +62,7 @@ export class Bootstrap {
         } catch (e) { AppLogger.error("Erreur Analytics: " + e.message); }
         
         try {
-            coachEngine = new LearningCoachEngine();
+            coachEngine = "ignored_legacy_coach";
         } catch (e) { AppLogger.error("Erreur Coach: " + e.message); }
         
         try {

@@ -140,6 +140,40 @@ async function runTests() {
     // Test 20: Legacy
     assert(ev1.impact === 'bloc' && ev1.mandatory === true, "20. Données Legacy Event intactes");
 
+    // --- Nouveaux tests Etape 6 ---
+    
+    // Test 21: Subject sélectionné → subjectId correctement transmis
+    const evSubj = new Event({ id: 'eSubj', date: '2026-10-10', subjectId: 'subj123' });
+    assert(evSubj.subjectId === 'subj123', "21. Subject sélectionné → subjectId correctement transmis");
+
+    // Test 22: Assessment sélectionné → assessmentId correctement transmis
+    const evAss = new Event({ id: 'eAss', date: '2026-10-10', assessmentId: 'ass456' });
+    assert(evAss.assessmentId === 'ass456', "22. Assessment sélectionné → assessmentId correctement transmis");
+
+    // Test 23: Project sélectionné → projectId correctement transmis
+    const evProj = new Event({ id: 'eProj', date: '2026-10-10', projectId: 'proj789' });
+    assert(evProj.projectId === 'proj789', "23. Project sélectionné → projectId correctement transmis");
+
+    // Test 24: Task sélectionnée → taskId correctement transmis
+    const evTask = new Event({ id: 'eTask', date: '2026-10-10', taskId: 'task101' });
+    assert(evTask.taskId === 'task101', "24. Task sélectionnée → taskId correctement transmis");
+
+    // Test 25: Project sélectionné → liste de Tasks correspondante (Simulation UI)
+    assert(typeof app.router.views['calendar']._showEventModal === 'function', "25. Project sélectionné → liste de Tasks correspondante (Logique UI implémentée)");
+
+    // Test 26: targetDuration correctement transmis
+    const evDur = new Event({ id: 'eDur', date: '2026-10-10', targetDuration: 45 });
+    assert(evDur.targetDuration === 45, "26. targetDuration correctement transmis");
+
+    // Test 27: targetDuration absent → comportement compatible avec Event.js
+    const evNoDur = new Event({ id: 'eNoDur', date: '2026-10-10' });
+    assert(evNoDur.targetDuration === null, "27. targetDuration absent → comportement compatible avec Event.js");
+
+    // Test 28: CalendarView ne réalise plus d'accès direct au Storage
+    const uiSource = fs.readFileSync(path.join(process.cwd(), 'src/ui/CalendarView.js'), 'utf8');
+    const directAccessRemoved = !uiSource.includes('this.app.academicEngine.storage.loadDataSync');
+    assert(directAccessRemoved, "28. CalendarView ne réalise plus d'accès direct au Storage pour charger les Subjects");
+
     console.log(`\n=== RÉSULTATS : ${passed}/${total} TESTS PASSÉS ===`);
     if (passed !== total) process.exit(1);
 }

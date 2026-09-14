@@ -279,37 +279,50 @@ export class CalendarView {
     _showEventModal(event = null) {
         const isEdit = !!event;
         const targetDate = event ? event.date : this._formatDate(this.currentDate);
-        const subjects = this.app.academicEngine ? this.app.academicEngine.storage.loadDataSync ? this.app.academicEngine.storage.loadDataSync('acad_subjects') || [] : [] : [];
+        
+        const calData = this.app.state.calendarData || {};
+        const subjects = calData.subjects || [];
+        const assessments = calData.assessments || [];
+        const projects = calData.projects || [];
         
         let subjectOptions = `<option value="">-- Aucune matière --</option>`;
-        if (subjects && subjects.length > 0) {
-            subjects.forEach(s => {
-                subjectOptions += `<option value="${s.id}" ${event && event.subjectId === s.id ? 'selected' : ''}>${s.name}</option>`;
-            });
-        }
+        subjects.forEach(s => {
+            subjectOptions += `<option value="${s.id}" ${event && event.subjectId === s.id ? 'selected' : ''}>${s.name}</option>`;
+        });
+
+        let projectOptions = `<option value="">-- Aucun projet --</option>`;
+        projects.forEach(p => {
+            projectOptions += `<option value="${p.id}" ${event && event.projectId === p.id ? 'selected' : ''}>${p.title}</option>`;
+        });
 
         const html = `
-            <div style="position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.8); display:flex; justify-content:center; align-items:center; z-index:1000;">
-                <div style="background:#0f2027; padding:20px; border-radius:8px; width:90%; max-width:400px; border:1px solid #00f2fe;">
+            <div style="position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.8); display:flex; justify-content:center; align-items:center; z-index:1000; overflow-y:auto; padding:20px;">
+                <div style="background:#0f2027; padding:20px; border-radius:8px; width:90%; max-width:500px; border:1px solid #00f2fe; max-height:90vh; overflow-y:auto;">
                     <h3 style="color:#00f2fe; margin-top:0;">${isEdit ? 'Modifier' : 'Ajouter'} un Événement</h3>
                     <input type="text" id="ev-title" placeholder="Titre de l'événement" value="${event ? event.title || '' : ''}" style="width:100%; padding:8px; margin-bottom:10px; background:#152b36; color:#fff; border:1px solid #1a3644; border-radius:4px;" />
                     
-                    <div style="display:flex; gap:10px; margin-bottom:10px;">
-                        <input type="date" id="ev-date" value="${targetDate}" style="flex:1; padding:8px; background:#152b36; color:#fff; border:1px solid #1a3644; border-radius:4px;" />
-                        <input type="time" id="ev-start" value="${event ? event.startTime || '' : ''}" style="flex:1; padding:8px; background:#152b36; color:#fff; border:1px solid #1a3644; border-radius:4px;" />
-                        <input type="time" id="ev-end" value="${event ? event.endTime || '' : ''}" style="flex:1; padding:8px; background:#152b36; color:#fff; border:1px solid #1a3644; border-radius:4px;" />
+                    <div style="display:flex; gap:10px; margin-bottom:10px; flex-wrap:wrap;">
+                        <input type="date" id="ev-date" value="${targetDate}" style="flex:1; min-width:120px; padding:8px; background:#152b36; color:#fff; border:1px solid #1a3644; border-radius:4px;" />
+                        <input type="time" id="ev-start" value="${event ? event.startTime || '' : ''}" style="flex:1; min-width:100px; padding:8px; background:#152b36; color:#fff; border:1px solid #1a3644; border-radius:4px;" title="Heure de début" />
+                        <input type="time" id="ev-end" value="${event ? event.endTime || '' : ''}" style="flex:1; min-width:100px; padding:8px; background:#152b36; color:#fff; border:1px solid #1a3644; border-radius:4px;" title="Heure de fin" />
+                    </div>
+                    
+                    <div style="margin-bottom:10px;">
+                        <label style="color:#88a7b7; font-size:12px;">Durée souhaitée (minutes) - Optionnel si pas d'horaire fixe</label>
+                        <input type="number" id="ev-target-duration" value="${event && event.targetDuration ? event.targetDuration : ''}" placeholder="ex: 90" style="width:100%; padding:8px; background:#152b36; color:#fff; border:1px solid #1a3644; border-radius:4px;" />
                     </div>
 
-                    <select id="ev-type" style="width:100%; padding:8px; margin-bottom:10px; background:#152b36; color:#fff; border:1px solid #1a3644; border-radius:4px;">
-                        <option value="Cours" ${event && event.type === 'Cours' ? 'selected' : ''}>Cours / TD / TP</option>
-                        <option value="Examen" ${event && event.type === 'Examen' ? 'selected' : ''}>Examen / Devoir</option>
-                        <option value="Personnel" ${event && event.type === 'Personnel' ? 'selected' : ''}>Personnel / Autre</option>
-                    </select>
-
-                    <select id="ev-lock" style="width:100%; padding:8px; margin-bottom:10px; background:#152b36; color:#fff; border:1px solid #1a3644; border-radius:4px;">
-                        <option value="locked" ${event && event.lockStatus === 'locked' ? 'selected' : ''}>🔒 Fixe (FIXED)</option>
-                        <option value="flexible" ${event && event.lockStatus === 'flexible' ? 'selected' : ''}>🔓 Optimisable (OPTIMIZABLE)</option>
-                    </select>
+                    <div style="display:flex; gap:10px; margin-bottom:10px;">
+                        <select id="ev-type" style="flex:1; padding:8px; background:#152b36; color:#fff; border:1px solid #1a3644; border-radius:4px;">
+                            <option value="Cours" ${event && event.type === 'Cours' ? 'selected' : ''}>Cours / TD / TP</option>
+                            <option value="Examen" ${event && event.type === 'Examen' ? 'selected' : ''}>Examen / Devoir</option>
+                            <option value="Personnel" ${event && event.type === 'Personnel' ? 'selected' : ''}>Personnel / Autre</option>
+                        </select>
+                        <select id="ev-lock" style="flex:1; padding:8px; background:#152b36; color:#fff; border:1px solid #1a3644; border-radius:4px;">
+                            <option value="locked" ${event && event.lockStatus === 'locked' ? 'selected' : ''}>🔒 Fixe (FIXED)</option>
+                            <option value="flexible" ${event && event.lockStatus === 'flexible' ? 'selected' : ''}>🔓 Optimisable (OPTIMIZABLE)</option>
+                        </select>
+                    </div>
 
                     <select id="ev-priority" style="width:100%; padding:8px; margin-bottom:10px; background:#152b36; color:#fff; border:1px solid #1a3644; border-radius:4px;">
                         <option value="high" ${event && event.priority === 'high' ? 'selected' : ''}>🔴 Haute Priorité</option>
@@ -317,9 +330,25 @@ export class CalendarView {
                         <option value="low" ${event && event.priority === 'low' ? 'selected' : ''}>🟢 Basse Priorité</option>
                     </select>
 
-                    <select id="ev-subject" style="width:100%; padding:8px; margin-bottom:15px; background:#152b36; color:#fff; border:1px solid #1a3644; border-radius:4px;">
-                        ${subjectOptions}
-                    </select>
+                    <div style="border:1px solid #1a3644; padding:10px; border-radius:6px; margin-bottom:10px; background:#11232c;">
+                        <label style="color:#88a7b7; font-size:12px; display:block; margin-bottom:5px;">Relations Académiques</label>
+                        <select id="ev-subject" style="width:100%; padding:8px; margin-bottom:5px; background:#152b36; color:#fff; border:1px solid #1a3644; border-radius:4px;">
+                            ${subjectOptions}
+                        </select>
+                        <select id="ev-assessment" style="width:100%; padding:8px; background:#152b36; color:#fff; border:1px solid #1a3644; border-radius:4px;" ${!event || !event.subjectId ? 'disabled' : ''}>
+                            <option value="">-- Aucune évaluation --</option>
+                        </select>
+                    </div>
+
+                    <div style="border:1px solid #1a3644; padding:10px; border-radius:6px; margin-bottom:15px; background:#11232c;">
+                        <label style="color:#88a7b7; font-size:12px; display:block; margin-bottom:5px;">Relations Projet</label>
+                        <select id="ev-project" style="width:100%; padding:8px; margin-bottom:5px; background:#152b36; color:#fff; border:1px solid #1a3644; border-radius:4px;">
+                            ${projectOptions}
+                        </select>
+                        <select id="ev-task" style="width:100%; padding:8px; background:#152b36; color:#fff; border:1px solid #1a3644; border-radius:4px;" ${!event || !event.projectId ? 'disabled' : ''}>
+                            <option value="">-- Aucune tâche --</option>
+                        </select>
+                    </div>
 
                     <div style="display:flex; justify-content:space-between;">
                         <button id="btn-cancel-modal" style="background:transparent; color:#88a7b7; border:1px solid #88a7b7; padding:8px 15px; border-radius:4px; cursor:pointer;">Annuler</button>
@@ -331,11 +360,71 @@ export class CalendarView {
 
         document.getElementById('calendar-modals').innerHTML = html;
 
+        // Populate dynamic dropdowns
+        const subjectSelect = document.getElementById('ev-subject');
+        const assessmentSelect = document.getElementById('ev-assessment');
+        const projectSelect = document.getElementById('ev-project');
+        const taskSelect = document.getElementById('ev-task');
+
+        const populateAssessments = (subjectId, selectedAssessmentId = null) => {
+            assessmentSelect.innerHTML = '<option value="">-- Aucune évaluation --</option>';
+            if (!subjectId) {
+                assessmentSelect.disabled = true;
+                return;
+            }
+            const filteredAssessments = assessments.filter(a => a.subjectId === subjectId);
+            if (filteredAssessments.length > 0) {
+                assessmentSelect.disabled = false;
+                filteredAssessments.forEach(a => {
+                    const isSelected = selectedAssessmentId === a.id ? 'selected' : '';
+                    assessmentSelect.innerHTML += `<option value="${a.id}" ${isSelected}>${a.title}</option>`;
+                });
+            } else {
+                assessmentSelect.disabled = true;
+            }
+        };
+
+        const populateTasks = (projectId, selectedTaskId = null) => {
+            taskSelect.innerHTML = '<option value="">-- Aucune tâche --</option>';
+            if (!projectId) {
+                taskSelect.disabled = true;
+                return;
+            }
+            const project = projects.find(p => p.id === projectId);
+            if (project && project.tasks && project.tasks.length > 0) {
+                taskSelect.disabled = false;
+                project.tasks.forEach(t => {
+                    const isSelected = selectedTaskId === t.id ? 'selected' : '';
+                    taskSelect.innerHTML += `<option value="${t.id}" ${isSelected}>${t.title}</option>`;
+                });
+            } else {
+                taskSelect.disabled = true;
+            }
+        };
+
+        // Initial population
+        if (event) {
+            if (event.subjectId) populateAssessments(event.subjectId, event.assessmentId);
+            if (event.projectId) populateTasks(event.projectId, event.taskId);
+        }
+
+        // Listeners
+        subjectSelect.addEventListener('change', (e) => {
+            populateAssessments(e.target.value);
+        });
+
+        projectSelect.addEventListener('change', (e) => {
+            populateTasks(e.target.value);
+        });
+
         document.getElementById('btn-cancel-modal').addEventListener('click', () => {
             document.getElementById('calendar-modals').innerHTML = '';
         });
 
         document.getElementById('btn-save-modal').addEventListener('click', () => {
+            const targetDurRaw = document.getElementById('ev-target-duration').value;
+            const targetDuration = targetDurRaw ? parseInt(targetDurRaw, 10) : null;
+            
             const evConfig = {
                 id: isEdit ? event.id : this._generateId(),
                 title: document.getElementById('ev-title').value || 'Sans titre',
@@ -346,11 +435,14 @@ export class CalendarView {
                 lockStatus: document.getElementById('ev-lock').value,
                 priority: document.getElementById('ev-priority').value,
                 subjectId: document.getElementById('ev-subject').value || null,
+                assessmentId: document.getElementById('ev-assessment').value || null,
+                projectId: document.getElementById('ev-project').value || null,
+                taskId: document.getElementById('ev-task').value || null,
+                targetDuration: targetDuration,
                 source: isEdit ? event.source : 'system'
             };
             
-            const newEvent = new Event(evConfig);
-            this.app.saveCalendarEvent(newEvent);
+            this.app.saveCalendarEvent(new Event(evConfig));
             document.getElementById('calendar-modals').innerHTML = '';
         });
     }
