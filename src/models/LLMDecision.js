@@ -43,6 +43,14 @@ export class LLMDecision {
             if (data.intent.constraints) {
                 throw new Error("LLMDecision invalide: Le LLM n'a pas l'autorité de fixer des contraintes temporelles (OÙ/QUAND).");
             }
+            if (data.intent.payload) {
+                const forbiddenKeys = ['date', 'startTime', 'endTime', 'start', 'end', 'constraints'];
+                for (const key of forbiddenKeys) {
+                    if (key in data.intent.payload) {
+                        throw new Error(`LLMDecision invalide: Le champ temporel interdit '${key}' a été détecté dans le payload.`);
+                    }
+                }
+            }
         }
 
         return true;
