@@ -1,8 +1,6 @@
 import { Router } from './Router.js?v=9';
 import { AppLogger } from '../utils/AppLogger.js';
-import { AnalyticsEngine } from '../engines/AnalyticsEngine.js?v=3';
 import { LearningGraphEngine } from '../engines/LearningGraphEngine.js?v=2';
-import { GoalEngine } from '../engines/GoalEngine.js';
 import { ReflectionEngine } from '../engines/ReflectionEngine.js';
 import { AcademicEngine } from '../engines/AcademicEngine.js';
 import { PlanningEngine } from '../engines/PlanningEngine.js';
@@ -12,16 +10,13 @@ import { KnowledgeEngine } from '../engines/KnowledgeEngine.js';
 import { KnowledgeRetriever } from '../engines/KnowledgeRetriever.js';
 
 export class App {
-    constructor(storage, scheduler, xpEngine, studyRecordEngine, analyticsEngine, legacyCoachEngineIgnored, aiEngine) {
+    constructor(storage, scheduler, xpEngine, studyRecordEngine, aiEngine) {
         this.storage = storage;
         this.scheduler = scheduler;
         this.xpEngine = xpEngine;
         this.studyRecordEngine = studyRecordEngine;
-        
-        this.analyticsEngine = analyticsEngine;
         this.aiEngine = aiEngine;
         this.learningGraphEngine = new LearningGraphEngine(storage);
-        this.goalEngine = new GoalEngine(storage);
         this.reflectionEngine = new ReflectionEngine(storage);
         this.academicEngine = new AcademicEngine(storage);
         this.planningEngine = new PlanningEngine(storage);
@@ -107,13 +102,10 @@ export class App {
         this.state.yesterdayJournal = await this.studyRecordEngine.getJournal(yesterdayDate);
         this.state.fullHistory = await this.studyRecordEngine.getFullHistory();
         
-        this.state.analytics = await this.analyticsEngine.generateInsights(localDate);
-        this.state.systemHealth = await this.analyticsEngine.generateHealth();
-
-        
-        this.state.learningGraph = await this.learningGraphEngine.evaluateGraph();
-        this.state.reflections = await this.reflectionEngine.analyzeJournalTrends();
-        this.state.monthlyReport = await this.analyticsEngine.generateMonthlyReport(dToday.getFullYear(), dToday.getMonth());
+        // Les insights et alertes académiques seront ajoutés via CoachAI.
+        // systemHealth est déprécié.
+        const dToday = new Date(localDate);
+        this.state.monthlyReport = await this.studyRecordEngine.getMonthlyStats(dToday.getFullYear(), dToday.getMonth());
         this.state.allJournals = await this.storage.loadData('daily_journals') || {};
         this.state.fullProgram = await this.scheduler.getFullProgram();
         

@@ -70,16 +70,12 @@ export class DashboardView {
             });
         }
 
-        let healthHtml = "";
-        if (state.systemHealth) {
-            healthHtml = `
-                <p>Habitudes : <strong>${state.systemHealth.habitsScore || completedHabits} / ${totalHabits}</strong></p>
-                <p>Compétences actives : <strong>${state.systemHealth.activeSkills || activeSkills}</strong></p>
-                <p>Compétences oubliées : <strong>${state.systemHealth.forgottenSkills || forgottenSkills}</strong></p>
-                <p>Objectifs en retard : <strong>${state.systemHealth.lateGoals || 0}</strong></p>
-                <p>Streak : <strong>${state.systemHealth.streak || 0} jours</strong></p>
-            `;
-        }
+        let healthHtml = `
+            <p>Habitudes : <strong>${completedHabits} / ${totalHabits}</strong></p>
+            <p>Compétences actives : <strong>${activeSkills}</strong></p>
+            <p>Compétences oubliées : <strong>${forgottenSkills}</strong></p>
+            <p>Streak : <strong>${state.userProfile ? state.userProfile.streak || 0 : 0} jours</strong></p>
+        `;
 
         let missionsHtml = "";
         let theme = "Semaine en cours";

@@ -1,6 +1,5 @@
 import { AppLogger } from '../utils/AppLogger.js';
 import { StudyRecord } from '../models/StudyRecord.js';
-import { Proof } from '../models/Proof.js';
 
 export class StudyRecordEngine {
     constructor(storageProvider, xpEngine) {
@@ -92,6 +91,33 @@ export class StudyRecordEngine {
         const xpTotal = dailyRecords.reduce((sum, r) => sum + (r.xpEarned || 0), 0);
         const focusTime = dailyRecords.reduce((sum, r) => sum + (r.actualDuration || r.plannedDuration || 0), 0);
         return { completedTasksCount: dailyRecords.length, xpTotal, focusTime };
+    }
+
+    async getMonthlyStats(year, month) {
+        const history = await this.storage.loadData('study_history') || [];
+        let totalTimeMinutes = 0;
+        let daysActive = new Set();
+        let proofsCount = 0;
+
+        history.forEach(r => {
+            const rDate = new Date(r.date);
+            if (rDate.getFullYear() === year && rDate.getMonth() === month) {
+                if (r.status === 'completed' || r.status === 'partial') {
+                    totalTimeMinutes += r.actualDuration || 0;
+                    daysActive.add(r.date);
+                    if (r.proof && r.proof.type) proofsCount++;
+                }
+            }
+        });
+
+        return {
+            month: month + 1,
+            year: year,
+            totalHours: (totalTimeMinutes / 60).toFixed(1),
+            daysActive: daysActive.size,
+            proofsGenerated: proofsCount,
+            summary: `En ${month + 1}/${year}, tu as investi ${(totalTimeMinutes / 60).toFixed(1)} heures réparties sur ${daysActive.size} jours. Tu as généré ${proofsCount} preuves tangibles de tes compétences.`
+        };
     }
 
     async saveDailyJournal(dateStr, journalData) {

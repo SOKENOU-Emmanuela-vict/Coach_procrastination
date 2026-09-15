@@ -2,8 +2,8 @@ import { IndexedDBProvider } from '../services/IndexedDBProvider.js';
 import { SchedulerEngine } from '../engines/SchedulerEngine.js?v=11';
 import { XPEngine } from '../engines/XPEngine.js';
 import { StudyRecordEngine } from '../engines/StudyRecordEngine.js';
-import { AnalyticsEngine } from '../engines/AnalyticsEngine.js';
-
+import { CheckInEngine } from '../engines/CheckInEngine.js';
+import { CoachOrchestrator } from '../ai/CoachOrchestrator.js';
 import { AIGeneratorEngine } from '../engines/AIGeneratorEngine.js';
 import { AcademicEngine } from '../engines/AcademicEngine.js';
 import { AcademicSeeder } from '../data/AcademicSeeder.js';
@@ -14,7 +14,7 @@ export class Bootstrap {
     static async init() {
         AppLogger.info("Démarrage du Bootstrap du Learning OS...");
         
-        let storage, scheduler, xpEngine, studyRecordEngine, analyticsEngine, coachEngine, aiEngine;
+        let storage, scheduler, xpEngine, studyRecordEngine, checkInEngine, aiEngine;
         
         try {
             storage = new IndexedDBProvider();
@@ -58,19 +58,23 @@ export class Bootstrap {
         } catch (e) { AppLogger.error("Erreur StudyRecord: " + e.message); }
         
         try {
-            analyticsEngine = new AnalyticsEngine(storage);
-        } catch (e) { AppLogger.error("Erreur Analytics: " + e.message); }
-        
-        try {
-            coachEngine = "ignored_legacy_coach";
-        } catch (e) { AppLogger.error("Erreur Coach: " + e.message); }
+            checkInEngine = new CheckInEngine(storage, null, scheduler, studyRecordEngine);
+        } catch (e) { AppLogger.error("Erreur CheckIn: " + e.message); }
         
         try {
             aiEngine = new AIGeneratorEngine(storage);
         } catch (e) { AppLogger.error("Erreur AI: " + e.message); }
         
-        if (!storage || !scheduler || !xpEngine || !studyRecordEngine || !analyticsEngine || !coachEngine || !aiEngine) {
-            throw new Error("Impossible d'initialiser les moteurs critiques.");
+        if (!storage || !scheduler || !xpEngine || !studyRecordEngine || !checkInEngine || !aiEngine) {
+            console.error("Erreur critique: Moteurs non initialisés.");
+            return;
+        }
+
+        // On vérifie s'il y a un utilisateur
+        const user = await storage.loadData('user_profile');
+        if (!user && window.location.hash !== '#/login') {
+            window.location.hash = '#/login';
+            return;
         }
         
         try {
@@ -79,7 +83,7 @@ export class Bootstrap {
             await seeder.seed();
         } catch (e) { AppLogger.error("Erreur Seeder: " + e.message); }
         
-        const app = new App(storage, scheduler, xpEngine, studyRecordEngine, analyticsEngine, coachEngine, aiEngine);
+        const app = new App(storage, scheduler, xpEngine, studyRecordEngine, aiEngine);
         try {
             await app.start();
         } catch (err) {
