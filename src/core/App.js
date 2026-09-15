@@ -10,11 +10,12 @@ import { KnowledgeEngine } from '../engines/KnowledgeEngine.js';
 import { KnowledgeRetriever } from '../engines/KnowledgeRetriever.js';
 
 export class App {
-    constructor(storage, scheduler, xpEngine, studyRecordEngine, aiEngine) {
+    constructor(storage, scheduler, xpEngine, studyRecordEngine, checkInEngine, aiEngine) {
         this.storage = storage;
         this.scheduler = scheduler;
         this.xpEngine = xpEngine;
         this.studyRecordEngine = studyRecordEngine;
+        this.checkInEngine = checkInEngine;
         this.aiEngine = aiEngine;
         this.learningGraphEngine = new LearningGraphEngine(storage);
         this.reflectionEngine = new ReflectionEngine(storage);
@@ -29,6 +30,8 @@ export class App {
             currentView: 'desktop',
             dailyPlan: { habits: [], sessions: [] },
             dailyStats: null,
+            dailySummary: null,
+            todayCheckIn: null,
             userProfile: null,
             currentJournal: null,
             yesterdayJournal: null,
@@ -87,6 +90,9 @@ export class App {
         const yesterdayDate = dYesterday.toLocaleDateString('fr-CA');
 
         this.state.dailyStats = await this.studyRecordEngine.getDailyStats(localDate);
+        this.state.dailySummary = await this.checkInEngine.buildDailySummary(localDate);
+        this.state.todayCheckIn = await this.checkInEngine.getCheckIn(localDate);
+        
         const loadedProfile = await this.storage.loadData('user_profile');
         this.state.userProfile = loadedProfile || { 
             xpTotal: 0, 
@@ -247,7 +253,19 @@ export class App {
         }
     }
 
-    async shiftDay(amount) {
+    async submitCheckIn(data) {
+        try {
+            await this.checkInEngine.saveCheckIn(data);
+            AppLogger.info("Daily Check-in sauvegardé avec succès.");
+            await this.refreshUserStats();
+            this.renderView('bilan');
+        } catch (e) {
+            AppLogger.error("Erreur lors de la sauvegarde du Check-in : " + e.message);
+            alert("Erreur Check-in : " + e.message);
+        }
+    }
+
+    async addXP(amount) {
         AppLogger.info(`Shift day by ${amount}`);
         this.currentDayIndex = await this.scheduler.shiftDayIndex(amount);
         const localDate = new Date().toLocaleDateString('fr-CA'); // Note: date string remains today, but dayIndex dictates the content

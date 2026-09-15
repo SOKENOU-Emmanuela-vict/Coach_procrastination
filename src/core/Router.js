@@ -35,7 +35,7 @@ export class Router {
             if (viewName === 'focus') {
                 data = state.dailyPlan.sessions.find(s => !s.completed) || null;
             }
-            if (viewName === 'bilan') data = state.dailyStats;
+            if (viewName === 'bilan') data = { summary: state.dailySummary, checkIn: state.todayCheckIn, stats: state.dailyStats };
             if (viewName === 'journal') data = state.currentJournal;
             if (viewName === 'portfolio') data = state;
             if (viewName === 'program') data = state.fullProgram;

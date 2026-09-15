@@ -83,7 +83,7 @@ export class Bootstrap {
             await seeder.seed();
         } catch (e) { AppLogger.error("Erreur Seeder: " + e.message); }
         
-        const app = new App(storage, scheduler, xpEngine, studyRecordEngine, aiEngine);
+        const app = new App(storage, scheduler, xpEngine, studyRecordEngine, checkInEngine, aiEngine);
         try {
             await app.start();
         } catch (err) {
