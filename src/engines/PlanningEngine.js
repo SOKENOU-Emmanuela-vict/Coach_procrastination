@@ -131,6 +131,74 @@ export class PlanningEngine {
         return events.filter(e => e.projectId === projectId && e.taskId === taskId);
     }
 
+    // --- Schedule Ingestion (B.11) ---
+    async applyScheduleImport(validEntries, startDateStr) {
+        // Validation atomique de tout l'import sur 4 semaines (28 jours)
+        const events = await this.getEvents();
+        const newEvents = [];
+        const start = new Date(startDateStr);
+        const dayMap = { 'sunday': 0, 'monday': 1, 'tuesday': 2, 'wednesday': 3, 'thursday': 4, 'friday': 5, 'saturday': 6 };
+
+        // Generate events for 28 days
+        for (let i = 0; i < 28; i++) {
+            const current = new Date(start);
+            current.setDate(start.getDate() + i);
+            const currentDayNum = current.getDay();
+            const dateStr = current.toLocaleDateString('fr-CA');
+
+            for (const entry of validEntries) {
+                if (dayMap[entry.dayOfWeek] === currentDayNum) {
+                    const evConfig = {
+                        id: `ev_${Date.now()}_${Math.floor(Math.random() * 10000)}`,
+                        title: entry.title,
+                        date: dateStr,
+                        startTime: entry.startTime,
+                        endTime: entry.endTime,
+                        type: entry.type,
+                        impact: 'bloc',
+                        mandatory: true,
+                        lockStatus: entry.lockStatus,
+                        priority: 'high',
+                        subjectId: entry.subjectId,
+                        source: entry.source
+                    };
+                    
+                    // Conflit validation
+                    const conflicts = await this.detectConflicts(dateStr, evConfig);
+                    const blocking = conflicts.filter(c => c.type === 'CRITICAL_CONFLICT' || c.type === 'TIME_CONFLICT' || c.type === 'DATA_CONFLICT');
+                    if (blocking.length > 0) {
+                        return { 
+                            success: false, 
+                            reason: `Conflit critique détécté pour ${entry.title} le ${dateStr} : ${blocking[0].message}` 
+                        };
+                    }
+                    newEvents.push(evConfig);
+                }
+            }
+        }
+
+        // Si tout est valide, on sauvegarde l'abstrait (référence) et on persiste les concrets.
+        await this.storage.saveData('academic_schedule', validEntries);
+        
+        // Pour éviter de dupliquer à l'infini si on réapplique, on supprime d'abord les événements 
+        // school_schedule sur cette période (approche de synchronisation simple).
+        const endDate = new Date(start);
+        endDate.setDate(start.getDate() + 27);
+        const endStr = endDate.toLocaleDateString('fr-CA');
+
+        const filteredEvents = events.filter(e => {
+            if (e.source === 'school_schedule' && e.date >= startDateStr && e.date <= endStr) return false;
+            return true;
+        });
+
+        for (const ne of newEvents) {
+            filteredEvents.push(new Event(ne));
+        }
+
+        await this.storage.saveData('events', filteredEvents);
+        return { success: true, count: newEvents.length };
+    }
+
     // --- Validation et Conflits ---
     
     _timeToMinutes(timeStr) {
