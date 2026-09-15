@@ -41,11 +41,16 @@ export class CheckInEngine {
             .map(c => new DailyCheckIn(c));
     }
 
-    async buildDailySummary(dateStr) {
+    async buildDailySummary(dateStr, context = null) {
         // 1. Fetch Planned
-        const events = await this.planningEngine.getEventsForDate(dateStr) || [];
+        const events = context && context.preloadedEvents ? 
+                       context.preloadedEvents.filter(e => e.date === dateStr) : 
+                       await this.planningEngine.getEventsForDate(dateStr) || [];
+        
         let dailyPlan = { sessions: [] };
-        if (this.schedulerEngine && typeof this.schedulerEngine.generateDailyPlan === 'function') {
+        if (context && context.preloadedBootcamp && context.preloadedBootcamp[dateStr]) {
+             dailyPlan = context.preloadedBootcamp[dateStr];
+        } else if (this.schedulerEngine && typeof this.schedulerEngine.generateDailyPlan === 'function') {
              dailyPlan = await this.schedulerEngine.generateDailyPlan(dateStr);
         }
         const bootcampSessions = dailyPlan.sessions || [];
@@ -84,7 +89,9 @@ export class CheckInEngine {
         const plannedItems = Array.from(plannedMap.values());
 
         // 2. Fetch Actual Execution (StudyRecords)
-        const history = await this.studyRecordEngine.getFullHistory() || [];
+        const history = context && context.preloadedHistory ? 
+                        context.preloadedHistory : 
+                        await this.studyRecordEngine.getFullHistory() || [];
         const dailyRecords = history.filter(r => r.date === dateStr);
 
         let completed = 0;
@@ -159,7 +166,9 @@ export class CheckInEngine {
         }
 
         // 3. Fetch Declarative CheckIn
-        const checkIn = await this.getCheckIn(dateStr);
+        const checkIn = context && context.preloadedCheckIns ? 
+                        context.preloadedCheckIns.find(c => c.date === dateStr) : 
+                        await this.getCheckIn(dateStr);
 
         return {
             date: dateStr,
