@@ -132,11 +132,17 @@ export class DashboardView {
                 ${insightsHtml}
 
             <div style="margin-top: 25px; text-align: center;">
+                <button id="btn-open-weekly" style="background: linear-gradient(90deg, #4caf50, #8bc34a); color: #0f2027; border: none; padding: 12px 20px; border-radius: 20px; font-weight: bold; cursor: pointer; box-shadow: 0 4px 15px rgba(76,175,80,0.4); width: 100%; margin-bottom: 15px;">
+                    📊 Voir ma Weekly Review
+                </button>
                 <button id="btn-open-agent" style="background: linear-gradient(90deg, #ff9800, #ff5722); color: white; border: none; padding: 12px 20px; border-radius: 20px; font-weight: bold; cursor: pointer; box-shadow: 0 4px 15px rgba(255,152,0,0.4); width: 100%;">
                     🤖 Créer un nouveau Bootcamp via IA
                 </button>
             </div>
         `;
+        
+        const btnWeekly = document.getElementById('btn-open-weekly');
+        if (btnWeekly) btnWeekly.addEventListener('click', () => this.app.renderView('weekly'));
         
         const btnPlan = document.getElementById('btn-dash-plan');
         if (btnPlan) btnPlan.addEventListener('click', () => this.app.renderView('planning'));

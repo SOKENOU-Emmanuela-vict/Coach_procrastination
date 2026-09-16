@@ -10,17 +10,21 @@ import { KnowledgeEngine } from '../engines/KnowledgeEngine.js';
 import { KnowledgeRetriever } from '../engines/KnowledgeRetriever.js';
 
 export class App {
-    constructor(storage, scheduler, xpEngine, studyRecordEngine, checkInEngine, aiEngine) {
+    constructor(storage, scheduler, xpEngine, studyRecordEngine, checkInEngine, aiEngine, weeklyReviewEngine) {
         this.storage = storage;
         this.scheduler = scheduler;
         this.xpEngine = xpEngine;
         this.studyRecordEngine = studyRecordEngine;
         this.checkInEngine = checkInEngine;
+        this.weeklyReviewEngine = weeklyReviewEngine;
         this.aiEngine = aiEngine;
         this.learningGraphEngine = new LearningGraphEngine(storage);
         this.reflectionEngine = new ReflectionEngine(storage);
         this.academicEngine = new AcademicEngine(storage);
         this.planningEngine = new PlanningEngine(storage);
+        if (this.checkInEngine) this.checkInEngine.planningEngine = this.planningEngine;
+        if (this.weeklyReviewEngine) this.weeklyReviewEngine.planningEngine = this.planningEngine;
+        
         this.planningIntelligence = new PlanningIntelligence(this.planningEngine);
         this.knowledgeEngine = new KnowledgeEngine(storage);
         this.knowledgeRetriever = new KnowledgeRetriever(this.knowledgeEngine);
@@ -220,8 +224,17 @@ export class App {
     }
     
     async renderView(viewName) {
-        if (viewName === 'journal' || viewName === 'portfolio' || viewName === 'coach' || viewName === 'bilan' || viewName === 'desktop' || viewName === 'calendar' || viewName === 'academic') {
+        if (viewName === 'journal' || viewName === 'portfolio' || viewName === 'coach' || viewName === 'bilan' || viewName === 'desktop' || viewName === 'calendar' || viewName === 'academic' || viewName === 'weekly') {
             await this.refreshUserStats();
+        }
+        
+        if (viewName === 'weekly') {
+            const dToday = new Date();
+            const endDate = dToday.toLocaleDateString('fr-CA');
+            const dStart = new Date(dToday);
+            dStart.setDate(dStart.getDate() - 6);
+            const startDate = dStart.toLocaleDateString('fr-CA');
+            this.state.weeklySummary = await this.getWeeklyReport(startDate, endDate);
         }
         
         this.state.currentView = viewName;
@@ -263,6 +276,14 @@ export class App {
             AppLogger.error("Erreur lors de la sauvegarde du Check-in : " + e.message);
             alert("Erreur Check-in : " + e.message);
         }
+    }
+
+    async getWeeklyReport(startDate, endDate) {
+        if (!this.weeklyReviewEngine) {
+            AppLogger.error("WeeklyReviewEngine n'est pas initialisé");
+            return null;
+        }
+        return await this.weeklyReviewEngine.buildWeeklySummary(startDate, endDate);
     }
 
     async addXP(amount) {

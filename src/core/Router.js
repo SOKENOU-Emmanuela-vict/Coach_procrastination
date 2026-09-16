@@ -9,6 +9,7 @@ import { JournalView } from '../ui/JournalView.js?v=5';
 import { PortfolioView } from '../ui/PortfolioView.js?v=5';
 import { ProgramView } from '../ui/ProgramView.js?v=6';
 import { AgentView } from '../ui/AgentView.js';
+import { WeeklyView } from '../ui/WeeklyView.js';
 
 export class Router {
     constructor(containerId, app) {
@@ -23,7 +24,8 @@ export class Router {
             journal: new JournalView(containerId, app),
             portfolio: new PortfolioView(containerId, app),
             program: new ProgramView(containerId, app),
-            agent: new AgentView(containerId, app)
+            agent: new AgentView(containerId, app),
+            weekly: new WeeklyView(containerId, app)
         };
     }
 
@@ -42,6 +44,7 @@ export class Router {
             if (viewName === 'desktop') data = state;
             if (viewName === 'calendar') data = state;
             if (viewName === 'academic') data = state;
+            if (viewName === 'weekly') data = state.weeklySummary;
             
             view.render(data);
         } else {
