@@ -29,7 +29,7 @@ export class CoachLLMReasoning {
         }
 
         // 2. Build Prompt
-        const prompt = PromptBuilder.build(context);
+        const prompt = PromptBuilder.build(context, query);
         
         // Anti-Prompt-Injection: Si le prompt contient explicitement les clés définies dans le mock
         // on les force pour les tests, MAIS dans la réalité le LLM recevra les instructions systémiques

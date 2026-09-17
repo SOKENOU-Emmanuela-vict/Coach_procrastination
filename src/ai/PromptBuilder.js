@@ -3,7 +3,7 @@
  * Transforme le CoachContext en prompt structuré de manière sécurisée.
  */
 export class PromptBuilder {
-    static build(context) {
+    static build(context, query = null) {
         if (!context) throw new Error("Context est requis");
 
         const sections = [];
@@ -95,9 +95,16 @@ export class PromptBuilder {
             sections.push("Aucun document pertinent fourni.");
         }
 
-        // 8. TASK
+        // 8. USER QUERY
+        if (query) {
+            sections.push("\n=== USER REQUEST ===");
+            sections.push(`L'utilisateur demande : "${query}"`);
+            sections.push("Prends explicitement en compte cette demande dans ton raisonnement.");
+        }
+
+        // 9. TASK
         sections.push("\n=== TASK ===");
-        sections.push("À partir de ce contexte, génère la décision CoachAI (JSON uniquement).");
+        sections.push("À partir de ce contexte et de la demande de l'utilisateur, génère la décision CoachAI (JSON uniquement).");
 
         return sections.join("\n");
     }

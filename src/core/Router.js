@@ -10,6 +10,7 @@ import { PortfolioView } from '../ui/PortfolioView.js?v=5';
 import { ProgramView } from '../ui/ProgramView.js?v=6';
 import { AgentView } from '../ui/AgentView.js';
 import { WeeklyView } from '../ui/WeeklyView.js';
+import { CoachChatView } from '../ui/CoachChatView.js';
 
 export class Router {
     constructor(containerId, app) {
@@ -25,7 +26,8 @@ export class Router {
             portfolio: new PortfolioView(containerId, app),
             program: new ProgramView(containerId, app),
             agent: new AgentView(containerId, app),
-            weekly: new WeeklyView(containerId, app)
+            weekly: new WeeklyView(containerId, app),
+            chat: new CoachChatView(containerId, app)
         };
     }
 
@@ -45,6 +47,15 @@ export class Router {
             if (viewName === 'calendar') data = state;
             if (viewName === 'academic') data = state;
             if (viewName === 'weekly') data = state.weeklySummary;
+            if (viewName === 'chat') {
+                // Fetch chat history asynchronously inside the router (or pass a promise)
+                // However, since Router is synchronous, it's better to fetch before calling renderView,
+                // or just pass a Promise if the view handles it. Let's make Router handle it for chat.
+                app.chatHistoryEngine.getConversation('default').then(messages => {
+                    view.render(messages);
+                });
+                return; // Render is done asynchronously
+            }
             
             view.render(data);
         } else {

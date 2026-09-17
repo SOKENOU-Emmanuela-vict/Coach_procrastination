@@ -10,12 +10,13 @@ import { AcademicSeeder } from '../data/AcademicSeeder.js';
 import { App } from './App.js?v=13';
 import { AppLogger } from '../utils/AppLogger.js';
 import { WeeklyReviewEngine } from '../engines/WeeklyReviewEngine.js';
+import { ChatHistoryEngine } from '../engines/ChatHistoryEngine.js';
 
 export class Bootstrap {
     static async init() {
         AppLogger.info("Démarrage du Bootstrap du Learning OS...");
         
-        let storage, scheduler, xpEngine, studyRecordEngine, checkInEngine, aiEngine, weeklyReviewEngine;
+        let storage, scheduler, xpEngine, studyRecordEngine, checkInEngine, aiEngine, weeklyReviewEngine, chatHistoryEngine;
         
         try {
             storage = new IndexedDBProvider();
@@ -70,7 +71,11 @@ export class Bootstrap {
             aiEngine = new AIGeneratorEngine(storage);
         } catch (e) { AppLogger.error("Erreur AI: " + e.message); }
         
-        if (!storage || !scheduler || !xpEngine || !studyRecordEngine || !checkInEngine || !aiEngine) {
+        try {
+            chatHistoryEngine = new ChatHistoryEngine(storage);
+        } catch (e) { AppLogger.error("Erreur ChatHistory: " + e.message); }
+        
+        if (!storage || !scheduler || !xpEngine || !studyRecordEngine || !checkInEngine || !aiEngine || !chatHistoryEngine) {
             console.error("Erreur critique: Moteurs non initialisés.");
             return;
         }
@@ -88,7 +93,7 @@ export class Bootstrap {
             await seeder.seed();
         } catch (e) { AppLogger.error("Erreur Seeder: " + e.message); }
         
-        const app = new App(storage, scheduler, xpEngine, studyRecordEngine, checkInEngine, aiEngine, weeklyReviewEngine);
+        const app = new App(storage, scheduler, xpEngine, studyRecordEngine, checkInEngine, aiEngine, weeklyReviewEngine, chatHistoryEngine);
         try {
             await app.start();
         } catch (err) {

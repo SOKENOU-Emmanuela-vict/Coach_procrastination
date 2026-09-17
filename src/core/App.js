@@ -10,13 +10,14 @@ import { KnowledgeEngine } from '../engines/KnowledgeEngine.js';
 import { KnowledgeRetriever } from '../engines/KnowledgeRetriever.js';
 
 export class App {
-    constructor(storage, scheduler, xpEngine, studyRecordEngine, checkInEngine, aiEngine, weeklyReviewEngine) {
+    constructor(storage, scheduler, xpEngine, studyRecordEngine, checkInEngine, aiEngine, weeklyReviewEngine, chatHistoryEngine) {
         this.storage = storage;
         this.scheduler = scheduler;
         this.xpEngine = xpEngine;
         this.studyRecordEngine = studyRecordEngine;
         this.checkInEngine = checkInEngine;
         this.weeklyReviewEngine = weeklyReviewEngine;
+        this.chatHistoryEngine = chatHistoryEngine;
         this.aiEngine = aiEngine;
         this.learningGraphEngine = new LearningGraphEngine(storage);
         this.reflectionEngine = new ReflectionEngine(storage);
@@ -345,5 +346,52 @@ export class App {
     async showBilan() {
         await this.refreshUserStats();
         this.renderView('bilan');
+    }
+
+    async sendChatMessage(text) {
+        if (!text || text.trim() === '') return;
+        
+        // 1. Sauvegarde du message User
+        await this.chatHistoryEngine.saveMessage({
+            role: 'user',
+            content: text,
+            conversationId: 'default' // Pour l'instant une seule conversation
+        });
+        
+        // On demande à la vue de se rafraîchir pour afficher le message de l'user
+        this.renderView('chat');
+        
+        try {
+            // 2. Appel au Coach Orchestrator
+            const recommendations = await this.coachEngine.getInsights(this.state, text);
+            
+            // 3. Traitement de la réponse
+            if (!recommendations || recommendations.length === 0) {
+                await this.chatHistoryEngine.saveMessage({
+                    role: 'assistant',
+                    content: "Je n'ai pas de recommandation particulière pour le moment.",
+                    conversationId: 'default'
+                });
+            } else {
+                for (const rec of recommendations) {
+                    await this.chatHistoryEngine.saveMessage({
+                        role: 'assistant',
+                        content: rec.message,
+                        conversationId: 'default',
+                        metadata: { intent: rec.planningRequest || null }
+                    });
+                }
+            }
+        } catch (e) {
+            console.error(e);
+            await this.chatHistoryEngine.saveMessage({
+                role: 'assistant',
+                content: "Erreur lors de l'analyse : " + e.message,
+                conversationId: 'default'
+            });
+        }
+        
+        // 4. Rafraîchissement final
+        this.renderView('chat');
     }
 }
