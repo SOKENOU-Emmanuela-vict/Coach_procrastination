@@ -44,13 +44,16 @@ export class CoachChatView {
                         ${msg.content.replace(/\n/g, '<br>')}
                 `;
 
-                // If intent exists, show the actionable button
+                // If intent exists, show the actionable buttons
                 if (!isUser && msg.metadata && msg.metadata.intent) {
                     const intentJson = encodeURIComponent(JSON.stringify(msg.metadata.intent));
                     html += `
-                        <div style="margin-top: 10px; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 10px;">
-                            <button class="btn-accept-intent" data-intent="${intentJson}" style="background: #4caf50; color: white; border: none; padding: 8px 12px; border-radius: 8px; cursor: pointer; font-weight: bold; font-size: 13px; width: 100%;">
-                                ✅ Accepter cette planification
+                        <div class="intent-actions" style="display: flex; gap: 10px; margin-top: 10px; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 10px;">
+                            <button class="btn-accept-intent" data-intent="${intentJson}" style="flex: 1; background: #4caf50; color: white; border: none; padding: 8px 12px; border-radius: 8px; cursor: pointer; font-weight: bold; font-size: 13px;">
+                                ✅ Accepter
+                            </button>
+                            <button class="btn-refuse-intent" style="flex: 1; background: transparent; border: 1px solid #f44336; color: #f44336; padding: 8px 12px; border-radius: 8px; cursor: pointer; font-weight: bold; font-size: 13px;">
+                                ❌ Refuser
                             </button>
                         </div>
                     `;
@@ -137,15 +140,29 @@ export class CoachChatView {
                         const intent = new PlanningIntent(intentData);
                         await this.app.acceptCoachSuggestion(intent);
                         
-                        // Modifier le bouton visuellement
-                        e.target.innerHTML = "✅ Planifié !";
-                        e.target.style.background = "#2a5268";
-                        e.target.disabled = true;
+                        // Modifier les boutons visuellement
+                        const actionsDiv = e.target.closest('.intent-actions');
+                        actionsDiv.innerHTML = `<div style="text-align: center; color: #4caf50; font-weight: bold; width: 100%;">✅ Planifié !</div>`;
                         
                     } catch(err) {
-                        alert("Erreur lors de la planification : " + err.message);
+                        // Si le PlanningEngine refuse à cause d'un conflit
+                        if (err.message && err.message.includes('CONFLICT')) {
+                            const actionsDiv = e.target.closest('.intent-actions');
+                            actionsDiv.innerHTML = `<div style="text-align: center; color: #f44336; font-size: 13px; width: 100%;">⚠️ Conflit détecté. Demande un autre créneau au Coach.</div>`;
+                        } else {
+                            alert("Erreur lors de la planification : " + err.message);
+                        }
                     }
                 }
+            });
+        });
+
+        // Delegation for Refuse Intent buttons
+        const refuseButtons = this.container.querySelectorAll('.btn-refuse-intent');
+        refuseButtons.forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                const actionsDiv = e.target.closest('.intent-actions');
+                actionsDiv.innerHTML = `<div style="text-align: center; color: #88a7b7; font-size: 13px; width: 100%;">❌ Proposition refusée</div>`;
             });
         });
     }
