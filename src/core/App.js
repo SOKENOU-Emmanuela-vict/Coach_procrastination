@@ -99,7 +99,6 @@ export class App {
         
         const loadedProfile = await this.storage.loadData('user_profile');
         this.state.userProfile = loadedProfile || { 
-            xpTotal: 0, 
             streak: 1, 
             lastActive: null,
             name: "Étudiant",

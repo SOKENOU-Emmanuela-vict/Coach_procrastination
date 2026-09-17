@@ -38,7 +38,7 @@ export class PortfolioView {
                         <strong style="color:#ffffff; font-size:13px;">${prfCount}</strong>
                     </div>
                     <div style="display:flex; justify-content:space-between; align-items:center; margin-top: 10px;">
-                        <span style="color:#88a7b7; font-size:12px;">Niveau (XP)</span>
+                        <span style="color:#88a7b7; font-size:12px;">Avancement</span>
                         <div style="width: 60%; background: #071015; border-radius: 10px; height: 8px; overflow: hidden; border: 1px solid #1e3f52;">
                             <div style="width: ${Math.min(100, node.level || 0)}%; background: ${color}; height: 100%; border-radius: 10px;"></div>
                         </div>

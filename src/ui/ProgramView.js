@@ -61,7 +61,7 @@ export class ProgramView {
                             <div style="display:flex; justify-content:space-between; align-items:center;">
                                 <span style="font-size:14px; font-weight:bold;">${blockBadge}${s.title} <strong style="color:#ff9800; font-size:12px;">(${skillLabel})</strong></span>
                                 <div>
-                                    <span style="font-size:12px; margin-right:8px;">⭐ ${s.difficulty || '🟢'} | 🏆 <strong style="color:#ffd700;">+${s.xp || 60} XP</strong></span>
+                                    <span style="font-size:12px; margin-right:8px;">⭐ ${s.difficulty || '🟢'}</span>
                                     <button class="btn-edit-session" data-w="${wIdx}" data-d="${dIdx}" data-s="${sIdx}" style="background:transparent; border:none; color:#00f2fe; cursor:pointer;" title="Éditer">✏️</button>
                                     <button class="btn-delete-session" data-w="${wIdx}" data-d="${dIdx}" data-s="${sIdx}" style="background:transparent; border:none; color:#ff5252; cursor:pointer; margin-left:5px;" title="Supprimer">🗑️</button>
                                 </div>

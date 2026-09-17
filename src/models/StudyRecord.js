@@ -11,10 +11,9 @@ export class StudyRecord {
         this.plannedDuration = 0;
         this.actualDuration = 0;
         
-        // Status & XP
+        // Status
         this.status = 'pending'; // 'completed', 'partial', 'skipped', 'cancelled'
         this.completionRate = 0; // 0.0 to 1.0
-        this.xpEarned = 0;
         
         // Qualitative
         this.difficulty = 3; // 1 to 5

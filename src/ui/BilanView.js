@@ -8,8 +8,9 @@ export class BilanView {
         const { summary, checkIn, stats } = data || {};
         
         const completedTasksCount = (stats && stats.completedTasksCount) ? stats.completedTasksCount : 0;
-        const xpTotal = (stats && !isNaN(stats.xpTotal)) ? stats.xpTotal : 0;
         const focusTime = (stats && !isNaN(stats.focusTime)) ? stats.focusTime : 0;
+        
+        const completionRate = summary ? summary.completionRate : 0;
         
         const isReadonly = checkIn !== null && checkIn !== undefined;
 
@@ -20,7 +21,7 @@ export class BilanView {
                 
                 <h3 style="color: #00f2fe; margin-bottom: 15px;">Résumé Chiffré</h3>
                 <p style="font-size: 16px;">✔ <strong style="color: #fff;">${summary ? summary.completedSessions : completedTasksCount}</strong> sessions terminées</p>
-                <div class="timer" style="font-size: 42px; font-weight: bold; color: #ffd700; margin: 15px 0; text-shadow: 0 0 10px rgba(255,215,0,0.3);">+ ${xpTotal} XP</div>
+                <div class="timer" style="font-size: 42px; font-weight: bold; color: #4caf50; margin: 15px 0; text-shadow: 0 0 10px rgba(76,175,80,0.3);">${completionRate}% Complétion</div>
                 <p style="font-size: 16px;">⏱ Temps d'étude actif : <strong style="color: #fff;">${summary ? summary.totalActualMinutes : focusTime} min</strong></p>
             </div>
         `;

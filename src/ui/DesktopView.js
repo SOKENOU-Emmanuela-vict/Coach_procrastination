@@ -163,13 +163,11 @@ export class DesktopView {
                 
                 [engNode, eloNode].forEach(node => {
                     if (node) {
-                        const level = Math.floor(node.xp / 100) + 1;
-                        const progress = node.xp % 100;
+                        const progress = node.level || 0;
                         html += `
                             <div>
                                 <div class="bureau-language-top">
                                     <strong>${node.label}</strong>
-                                    <span>LVL ${level}</span>
                                 </div>
                                 <div class="bureau-progress">
                                     <span style="width: ${progress}%;"></span>

@@ -2,33 +2,27 @@ import { AppLogger } from '../utils/AppLogger.js';
 import { StudyRecord } from '../models/StudyRecord.js';
 
 export class StudyRecordEngine {
-    constructor(storageProvider, xpEngine) {
+    constructor(storageProvider) {
         this.storage = storageProvider;
-        this.xpEngine = xpEngine;
     }
     
     async completeSession(session, metrics = {}) {
         AppLogger.info(`StudyRecordEngine: Enregistrement complet de la session ${session.title}`);
         
-        let user = await this.storage.loadData('user_profile') || { xpTotal: 0, streak: 1, lastActive: null };
+        let user = await this.storage.loadData('user_profile') || { streak: 1, lastActive: null };
         const today = new Date().toLocaleDateString('fr-CA');
         
         const quality = metrics.quality || 3;
         const difficulty = session.priority === 'Haute' ? 1.5 : (session.priority === 'Critique' ? 2.0 : 1.2);
-        
-        // Use actual XP from session or fallback to duration
-        const baseXP = session.xp || session.expectedDuration || 15;
-        const xpEarned = this.xpEngine.constructor.calculateXP(baseXP, difficulty, 1.0, quality, user.streak || 1);
         
         const record = new StudyRecord(
             `rec_${Date.now()}`,
             session.id,
             today,
             new Date().toISOString(),
-            session.skillIds || session.skillId
+            session.skillIds || session.skillId || session.subjectId || session.projectId
         );
         record.finish(new Date().toISOString(), session.expectedDuration, metrics.status || 'completed', 1.0, metrics);
-        record.xpEarned = xpEarned;
         
         if (metrics.proof && metrics.proof.type) {
             record.proof = {
@@ -51,8 +45,6 @@ export class StudyRecordEngine {
         history.push(record);
         await this.storage.saveData('study_history', history);
         
-        user.xpTotal += xpEarned;
-        
         const yesterday = new Date();
         yesterday.setDate(yesterday.getDate() - 1);
         const yesterdayStr = yesterday.toLocaleDateString('fr-CA');
@@ -63,7 +55,7 @@ export class StudyRecordEngine {
         }
         await this.storage.saveData('user_profile', user);
         
-        AppLogger.info(`StudyRecordEngine: Session terminée avec métriques. +${xpEarned} XP`);
+        AppLogger.info(`StudyRecordEngine: Session terminée avec métriques.`);
         return { record, user };
     }
     
@@ -77,20 +69,15 @@ export class StudyRecordEngine {
             await this.storage.saveData('study_history', history);
             
             let user = await this.storage.loadData('user_profile');
-            if (user && record.xpEarned) {
-                user.xpTotal = Math.max(0, user.xpTotal - record.xpEarned);
-                await this.storage.saveData('user_profile', user);
-            }
-            AppLogger.info(`StudyRecordEngine: Session annulée (${sessionId}), XP retiré.`);
+            AppLogger.info(`StudyRecordEngine: Session annulée (${sessionId}).`);
         }
     }
     
     async getDailyStats(dateStr) {
         const history = await this.storage.loadData('study_history') || [];
         const dailyRecords = history.filter(r => r.date === dateStr);
-        const xpTotal = dailyRecords.reduce((sum, r) => sum + (r.xpEarned || 0), 0);
         const focusTime = dailyRecords.reduce((sum, r) => sum + (r.actualDuration || r.plannedDuration || 0), 0);
-        return { completedTasksCount: dailyRecords.length, xpTotal, focusTime };
+        return { completedTasksCount: dailyRecords.length, focusTime };
     }
 
     async getMonthlyStats(year, month) {

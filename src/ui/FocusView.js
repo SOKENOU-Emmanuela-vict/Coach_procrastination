@@ -48,7 +48,7 @@ export class FocusView {
         if ('Notification' in window && Notification.permission === 'granted') {
             try {
                 const n = new Notification("⏰ Temps écoulé : " + sessionTitle, {
-                    body: "Ton chrono est terminé ! Le site du cours a été fermé. Reviens sur Coach Procrastination pour valider ton XP !",
+                    body: "Ton chrono est terminé ! Le site du cours a été fermé. Reviens sur Coach Procrastination pour valider ta session !",
                     icon: "https://emma21vict.github.io/Coach_procrastination/favicon.ico"
                 });
                 n.onclick = () => {

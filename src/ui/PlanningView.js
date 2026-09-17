@@ -43,13 +43,12 @@ export class PlanningView {
                 
                 const timeHtml = s.startTime ? `<span style="background: #2a5268; padding: 2px 6px; border-radius: 4px; color: white; font-size: 12px; margin-right: 10px;">${s.startTime}</span>` : '';
                 const diffHtml = s.difficulty ? `<span style="margin-left:5px;">${s.difficulty}</span>` : '';
-                const xpHtml = s.xp ? `<span style="color:#ffd700; margin-left:5px; font-size:12px; font-weight:bold;">+${s.xp} XP</span>` : '';
                 
                 const blockHtml = s.block ? `<span style="background:#0f2027; border: 1px solid #00f2fe; padding: 2px 6px; border-radius: 4px; font-size:11px; margin-right:6px;">${s.block}</span>` : '';
                 
                 html += `<li style="${style}; padding: 15px; margin-bottom: 12px; background: #0b1a20; border-left: 4px solid #00f2fe; border-radius: 6px;">
                     <strong style="cursor: pointer;" class="task-checkbox" data-id="${s.id}">${checkIcon} ${timeHtml}${blockHtml}${s.title}</strong>
-                    <span style="float:right;">⭐ ${s.difficulty || '🟢'} | 🏆 <strong style="color:#ffd700;">+${s.xp || 60} XP</strong></span>
+                    <span style="float:right;">⭐ ${s.difficulty || '🟢'}</span>
                     <br><small style="color: #ccc;">⏱ <strong>${s.expectedDuration} min</strong> | ⚡ Priorité : ${s.priority || 'Normale'} | <span style="color:#ff9800; font-weight:bold;">${s.skillLabel || ''}</span></small>
                     <div style="margin-top: 8px; font-size: 13px; line-height: 1.5; background: rgba(0,242,254,0.05); padding: 8px; border-radius: 4px;">
                         ${s.objective ? `<div><strong>🎯 Objectif :</strong> <span style="color:#e0e0e0;">${s.objective}</span></div>` : ''}
