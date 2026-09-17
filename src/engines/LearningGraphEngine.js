@@ -8,31 +8,41 @@ export class LearningGraphEngine {
     
     async evaluateGraph() {
         const history = await this.storage.loadData('study_history') || [];
-        const dbSkills = await this.storage.loadData('bootcamp_skills') || [];
+        const subjects = await this.storage.loadData('acad_subjects') || [];
+        const projects = await this.storage.loadData('projects') || [];
         
         let nodes = {};
         
-        if (dbSkills.length > 0) {
-            dbSkills.forEach(s => {
-                nodes[s.id] = new LearningNode(s.id, s.label);
-                nodes[s.id].color = s.color || "#00f2fe"; // Garder la trace de la couleur
-            });
-        } else {
-            // Fallback old structure
-            nodes = {
-                'english_speaking': new LearningNode('english_speaking', '🇬🇧 Anglais & Éloquence'),
-                'cyber': new LearningNode('cyber', '🛡️ Cybersécurité & Réseau'),
-                'ia': new LearningNode('ia', '🤖 Intelligence Artificielle & Code'),
-                'excel': new LearningNode('excel', '📊 Excel & Data Analysis'),
-                'force_n': new LearningNode('force_n', '🎓 Projets Force-N'),
-                'reflection': new LearningNode('reflection', '🌿 Développement Perso & Agenda')
-            };
-        }
+        // 1. Matières Académiques
+        subjects.forEach(s => {
+            nodes[s.id] = new LearningNode(s.id, `🎓 ${s.name || s.id}`);
+            nodes[s.id].color = "#00f2fe"; 
+        });
+
+        // 2. Projets (Life / Skills)
+        projects.forEach(p => {
+            let icon = '📌';
+            let color = '#88a7b7';
+            if (p.category === 'skill') {
+                icon = '💻';
+                color = '#ff9800';
+            } else if (p.category === 'hobby' || p.category === 'wellbeing') {
+                icon = '🌱';
+                color = '#4caf50';
+            }
+            nodes[p.id] = new LearningNode(p.id, `${icon} ${p.title || p.id}`);
+            nodes[p.id].color = color;
+        });
+
+        // 3. Langues (Domaine séparé)
+        nodes['languages'] = new LearningNode('languages', '🌍 Langues (Anglais/Français)');
+        nodes['languages'].color = '#e91e63';
         
-        // Ancienne map de compatibilité au cas où il y a des vieux historiques
+        // Ancienne map de compatibilité pour l'historique
         const categoryMap = {
-            'eloquence_fr': 'english_speaking',
-            'reading': 'english_speaking',
+            'eloquence_fr': 'languages',
+            'english_speaking': 'languages',
+            'reading': 'languages',
             'cyber_network': 'cyber',
             'cyber_linux': 'cyber',
             'cyber_tryhackme': 'cyber',
@@ -54,7 +64,8 @@ export class LearningGraphEngine {
 
         history.forEach(r => {
             if (r.status === 'completed' || r.status === 'partial') {
-                const rawSkillId = r.skillId || 'reflection';
+                // Mapping : on cherche d'abord projectId, puis subjectId, puis l'ancien skillId
+                const rawSkillId = r.projectId || r.subjectId || r.skillId || 'reflection';
                 
                 // On essaie de trouver le noeud direct, sinon on tente la fallback map
                 let catId = rawSkillId;

@@ -7,7 +7,7 @@ export class Project {
             this.description = config.description || '';
             this.status = config.status || 'active'; // active, paused, completed
             this.targetDate = config.targetDate || null;
-            this.goalId = config.goalId || null;
+            this.category = config.category || 'skill'; // skill, hobby, wellbeing, life
             this.priority = config.priority || 'medium'; // high, medium, low
             this.tasks = config.tasks || [];
         } else {
@@ -17,7 +17,7 @@ export class Project {
             this.description = '';
             this.status = 'active'; 
             this.targetDate = null;
-            this.goalId = null;
+            this.category = 'skill';
             this.priority = 'medium';
             this.tasks = [];
         }
@@ -28,4 +28,12 @@ export class Project {
         const doneTasks = this.tasks.filter(t => t.status === 'done').length;
         return Math.round((doneTasks / this.tasks.length) * 100);
     }
+
+    addTask(task) {
+        if (!task.id) task.id = `tsk_${Date.now()}_${Math.floor(Math.random() * 1000)}`;
+        if (!task.status) task.status = 'todo';
+        this.tasks.push(task);
+        return task;
+    }
 }
+

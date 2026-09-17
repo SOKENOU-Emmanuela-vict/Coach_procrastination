@@ -5,7 +5,6 @@ export class User {
         
         // Gamification
         this.streak = 0;
-        this.xpTotal = 0;
         this.lastActive = null;
         
         // Académique
