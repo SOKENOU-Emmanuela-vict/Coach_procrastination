@@ -10,10 +10,9 @@ import { KnowledgeEngine } from '../engines/KnowledgeEngine.js';
 import { KnowledgeRetriever } from '../engines/KnowledgeRetriever.js';
 
 export class App {
-    constructor(storage, scheduler, xpEngine, studyRecordEngine, checkInEngine, aiEngine, weeklyReviewEngine, chatHistoryEngine) {
+    constructor(storage, scheduler, studyRecordEngine, checkInEngine, aiEngine, weeklyReviewEngine, chatHistoryEngine) {
         this.storage = storage;
         this.scheduler = scheduler;
-        this.xpEngine = xpEngine;
         this.studyRecordEngine = studyRecordEngine;
         this.checkInEngine = checkInEngine;
         this.weeklyReviewEngine = weeklyReviewEngine;
@@ -378,7 +377,7 @@ export class App {
                         role: 'assistant',
                         content: rec.message,
                         conversationId: 'default',
-                        metadata: { intent: rec.planningRequest || null }
+                        metadata: { intent: rec.intent || null }
                     });
                 }
             }

@@ -1,3 +1,5 @@
+import { PlanningIntent } from '../models/PlanningIntent.js';
+
 export class CoachChatView {
     constructor(containerId, app) {
         this.container = document.getElementById(containerId);
@@ -131,7 +133,8 @@ export class CoachChatView {
                 const intentStr = e.target.getAttribute('data-intent');
                 if (intentStr) {
                     try {
-                        const intent = JSON.parse(decodeURIComponent(intentStr));
+                        const intentData = JSON.parse(decodeURIComponent(intentStr));
+                        const intent = new PlanningIntent(intentData);
                         await this.app.acceptCoachSuggestion(intent);
                         
                         // Modifier le bouton visuellement
