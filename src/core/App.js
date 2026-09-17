@@ -114,8 +114,8 @@ export class App {
         
         // Les insights et alertes académiques seront ajoutés via CoachAI.
         // systemHealth est déprécié.
-        const dToday = new Date(localDate);
-        this.state.monthlyReport = await this.studyRecordEngine.getMonthlyStats(dToday.getFullYear(), dToday.getMonth());
+        const dTodayLocal = new Date(localDate);
+        this.state.monthlyReport = await this.studyRecordEngine.getMonthlyStats(dTodayLocal.getFullYear(), dTodayLocal.getMonth());
         this.state.allJournals = await this.storage.loadData('daily_journals') || {};
         this.state.fullProgram = await this.scheduler.getFullProgram();
         
