@@ -34,7 +34,7 @@ export class DesktopView {
             </div>
             <div>
                 <strong>Learning OS</strong>
-                <small>Student Workspace</small>
+                <small>Espace Étudiant</small>
             </div>
         </div>
         
@@ -241,7 +241,7 @@ export class DesktopView {
             const sessions = state.dailyPlan && state.dailyPlan.sessions ? state.dailyPlan.sessions : [];
             const nextSession = sessions.find(s => !s.completed);
             let focusTime = '00:00';
-            let focusSession = 'No active session';
+            let focusSession = 'Aucune session active';
             if (nextSession) {
                 focusTime = `${nextSession.expectedDuration}:00`;
                 focusSession = nextSession.title;
@@ -249,11 +249,11 @@ export class DesktopView {
 
             html += `
                 <div class="bureau-card bureau-focus-card">
-                    <span class="bureau-card-kicker">NOW FOCUS</span>
+                    <span class="bureau-card-kicker">FOCUS ACTUEL</span>
                     <div class="bureau-focus-timer">${focusTime}<span>MIN</span></div>
                     <div class="bureau-focus-info">
                         <strong>${focusSession}</strong>
-                        <small>Current objective</small>
+                        <small>Objectif en cours</small>
                     </div>
                 </div>`;
         }

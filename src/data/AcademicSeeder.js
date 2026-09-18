@@ -2,6 +2,8 @@ import { AcademicYear } from '../models/AcademicYear.js';
 import { Semester } from '../models/Semester.js';
 import { Subject } from '../models/Subject.js';
 import { AppLogger } from '../utils/AppLogger.js';
+import { Assessment } from '../models/Assessment.js';
+import { Grade } from '../models/Grade.js';
 
 /**
  * Script d'initialisation des données académiques officielles L2 IA.
@@ -40,44 +42,44 @@ export class AcademicSeeder {
         // 4. Matières S3 (Total 30 CECT)
         // Note: gradeCoefficient est défini à null car le document officiel ne certifie pas si CECT = Coeff.
         const s3Subjects = [
-            new Subject('s3_math_alg', 'sem_s3_26', 'Structures algébriques et applications', 5, null, 5, 4, 4, [
+            new Subject('s3_math_alg', 'sem_s3_26', 'Structures algébriques et applications', 5, 5, 5, 4, 4, [
                 { name: 'Cours', type: 'theory', hours: 30 },
                 { name: 'TP/TD', type: 'practice', hours: 20 }
             ], '#e74c3c', 'S3-ALG'),
             
-            new Subject('s3_poo', 'sem_s3_26', 'Approche orientée objet', 6, null, 5, 4, 4, [
+            new Subject('s3_poo', 'sem_s3_26', 'Approche orientée objet', 6, 6, 5, 4, 4, [
                 { name: 'Analyse et conception orientée objet (Cours)', type: 'theory', hours: 10 },
                 { name: 'Analyse et conception orientée objet (TP/TD)', type: 'practice', hours: 15 },
                 { name: 'Java et C++ (Cours)', type: 'theory', hours: 20 },
                 { name: 'Java et C++ (TP/TD)', type: 'practice', hours: 30 }
             ], '#3498db', 'S3-POO'),
 
-            new Subject('s3_algo_c_py', 'sem_s3_26', 'Structures de données C/Python', 5, null, 5, 4, 4, [
+            new Subject('s3_algo_c_py', 'sem_s3_26', 'Structures de données C/Python', 5, 5, 5, 4, 4, [
                 { name: 'Cours', type: 'theory', hours: 20 },
                 { name: 'TP/TD', type: 'practice', hours: 30 }
             ], '#f1c40f', 'S3-ALGO'),
 
-            new Subject('s3_stats', 'sem_s3_26', 'Statistiques & probabilités', 4, null, 3, 3, 3, [
+            new Subject('s3_stats', 'sem_s3_26', 'Statistiques & probabilités', 4, 4, 3, 3, 3, [
                 { name: 'Cours', type: 'theory', hours: 20 },
                 { name: 'TP/TD', type: 'practice', hours: 30 }
             ], '#9b59b6', 'S3-STAT'),
 
-            new Subject('s3_concepts_ia', 'sem_s3_26', "Concepts & applications de l'IA", 4, null, 5, 4, 4, [
+            new Subject('s3_concepts_ia', 'sem_s3_26', "Concepts & applications de l'IA", 4, 4, 5, 4, 4, [
                 { name: 'Cours', type: 'theory', hours: 20 },
                 { name: 'TP/TD', type: 'practice', hours: 30 }
             ], '#1abc9c', 'S3-IA'),
 
-            new Subject('s3_web_adv', 'sem_s3_26', 'Technologies web avancées', 2, null, 3, 3, 3, [
+            new Subject('s3_bd_rel', 'sem_s3_26', 'Bases de données relationnelles', 5, 5, 4, 3, 3, [
                 { name: 'Cours', type: 'theory', hours: 10 },
                 { name: 'TP/TD', type: 'practice', hours: 15 }
             ], '#e67e22', 'S3-WEB'),
 
-            new Subject('s3_genie_log', 'sem_s3_26', 'Génie logiciel', 3, null, 3, 3, 3, [
+            new Subject('s3_genie_log', 'sem_s3_26', 'Génie logiciel', 3, 3, 3, 3, 3, [
                 { name: 'Cours', type: 'theory', hours: 20 },
                 { name: 'TP/TD', type: 'practice', hours: 20 }
             ], '#34495e', 'S3-GL'),
 
-            new Subject('s3_maint_elec', 'sem_s3_26', 'Maintenance électronique', 1, null, 2, 2, 2, [
+            new Subject('s3_maint_elec', 'sem_s3_26', 'Maintenance électronique', 1, 1, 2, 2, 2, [
                 { name: 'Cours', type: 'theory', hours: 5 },
                 { name: 'TP/TD', type: 'practice', hours: 10 }
             ], '#95a5a6', 'S3-ELEC')
@@ -85,6 +87,22 @@ export class AcademicSeeder {
 
         for (const sub of s3Subjects) {
             await this.academicEngine.saveSubject(sub);
+        }
+
+        // 4.5. Notes S3 (Seed des évaluations et notes pour atteindre l'état "complete")
+        AppLogger.info("Seeder académique: Ajout des évaluations et notes pour S3...");
+        const s3Assessments = s3Subjects.map(sub => new Assessment(`ass_${sub.id}`, sub.id, `Examen ${sub.name}`, 'Exam', 1.0, 20, '2026-12-15'));
+        for (const ass of s3Assessments) {
+            await this.academicEngine.saveAssessment(ass);
+        }
+
+        const s3Grades = s3Assessments.map(ass => {
+            // Simulation de notes entre 12 et 18
+            const score = 12 + Math.floor(Math.random() * 6);
+            return new Grade(`grd_${ass.id}`, ass.id, score, 1, true, "Bien", '2027-01-15');
+        });
+        for (const grd of s3Grades) {
+            await this.academicEngine.saveGrade(grd);
         }
 
         // 5. Matières S4 (Total 8 Matières)
