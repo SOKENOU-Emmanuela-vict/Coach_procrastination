@@ -2,8 +2,6 @@ import { AcademicYear } from '../models/AcademicYear.js';
 import { Semester } from '../models/Semester.js';
 import { Subject } from '../models/Subject.js';
 import { AppLogger } from '../utils/AppLogger.js';
-import { Assessment } from '../models/Assessment.js';
-import { Grade } from '../models/Grade.js';
 
 /**
  * Script d'initialisation des données académiques officielles L2 IA.
@@ -17,10 +15,9 @@ export class AcademicSeeder {
     async seed() {
         AppLogger.info("Démarrage du seeder académique L2 IA...");
 
-        // 1. Vérification d'idempotence (si l'année existe ET qu'on a déjà des notes, on s'arrête)
+        // 1. Vérification d'idempotence (si l'année existe, on s'arrête pour ne rien écraser)
         const years = await this.academicEngine.getYears();
-        const grades = await this.academicEngine.getGrades();
-        if (years.find(y => y.id === 'year_l2_ia_2627') && grades.length > 0) {
+        if (years.find(y => y.id === 'year_l2_ia_2627')) {
             AppLogger.info("Seeder académique: Les données existent déjà. Initialisation ignorée.");
             return false;
         }
@@ -88,22 +85,6 @@ export class AcademicSeeder {
 
         for (const sub of s3Subjects) {
             await this.academicEngine.saveSubject(sub);
-        }
-
-        // 4.5. Notes S3 (Seed des évaluations et notes pour atteindre l'état "complete")
-        AppLogger.info("Seeder académique: Ajout des évaluations et notes pour S3...");
-        const s3Assessments = s3Subjects.map(sub => new Assessment(`ass_${sub.id}`, sub.id, `Examen ${sub.name}`, 'Exam', 1.0, 20, '2026-12-15'));
-        for (const ass of s3Assessments) {
-            await this.academicEngine.saveAssessment(ass);
-        }
-
-        const s3Grades = s3Assessments.map(ass => {
-            // Simulation de notes entre 12 et 18
-            const score = 12 + Math.floor(Math.random() * 6);
-            return new Grade(`grd_${ass.id}`, ass.id, score, 1, true, "Bien", '2027-01-15');
-        });
-        for (const grd of s3Grades) {
-            await this.academicEngine.saveGrade(grd);
         }
 
         // 5. Matières S4 (Total 8 Matières)

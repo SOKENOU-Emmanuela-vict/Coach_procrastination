@@ -261,24 +261,15 @@ export class DesktopView {
         // ACADEMIC STATS
         if (widgets.academic) {
             const acad = state.academicSummary;
-            let avgValue = 0;
-            let avgText = "--";
+            let contentHtml = '';
+            
             if (acad && acad.average && acad.average.status === "complete") {
-                avgValue = acad.average.value;
-                avgText = `${avgValue.toFixed(1)}`;
-            }
-            const percentage = (avgValue / 20) * 100;
-            const circumference = 251.2;
-            const offset = circumference - (percentage / 100) * circumference;
-
-            html += `
-                <div class="bureau-card">
-                    <div class="bureau-card-header">
-                        <div>
-                            <span class="bureau-card-kicker">PERFORMANCE</span>
-                            <h2>Académique</h2>
-                        </div>
-                    </div>
+                const avgValue = acad.average.value;
+                const percentage = (avgValue / 20) * 100;
+                const circumference = 251.2;
+                const offset = circumference - (percentage / 100) * circumference;
+                
+                contentHtml = `
                     <div class="bureau-statistics-content">
                         <div class="bureau-ring">
                             <svg viewBox="0 0 100 100">
@@ -288,10 +279,26 @@ export class DesktopView {
                             <strong>${Math.round(percentage)}%</strong>
                         </div>
                         <div class="bureau-stat-text">
-                            <strong>${acad?.semester?.name || 'S4'}</strong>
-                            <span>Moyenne : ${avgText}</span>
+                            <strong>${acad.semester.name}</strong>
+                            <span>Moyenne : ${avgValue.toFixed(1)}/20</span>
+                        </div>
+                    </div>`;
+            } else {
+                contentHtml = `
+                    <div class="bureau-statistics-content" style="align-items: center; justify-content: center; text-align: center; color: #7f8c8d; padding: 20px 0;">
+                        <em>Aucune note enregistrée pour l'instant.</em>
+                    </div>`;
+            }
+
+            html += `
+                <div class="bureau-card">
+                    <div class="bureau-card-header">
+                        <div>
+                            <span class="bureau-card-kicker">PERFORMANCE</span>
+                            <h2>Académique</h2>
                         </div>
                     </div>
+                    ${contentHtml}
                 </div>`;
         }
 

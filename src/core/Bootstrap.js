@@ -44,6 +44,20 @@ export class Bootstrap {
                 await storage.saveData('bootcamp_program_version', "2.8_eloquence_no_ted");
                 AppLogger.info("Cache du programme purgé (v2.8 : TED complètement remplacé par Storytelling en français) !");
             }
+
+            // Nettoyage des fausses notes générées par erreur (si présentes)
+            const grades = await storage.loadData('acad_grades');
+            if (grades && grades.some(g => g.id.startsWith('grd_ass_s3_'))) {
+                AppLogger.info("Nettoyage des fausses notes et évaluations académiques...");
+                const cleanGrades = grades.filter(g => !g.id.startsWith('grd_ass_s3_'));
+                await storage.saveData('acad_grades', cleanGrades);
+
+                const assessments = await storage.loadData('acad_assessments');
+                if (assessments) {
+                    const cleanAssessments = assessments.filter(a => !a.id.startsWith('ass_s3_'));
+                    await storage.saveData('acad_assessments', cleanAssessments);
+                }
+            }
         } catch (e) { AppLogger.error("Erreur Storage: " + e.message); }
         
         try {
