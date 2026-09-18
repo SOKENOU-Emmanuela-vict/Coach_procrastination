@@ -1,3 +1,5 @@
+import { PlanningIntent } from '../models/PlanningIntent.js';
+
 export class DashboardView {
     constructor(containerId, app) {
         this.container = document.getElementById(containerId);
@@ -182,9 +184,10 @@ export class DashboardView {
                 }
 
                 const intentData = JSON.parse(intentRaw);
+                const intent = new PlanningIntent(intentData);
                 if (this.app.acceptCoachSuggestion) {
                     try {
-                        await this.app.acceptCoachSuggestion(intentData);
+                        await this.app.acceptCoachSuggestion(intent);
                         feedbackEl.textContent = "✅ Planification réussie !";
                         feedbackEl.style.color = "#4caf50";
                         feedbackEl.style.display = "block";

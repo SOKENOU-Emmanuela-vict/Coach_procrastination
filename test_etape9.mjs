@@ -14,7 +14,7 @@ const createMockContainer = () => {
         addEventListener: () => {},
         querySelectorAll: (selector) => {
             if (selector === '[data-action="accept-coach-event"]') return [{
-                dataset: { intent: JSON.stringify({ id: 'sugg_1', date: '2026-10-10' }) },
+                dataset: { intent: JSON.stringify({ action: 'create', target: 'event', constraints: { date: '2026-10-10' }, payload: { id: 'sugg_1' } }) },
                 closest: () => ({ 
                     parentElement: { remove: () => {} },
                     nextElementSibling: { style: {} }
@@ -60,10 +60,10 @@ async function runEtape9Tests() {
             fullProgram: []
         },
         planningEngine: {
-            executeIntent: async (ev) => {
+            executeIntent: async (intent) => {
                 // Simulation de validation stricte (ex: date obligatoire)
-                if (!ev.date) throw new Error("Validation échouée : date requise");
-                savedEvents.push(ev);
+                if (!intent.constraints || !intent.constraints.date) throw new Error("Validation échouée : date requise");
+                savedEvents.push(intent.payload);
             }
         },
         refreshUserStats: async () => {},
@@ -85,7 +85,7 @@ async function runEtape9Tests() {
     const acceptListenerA = currentMockContainer.getListeners().find(l => l.type === 'accept');
     
     let btnA = {
-        dataset: { intent: JSON.stringify({ id: 'sugg_1', date: '2026-10-10' }) },
+        dataset: { intent: JSON.stringify({ action: 'create', target: 'event', constraints: { date: '2026-10-10' }, payload: { id: 'sugg_1' } }) },
         closest: () => ({ 
             parentElement: { remove: () => {} },
             nextElementSibling: { style: {} }
@@ -121,7 +121,7 @@ async function runEtape9Tests() {
     
     let errorFeedbackShown = false;
     let btnC = {
-        dataset: { intent: JSON.stringify({ id: 'sugg_err' }) }, // Manque la date => error mockée
+        dataset: { intent: JSON.stringify({ action: 'create', target: 'event', payload: { id: 'sugg_err' } }) }, // Manque constraints.date => error mockée
         closest: () => ({ 
             parentElement: { remove: () => {} },
             nextElementSibling: { 
@@ -145,7 +145,7 @@ async function runEtape9Tests() {
     const acceptListenerD = currentMockContainer.getListeners().find(l => l.type === 'accept');
     
     let btnD = {
-        dataset: { intent: JSON.stringify({ id: 'sugg_2', date: '2026-10-10' }) },
+        dataset: { intent: JSON.stringify({ action: 'create', target: 'event', constraints: { date: '2026-10-10' }, payload: { id: 'sugg_2' } }) },
         closest: () => ({ 
             parentElement: { remove: () => {} },
             nextElementSibling: { style: {} }

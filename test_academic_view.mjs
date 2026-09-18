@@ -42,7 +42,16 @@ async function runTests() {
     };
 
     // 2. Mock Engines pour App
-    const mockApp = new App(mockStorage, {}, {}, { getDailyStats: async()=>({}), getJournal: async()=>({}), getFullHistory: async()=>([]), getMonthlyStats: async()=>({}) }, { generateInsights: async()=>({}), generateHealth: async()=>({}), generateMonthlyReport: async()=>({}), buildDailySummary: async()=>({}), getCheckIn: async()=>({}) }, { generateInsights: ()=>({}) }, {});
+    // constructor(storage, scheduler, studyRecordEngine, checkInEngine, aiEngine, weeklyReviewEngine, chatHistoryEngine)
+    const mockApp = new App(
+        mockStorage, 
+        {}, // scheduler
+        { getDailyStats: async()=>({}), getJournal: async()=>({}), getFullHistory: async()=>([]), getMonthlyStats: async()=>({}) }, // studyRecordEngine
+        { buildDailySummary: async()=>({}), getCheckIn: async()=>({}) }, // checkInEngine
+        { generateInsights: async()=>({}), generateHealth: async()=>({}), generateMonthlyReport: async()=>({}) }, // aiEngine
+        { generateInsights: ()=>({}) }, // weeklyReviewEngine
+        {} // chatHistoryEngine
+    );
     
     // Stub AcademicEngine pour tester le passage du currentSemesterId
     let requestedSemester = null;
