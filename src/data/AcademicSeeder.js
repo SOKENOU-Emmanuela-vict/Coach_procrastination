@@ -17,9 +17,10 @@ export class AcademicSeeder {
     async seed() {
         AppLogger.info("Démarrage du seeder académique L2 IA...");
 
-        // 1. Vérification d'idempotence (si l'année existe, on s'arrête pour ne rien écraser)
+        // 1. Vérification d'idempotence (si l'année existe ET qu'on a déjà des notes, on s'arrête)
         const years = await this.academicEngine.getYears();
-        if (years.find(y => y.id === 'year_l2_ia_2627')) {
+        const grades = await this.academicEngine.getGrades();
+        if (years.find(y => y.id === 'year_l2_ia_2627') && grades.length > 0) {
             AppLogger.info("Seeder académique: Les données existent déjà. Initialisation ignorée.");
             return false;
         }
