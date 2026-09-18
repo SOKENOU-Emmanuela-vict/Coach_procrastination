@@ -81,10 +81,6 @@ export class Bootstrap {
 
         // On vérifie s'il y a un utilisateur
         const user = await storage.loadData('user_profile');
-        if (!user && window.location.hash !== '#/login') {
-            window.location.hash = '#/login';
-            return;
-        }
         
         try {
             const academicEngine = new AcademicEngine(storage);

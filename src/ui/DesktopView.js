@@ -41,30 +41,42 @@ export class DesktopView {
         <div class="bureau-nav">
             <button class="bureau-nav-item active" data-route="desktop">
                 ${svgHome}
-                <span>Dashboard</span>
+                <span>Bureau</span>
             </button>
-            <button class="bureau-nav-item" data-route="planning">
+            <button class="bureau-nav-item" data-route="calendar">
                 ${svgCalendar}
-                <span>Schedule</span>
+                <span>Agenda</span>
             </button>
             <button class="bureau-nav-item" data-route="academic">
                 ${svgSchool}
-                <span>Academic</span>
+                <span>Académique</span>
             </button>
-            <button class="bureau-nav-item" data-route="coach">
-                ${svgCoach}
-                <span>Coach AI (Legacy)</span>
+            <button class="bureau-nav-item" data-route="planning">
+                <svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
+                <span>Plan</span>
+            </button>
+            <button class="bureau-nav-item" data-route="program">
+                <svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
+                <span>Prog</span>
+            </button>
+            <button class="bureau-nav-item" data-route="journal">
+                <svg viewBox="0 0 24 24"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path></svg>
+                <span>Journal</span>
+            </button>
+            <button class="bureau-nav-item" data-route="portfolio">
+                <svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="7"></circle><polyline points="8.21 13.89 7 23 12 20 17 23 15.79 13.88"></polyline></svg>
+                <span>Portf</span>
             </button>
             <button class="bureau-nav-item" data-route="chat" style="color: #00f2fe;">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:20px;height:20px;margin-right:10px;"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"></path></svg>
-                <span>Parler au Coach</span>
+                <span>Coach</span>
             </button>
         </div>
 
         <div class="bureau-sidebar-bottom">
             <button class="bureau-settings" id="desktop-settings">
                 ${svgSettings}
-                <span>Settings</span>
+                <span>Paramètres</span>
             </button>
         </div>
     </div>
@@ -72,16 +84,16 @@ export class DesktopView {
     <div class="bureau-content">
         <div class="bureau-topbar">
             <div>
-                <span class="bureau-eyebrow">OVERVIEW</span>
-                <h1>Hello, ${state.userProfile?.name || 'Student'}</h1>
+                <span class="bureau-eyebrow">VUE D'ENSEMBLE</span>
+                <h1>Bonjour, ${state.userProfile?.name || 'Étudiant'}</h1>
             </div>
             <div class="bureau-topbar-actions">
                 <button class="bureau-icon-button" aria-label="Notifications">${svgBell}</button>
                 <div class="bureau-profile">
-                    <div class="bureau-profile-avatar">${(state.userProfile?.name || 'S').charAt(0).toUpperCase()}</div>
+                    <div class="bureau-profile-avatar">${(state.userProfile?.name || 'É').charAt(0).toUpperCase()}</div>
                     <div>
-                        <strong>${state.userProfile?.name || 'Student'}</strong>
-                        <small>Active</small>
+                        <strong>${state.userProfile?.name || 'Étudiant'}</strong>
+                        <small>Actif</small>
                     </div>
                 </div>
             </div>
@@ -97,8 +109,8 @@ export class DesktopView {
                 <div class="bureau-card">
                     <div class="bureau-card-header">
                         <div>
-                            <span class="bureau-card-kicker">TODAY</span>
-                            <h2>Daily Schedule</h2>
+                            <span class="bureau-card-kicker">AUJOURD'HUI</span>
+                            <h2>Programme du jour</h2>
                         </div>
                     </div>
                     <div class="bureau-timeline">`;
@@ -154,8 +166,8 @@ export class DesktopView {
                 <div class="bureau-card">
                     <div class="bureau-card-header">
                         <div>
-                            <span class="bureau-card-kicker">PROGRESS</span>
-                            <h2>Languages</h2>
+                            <span class="bureau-card-kicker">PROGRESSION</span>
+                            <h2>Langues</h2>
                         </div>
                     </div>
                     <div class="bureau-language-list">`;
@@ -180,7 +192,7 @@ export class DesktopView {
                     }
                 });
             } else {
-                html += `<div class="bureau-empty">Data unavailable.</div>`;
+                html += `<div class="bureau-empty">Données indisponibles.</div>`;
             }
             
             html += `
@@ -194,15 +206,15 @@ export class DesktopView {
                 <div class="bureau-card">
                     <div class="bureau-card-header">
                         <div>
-                            <span class="bureau-card-kicker">QUICK LINKS</span>
-                            <h2>Shortcuts</h2>
+                            <span class="bureau-card-kicker">LIENS RAPIDES</span>
+                            <h2>Raccourcis</h2>
                         </div>
                         <button id="btn-add-shortcut" class="bureau-add-button">+</button>
                     </div>
                     <div class="bureau-task-list">`;
             
             if (shortcuts.length === 0) {
-                html += `<div class="bureau-empty">No shortcuts added.</div>`;
+                html += `<div class="bureau-empty">Aucun raccourci ajouté.</div>`;
             } else {
                 shortcuts.forEach(sc => {
                     html += `
@@ -263,8 +275,8 @@ export class DesktopView {
                 <div class="bureau-card">
                     <div class="bureau-card-header">
                         <div>
-                            <span class="bureau-card-kicker">OVERVIEW</span>
-                            <h2>Academic</h2>
+                            <span class="bureau-card-kicker">PERFORMANCE</span>
+                            <h2>Académique</h2>
                         </div>
                     </div>
                     <div class="bureau-statistics-content">
@@ -277,7 +289,7 @@ export class DesktopView {
                         </div>
                         <div class="bureau-stat-text">
                             <strong>${acad?.semester?.name || 'S4'}</strong>
-                            <span>Average: ${avgText}</span>
+                            <span>Moyenne : ${avgText}</span>
                         </div>
                     </div>
                 </div>`;
@@ -289,8 +301,8 @@ export class DesktopView {
                 <div class="bureau-card">
                     <div class="bureau-card-header">
                         <div>
-                            <span class="bureau-card-kicker">UPCOMING</span>
-                            <h2>Assessments</h2>
+                            <span class="bureau-card-kicker">PROCHAINEMENT</span>
+                            <h2>Évaluations</h2>
                         </div>
                     </div>
                     <div>`;
@@ -301,11 +313,11 @@ export class DesktopView {
                     html += `
                         <div class="bureau-countdown">
                             <strong>${ass.title}</strong>
-                            <div class="bureau-countdown-days">${ass.daysRemaining}<span>DAYS</span></div>
+                            <div class="bureau-countdown-days">${ass.daysRemaining}<span>JOURS</span></div>
                         </div>`;
                 });
             } else {
-                html += `<div class="bureau-empty">No upcoming evaluations.</div>`;
+                html += `<div class="bureau-empty">Aucune évaluation à venir.</div>`;
             }
             html += `
                     </div>
@@ -323,38 +335,38 @@ export class DesktopView {
     <div class="bureau-modal-backdrop" id="btn-backdrop-close"></div>
     <div class="bureau-modal-card">
         <div class="bureau-modal-header">
-            <h2>Dashboard Settings</h2>
+            <h2>Préférences Bureau</h2>
             <button class="bureau-modal-close" id="btn-close-settings">&times;</button>
         </div>
         <div class="bureau-settings-list">
             <label class="bureau-setting-row">
-                <strong>Focus Timer</strong>
+                <strong>Tâche Actuelle</strong>
                 <input type="checkbox" id="chk-w-now" ${widgets.now ? 'checked' : ''}>
             </label>
             <label class="bureau-setting-row">
-                <strong>Today's Schedule</strong>
+                <strong>Programme du jour</strong>
                 <input type="checkbox" id="chk-w-today" ${widgets.today ? 'checked' : ''}>
             </label>
             <label class="bureau-setting-row">
-                <strong>Upcoming Countdowns</strong>
+                <strong>Échéances Proches</strong>
                 <input type="checkbox" id="chk-w-upcoming" ${widgets.upcoming ? 'checked' : ''}>
             </label>
             <label class="bureau-setting-row">
-                <strong>Languages Progress</strong>
+                <strong>Progression Langues</strong>
                 <input type="checkbox" id="chk-w-languages" ${widgets.languages ? 'checked' : ''}>
             </label>
             <label class="bureau-setting-row">
-                <strong>Quick Links (Shortcuts)</strong>
+                <strong>Raccourcis</strong>
                 <input type="checkbox" id="chk-w-shortcuts" ${widgets.shortcuts ? 'checked' : ''}>
             </label>
             <label class="bureau-setting-row">
-                <strong>Academic Statistics</strong>
+                <strong>Statistiques Académiques</strong>
                 <input type="checkbox" id="chk-w-academic" ${widgets.academic ? 'checked' : ''}>
             </label>
         </div>
         <div class="bureau-modal-footer">
-            <button class="bureau-button secondary" id="btn-cancel-settings">Cancel</button>
-            <button class="bureau-button primary" id="btn-save-settings">Save changes</button>
+            <button class="bureau-button secondary" id="btn-cancel-settings">Annuler</button>
+            <button class="bureau-button primary" id="btn-save-settings">Enregistrer</button>
         </div>
     </div>
 </div>

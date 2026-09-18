@@ -105,11 +105,16 @@ export class App {
             formation: null,
             niveau: null,
             groupe: null,
-            currentSemesterId: 's4' // Valeur par défaut pour l'anomalie S4 du prototype
+            currentSemesterId: 'sem_s3_26' // Changed to load seeded S3 data
         };
         this.state.currentJournal = await this.studyRecordEngine.getJournal(localDate);
         this.state.yesterdayJournal = await this.studyRecordEngine.getJournal(yesterdayDate);
         this.state.fullHistory = await this.studyRecordEngine.getFullHistory();
+        
+        // Charger les données du graphe d'apprentissage pour les widgets du dashboard
+        if (this.learningGraphEngine) {
+            this.state.learningGraph = { nodes: await this.learningGraphEngine.evaluateGraph() };
+        }
         
         // Les insights et alertes académiques seront ajoutés via CoachAI.
         // systemHealth est déprécié.

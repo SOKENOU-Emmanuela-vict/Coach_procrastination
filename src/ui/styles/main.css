@@ -1010,11 +1010,15 @@ body.theme-desktop input {
     }
 }
 
+@media (min-width: 761px) {
+    #bottom-nav {
+        display: none !important;
+    }
+}
+
 @media (max-width: 760px) {
     .bureau-sidebar {
-        width: 70px;
-
-        padding: 20px 10px;
+        display: none;
     }
 
     .bureau-brand {
