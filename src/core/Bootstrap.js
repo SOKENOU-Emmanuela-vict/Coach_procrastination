@@ -1,6 +1,5 @@
 import { IndexedDBProvider } from '../services/IndexedDBProvider.js';
 import { SchedulerEngine } from '../engines/SchedulerEngine.js?v=11';
-import { XPEngine } from '../engines/XPEngine.js';
 import { StudyRecordEngine } from '../engines/StudyRecordEngine.js';
 import { CheckInEngine } from '../engines/CheckInEngine.js';
 import { CoachOrchestrator } from '../ai/CoachOrchestrator.js';
@@ -16,7 +15,7 @@ export class Bootstrap {
     static async init() {
         AppLogger.info("Démarrage du Bootstrap du Learning OS...");
         
-        let storage, scheduler, xpEngine, studyRecordEngine, checkInEngine, aiEngine, weeklyReviewEngine, chatHistoryEngine;
+        let storage, scheduler, studyRecordEngine, checkInEngine, aiEngine, weeklyReviewEngine, chatHistoryEngine;
         
         try {
             storage = new IndexedDBProvider();
@@ -52,11 +51,11 @@ export class Bootstrap {
         } catch (e) { AppLogger.error("Erreur Scheduler: " + e.message); }
         
         try {
-            xpEngine = new XPEngine();
-        } catch (e) { AppLogger.error("Erreur XP: " + e.message); }
+            scheduler = new SchedulerEngine(storage);
+        } catch (e) { AppLogger.error("Erreur Scheduler: " + e.message); }
         
         try {
-            studyRecordEngine = new StudyRecordEngine(storage, xpEngine);
+            studyRecordEngine = new StudyRecordEngine(storage);
         } catch (e) { AppLogger.error("Erreur StudyRecord: " + e.message); }
         
         try {
@@ -75,7 +74,7 @@ export class Bootstrap {
             chatHistoryEngine = new ChatHistoryEngine(storage);
         } catch (e) { AppLogger.error("Erreur ChatHistory: " + e.message); }
         
-        if (!storage || !scheduler || !xpEngine || !studyRecordEngine || !checkInEngine || !aiEngine || !chatHistoryEngine) {
+        if (!storage || !scheduler || !studyRecordEngine || !checkInEngine || !aiEngine || !chatHistoryEngine) {
             console.error("Erreur critique: Moteurs non initialisés.");
             return;
         }
@@ -93,7 +92,7 @@ export class Bootstrap {
             await seeder.seed();
         } catch (e) { AppLogger.error("Erreur Seeder: " + e.message); }
         
-        const app = new App(storage, scheduler, xpEngine, studyRecordEngine, checkInEngine, aiEngine, weeklyReviewEngine, chatHistoryEngine);
+        const app = new App(storage, scheduler, studyRecordEngine, checkInEngine, aiEngine, weeklyReviewEngine, chatHistoryEngine);
         try {
             await app.start();
         } catch (err) {
