@@ -2,7 +2,7 @@ const CACHE_NAME = 'coach-procrastination-v11';
 const ASSETS = [
     './',
     './index.html',
-    './manifest.json',
+    './data/manifest.json',
     './src/core/App.js',
     './src/core/Bootstrap.js',
     './src/ui/styles/main.css'
