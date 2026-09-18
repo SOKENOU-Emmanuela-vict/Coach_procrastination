@@ -14,6 +14,7 @@ import { CoachChatView } from '../ui/CoachChatView.js';
 
 export class Router {
     constructor(containerId, app) {
+        this.app = app;
         this.views = {
             desktop: new DesktopView(containerId, app),
             calendar: new CalendarView(containerId, app),
@@ -48,10 +49,8 @@ export class Router {
             if (viewName === 'academic') data = state;
             if (viewName === 'weekly') data = state.weeklySummary;
             if (viewName === 'chat') {
-                // Fetch chat history asynchronously inside the router (or pass a promise)
-                // However, since Router is synchronous, it's better to fetch before calling renderView,
-                // or just pass a Promise if the view handles it. Let's make Router handle it for chat.
-                app.chatHistoryEngine.getConversation('default').then(messages => {
+                // Fetch chat history asynchronously inside the router
+                this.app.chatHistoryEngine.getConversation('default').then(messages => {
                     view.render(messages);
                 });
                 return; // Render is done asynchronously

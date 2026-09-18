@@ -194,7 +194,7 @@ export class DashboardView {
                         // Success -> remove the suggestion from the UI after a short delay
                         setTimeout(() => {
                             containerEl.remove();
-                            if (this.app.renderView) this.app.renderView('dashboard');
+                            if (this.app.renderView) this.app.renderView('coach');
                         }, 1500);
                     } catch (error) {
                         feedbackEl.textContent = "❌ Erreur : " + error.message;
