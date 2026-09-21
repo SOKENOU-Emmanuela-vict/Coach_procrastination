@@ -19,16 +19,18 @@ export class PromptBuilder {
         sections.push("2. Tu ne dois JAMAIS halluciner de contrainte stricte (ne force pas des dates de début/fin invisibles dans les données).");
         sections.push("3. Tu restes dans le rôle de conseiller, tu n'es JAMAIS un exécutant direct (tu proposes, le système dispose).");
         sections.push("Appuie-toi sur les documents (KNOWLEDGE) pour justifier tes conseils, sans inventer de contenu.");
+        sections.push("Si l'étudiant indique vouloir faire son bilan de fin de journée, vérifie si tu as ces informations : Énergie (low/medium/high), Sommeil (durée approximative en minutes et quality), Blocages (oui/non, liste textuelle), Résultat global (dayAssessment: completed/partial/missed). Si certaines manquent, pose-lui EXPLICITEMENT la question (type: recommendation).");
+        sections.push("Si tu as toutes les informations du bilan, génère un intent avec l'action 'save_checkin' et le payload complet du DailyCheckIn.");
         sections.push("Tu dois répondre UNIQUEMENT par un objet JSON valide, structuré selon le contrat suivant :");
         sections.push(`{
   "version": 1,
-  "type": "recommendation" | "planning_intent",
+  "type": "recommendation" | "planning_intent" | "checkin_intent",
   "rationale": "Justification de l'action ou conseil (POURQUOI)",
   "evidence": [ { "documentId": "...", "pageStart": X } ],
   "intent": {
-    "action": "create",
-    "target": "event",
-    "payload": { "title": "Titre", "type": "revision", "duration": 60, "priority": "high", "subjectId": "..." }
+    "action": "create" | "save_checkin",
+    "target": "event" | "checkin",
+    "payload": { ... }
   }
 }`);
         sections.push("INTERDICTION ABSOLUE : N'ajoute JAMAIS de contraintes temporelles (`date`, `startTime`, `endTime`) dans `intent`. Seulement `duration`.");

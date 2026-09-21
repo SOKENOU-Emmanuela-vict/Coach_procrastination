@@ -54,8 +54,8 @@ export class DashboardView {
         let activeSkills = 0;
         let forgottenSkills = 0;
         
-        if (state.learningGraph) {
-            state.learningGraph.forEach(node => {
+        if (state.learningGraph && state.learningGraph.nodes) {
+            Object.values(state.learningGraph.nodes).forEach(node => {
                 if (node.level > 0) {
                     activeSkills++;
                     skillsHtml += `
@@ -98,16 +98,7 @@ export class DashboardView {
         }
         if (!missionsHtml) missionsHtml = "<p style='color:#88a7b7;'>Aucune mission définie cette semaine.</p>";
 
-        let todayJournalHtml = "";
-        if (state.currentJournal) {
-            const moodEmojis = ["", "😭", "😟", "😐", "🙂", "🤩"];
-            const energyEmojis = ["", "🔋 (Vide)", "🔋 (Faible)", "🔋 (Moyenne)", "🔋 (Bonne)", "🔋 (Pleine)"];
-            todayJournalHtml = `
-                <hr style="border: 0; border-top: 1px solid #2a5268; margin: 10px 0;">
-                <p>Humeur : ${moodEmojis[state.currentJournal.mood] || 'Non renseigné'}</p>
-                <p>Énergie : ${energyEmojis[state.currentJournal.energy] || 'Non renseigné'}</p>
-            `;
-        }
+
 
         const sessions = state.dailyPlan && state.dailyPlan.sessions ? state.dailyPlan.sessions : [];
 

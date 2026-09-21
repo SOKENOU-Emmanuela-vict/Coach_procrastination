@@ -37,7 +37,6 @@ export class App {
             dailySummary: null,
             todayCheckIn: null,
             userProfile: null,
-            currentJournal: null,
             yesterdayJournal: null,
             fullHistory: [],
             analytics: null,
@@ -120,7 +119,7 @@ export class App {
         // systemHealth est déprécié.
         const dTodayLocal = new Date(localDate);
         this.state.monthlyReport = await this.studyRecordEngine.getMonthlyStats(dTodayLocal.getFullYear(), dTodayLocal.getMonth());
-        this.state.allJournals = await this.storage.loadData('daily_journals') || {};
+        this.state.allCheckins = await this.storage.loadData('daily_checkins') || {};
         this.state.fullProgram = await this.scheduler.getFullProgram();
         
         // Données pour le Bureau (Desktop) et Espace Académique
@@ -163,9 +162,18 @@ export class App {
     }
 
     async acceptCoachSuggestion(intent) {
-        if (!this.planningEngine || !intent) return;
+        if (!intent) return;
         
-        await this.planningEngine.executeIntent(intent);
+        if (intent.action === 'save_checkin') {
+            if (this.checkInEngine) {
+                // Ensure the date is injected if missing
+                const payload = intent.payload || {};
+                payload.date = payload.date || new Date().toLocaleDateString('fr-CA');
+                await this.checkInEngine.saveCheckIn(payload);
+            }
+        } else if (this.planningEngine) {
+            await this.planningEngine.executeIntent(intent);
+        }
         
         await this.refreshCalendarData();
         await this.refreshUserStats();
@@ -228,7 +236,7 @@ export class App {
     }
     
     async renderView(viewName) {
-        if (viewName === 'journal' || viewName === 'portfolio' || viewName === 'coach' || viewName === 'bilan' || viewName === 'desktop' || viewName === 'calendar' || viewName === 'academic' || viewName === 'weekly') {
+        if (viewName === 'portfolio' || viewName === 'coach' || viewName === 'bilan' || viewName === 'desktop' || viewName === 'calendar' || viewName === 'academic' || viewName === 'weekly') {
             await this.refreshUserStats();
         }
         

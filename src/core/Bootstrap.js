@@ -56,7 +56,37 @@ export class Bootstrap {
                 if (assessments) {
                     const cleanAssessments = assessments.filter(a => !a.id.startsWith('ass_s3_'));
                     await storage.saveData('acad_assessments', cleanAssessments);
+            }
+
+            // Migration des anciens journaux vers le nouveau format CheckIn
+            const oldJournals = await storage.loadData('daily_journals');
+            if (oldJournals) {
+                AppLogger.info("Migration des anciens journaux vers daily_checkins...");
+                const checkins = await storage.loadData('daily_checkins') || {};
+                let migrated = false;
+                for (const date in oldJournals) {
+                    if (!checkins[date]) {
+                        const j = oldJournals[date];
+                        checkins[date] = {
+                            id: `chk_migrated_${date}`,
+                            date: date,
+                            energy: j.energy || 'medium',
+                            sleep: { durationMinutes: 420, quality: 'fair' }, // Valeur par défaut
+                            blockers: j.blockers || [],
+                            notes: `(Ancien Journal)\nHumeur: ${j.mood || '?'}\nAppris: ${j.learned || '?'}\n` + (j.notes || ''),
+                            dayAssessment: 'completed',
+                            needsFollowUp: [],
+                            createdAt: new Date().toISOString(),
+                            updatedAt: new Date().toISOString()
+                        };
+                        migrated = true;
+                    }
                 }
+                if (migrated) {
+                    await storage.saveData('daily_checkins', checkins);
+                }
+                await storage.deleteData('daily_journals');
+                AppLogger.info("Migration journaux terminée et clé daily_journals supprimée.");
             }
         } catch (e) { AppLogger.error("Erreur Storage: " + e.message); }
         

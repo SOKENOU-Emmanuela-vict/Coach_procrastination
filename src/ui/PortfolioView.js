@@ -2,7 +2,7 @@ export class PortfolioView {
     constructor(containerId, app) {
         this.container = document.getElementById(containerId);
         this.app = app;
-        this.activeTab = 'all'; // 'all', 'proofs', 'journals'
+        this.activeTab = 'all'; // 'all', 'proofs', 'checkins'
     }
     
     render(state) {
@@ -18,9 +18,9 @@ export class PortfolioView {
 
         // Collecter les stats par domaine
         let domainsHtml = "";
-        if (state.learningGraph) {
+        if (state.learningGraph && state.learningGraph.nodes) {
             domainsHtml = `<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 15px; margin-bottom: 25px;">`;
-            state.learningGraph.forEach(node => {
+            Object.values(state.learningGraph.nodes).forEach(node => {
                 // node: { id, title, level, confidence, hours, proofs }
                 const hrs = (node.hours || 0).toFixed(1);
                 const prfCount = node.proofs ? node.proofs.length : 0;
@@ -50,8 +50,8 @@ export class PortfolioView {
 
         let totalProofsCount = 0;
         let proofsCardsHtml = "";
-        if (state.learningGraph) {
-            state.learningGraph.forEach(node => {
+        if (state.learningGraph && state.learningGraph.nodes) {
+            Object.values(state.learningGraph.nodes).forEach(node => {
                 if (node.proofs && node.proofs.length > 0) {
                     node.proofs.forEach(p => {
                         totalProofsCount++;
@@ -96,22 +96,23 @@ export class PortfolioView {
             </div>`;
         }
 
-        // Collecter l'historique des journaux
-        let totalJournalsCount = 0;
-        let journalsHtml = "";
-        if (state.allJournals) {
-            const dates = Object.keys(state.allJournals).sort((a, b) => new Date(b) - new Date(a));
-            totalJournalsCount = dates.length;
+        // Collecter l'historique des bilans
+        let totalCheckinsCount = 0;
+        let checkinsHtml = "";
+        if (state.allCheckins) {
+            const dates = Object.keys(state.allCheckins).sort((a, b) => new Date(b) - new Date(a));
+            totalCheckinsCount = dates.length;
             dates.forEach(date => {
-                const j = state.allJournals[date];
+                const j = state.allCheckins[date];
+                if (!j) return;
                 const moodEmojis = ["", "😭", "😟", "😐", "🙂", "🤩"];
                 const moodLabel = moodEmojis[j.mood] || "🙂";
                 const hasVoice = j.voiceNote ? true : false;
                 
-                journalsHtml += `
+                checkinsHtml += `
                 <div style="background: linear-gradient(135deg, #12242f 0%, #0c1921 100%); border: 1px solid #2a5268; border-radius: 12px; padding: 16px; margin-bottom: 15px; box-shadow: 0 4px 12px rgba(0,0,0,0.3);">
                     <div style="display:flex; justify-content:space-between; align-items:center; border-bottom: 1px solid #1e3f52; padding-bottom: 10px; margin-bottom: 12px; flex-wrap:wrap; gap:10px;">
-                        <span style="color: #00f2fe; font-weight: bold; font-size: 16px;">📅 Journal du ${date}</span>
+                        <span style="color: #00f2fe; font-weight: bold; font-size: 16px;">📅 Bilan du ${date}</span>
                         <div style="display:flex; gap:12px; align-items:center;">
                             <span style="background:#1a3848; color:#fff; padding:4px 10px; border-radius:15px; font-size:12px;">Humeur : ${moodLabel} (${j.mood}/5)</span>
                             <span style="background:#1a3848; color:#fff; padding:4px 10px; border-radius:15px; font-size:12px;">⚡ Énergie : ${j.energy || 3}/5</span>
@@ -147,11 +148,11 @@ export class PortfolioView {
             });
         }
 
-        if (!journalsHtml) {
-            journalsHtml = `
+        if (!checkinsHtml) {
+            checkinsHtml = `
             <div style="background: #0f2027; border: 1px dashed #2a5268; border-radius: 10px; padding: 25px; text-align: center; color: #88a7b7;">
-                <p style="font-size: 15px; margin: 0;">📖 Aucun journal n'a encore été enregistré.</p>
-                <p style="font-size: 13px; margin: 5px 0 0 0;">Remplissez votre journal quotidien en fin de journée (avec la dictée vocale ou un enregistrement) !</p>
+                <p style="font-size: 15px; margin: 0;">📖 Aucun bilan n'a encore été enregistré.</p>
+                <p style="font-size: 13px; margin: 5px 0 0 0;">Faites votre point avec le Coach en fin de journée !</p>
             </div>`;
         }
 
@@ -194,8 +195,8 @@ export class PortfolioView {
                         <span style="font-size: 12px; color: #88a7b7;">📸 Preuves & Captures</span>
                     </div>
                     <div style="background:#0f2027; padding:12px; border-radius:10px; border:1px solid #2a5268;">
-                        <span style="font-size: 22px; font-weight: bold; color: #ffb74d; display: block;">${totalJournalsCount}</span>
-                        <span style="font-size: 12px; color: #88a7b7;">📖 Journaux Remplis</span>
+                        <span style="font-size: 22px; font-weight: bold; color: #ffb74d; display: block;">${totalCheckinsCount}</span>
+                        <span style="font-size: 12px; color: #88a7b7;">📖 Bilans Remplis</span>
                     </div>
                     <div style="background:#0f2027; padding:12px; border-radius:10px; border:1px solid #2a5268;">
                         <span style="font-size: 22px; font-weight: bold; color: #4CAF50; display: block;">${report.totalHours || 0} h</span>
@@ -229,8 +230,8 @@ export class PortfolioView {
                 <button type="button" class="tab-btn-portfolio" data-tab="proofs" style="background:#152b36; color:#e0e0e0; border:1px solid #2a5268; padding:8px 16px; border-radius:20px; cursor:pointer; font-size:13px;">
                     📸 Galerie des Preuves (${totalProofsCount})
                 </button>
-                <button type="button" class="tab-btn-portfolio" data-tab="journals" style="background:#152b36; color:#e0e0e0; border:1px solid #2a5268; padding:8px 16px; border-radius:20px; cursor:pointer; font-size:13px;">
-                    📖 Chronique des Journaux (${totalJournalsCount})
+                <button type="button" class="tab-btn-portfolio" data-tab="checkins" style="background:#152b36; color:#e0e0e0; border:1px solid #2a5268; padding:8px 16px; border-radius:20px; cursor:pointer; font-size:13px;">
+                    📖 Historique des Bilans (${totalCheckinsCount})
                 </button>
             </div>
 
@@ -243,11 +244,11 @@ export class PortfolioView {
             </div>
 
             <!-- SECTION DES JOURNAUX -->
-            <div id="portfolio-section-journals">
+            <div id="portfolio-section-checkins">
                 <h3 style="color: #00f2fe; border-left: 4px solid #00f2fe; padding-left: 10px; margin-bottom: 15px; font-size: 18px;">
-                    📖 Historique de mes Journaux & Notes Vocales
+                    📖 Historique de mes Bilans Quotidiens
                 </h3>
-                ${journalsHtml}
+                ${checkinsHtml}
             </div>
         `;
 
@@ -257,7 +258,7 @@ export class PortfolioView {
     attachPortfolioTabs() {
         const buttons = document.querySelectorAll('.tab-btn-portfolio');
         const secProofs = document.getElementById('portfolio-section-proofs');
-        const secJournals = document.getElementById('portfolio-section-journals');
+        const secCheckins = document.getElementById('portfolio-section-checkins');
 
         buttons.forEach(btn => {
             btn.addEventListener('click', (e) => {
@@ -279,13 +280,13 @@ export class PortfolioView {
                 // Mettre à jour l'affichage
                 if (tab === 'all') {
                     secProofs.style.display = 'block';
-                    secJournals.style.display = 'block';
+                    secCheckins.style.display = 'block';
                 } else if (tab === 'proofs') {
                     secProofs.style.display = 'block';
-                    secJournals.style.display = 'none';
-                } else if (tab === 'journals') {
+                    secCheckins.style.display = 'none';
+                } else if (tab === 'checkins') {
                     secProofs.style.display = 'none';
-                    secJournals.style.display = 'block';
+                    secCheckins.style.display = 'block';
                 }
             });
         });
@@ -295,7 +296,7 @@ export class PortfolioView {
         if (btnExport) {
             btnExport.addEventListener('click', async () => {
                 try {
-                    const dbKeys = ['study_history', 'user_profile', 'daily_journals', 'bootcamp_program_version'];
+                    const dbKeys = ['study_history', 'user_profile', 'daily_checkins', 'bootcamp_program_version'];
                     const exportData = {};
                     for (const key of dbKeys) {
                         exportData[key] = await this.app.storage.loadData(key);

@@ -5,7 +5,6 @@ import { AcademicView } from '../ui/AcademicView.js';
 import { PlanningView } from '../ui/PlanningView.js?v=8';
 import { FocusView } from '../ui/FocusView.js?v=10';
 import { BilanView } from '../ui/BilanView.js?v=4';
-import { JournalView } from '../ui/JournalView.js?v=5';
 import { PortfolioView } from '../ui/PortfolioView.js?v=5';
 import { ProgramView } from '../ui/ProgramView.js?v=6';
 import { AgentView } from '../ui/AgentView.js';
@@ -23,7 +22,6 @@ export class Router {
             planning: new PlanningView(containerId, app),
             focus: new FocusView(containerId, app),
             bilan: new BilanView(containerId, app),
-            journal: new JournalView(containerId, app),
             portfolio: new PortfolioView(containerId, app),
             program: new ProgramView(containerId, app),
             agent: new AgentView(containerId, app),
@@ -41,7 +39,6 @@ export class Router {
                 data = state.dailyPlan.sessions.find(s => !s.completed) || null;
             }
             if (viewName === 'bilan') data = { summary: state.dailySummary, checkIn: state.todayCheckIn, stats: state.dailyStats };
-            if (viewName === 'journal') data = state.currentJournal;
             if (viewName === 'portfolio') data = state;
             if (viewName === 'program') data = state.fullProgram;
             if (viewName === 'desktop') data = state;

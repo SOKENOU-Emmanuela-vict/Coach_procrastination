@@ -47,10 +47,12 @@ export class CoachChatView {
                 // If intent exists, show the actionable buttons
                 if (!isUser && msg.metadata && msg.metadata.intent) {
                     const intentJson = encodeURIComponent(JSON.stringify(msg.metadata.intent));
+                    const isCheckIn = msg.metadata.intent.action === 'save_checkin';
+                    const acceptLabel = isCheckIn ? '✅ Enregistrer le Bilan' : '✅ Accepter';
                     html += `
                         <div class="intent-actions" style="display: flex; gap: 10px; margin-top: 10px; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 10px;">
                             <button class="btn-accept-intent" data-intent="${intentJson}" style="flex: 1; background: #4caf50; color: white; border: none; padding: 8px 12px; border-radius: 8px; cursor: pointer; font-weight: bold; font-size: 13px;">
-                                ✅ Accepter
+                                ${acceptLabel}
                             </button>
                             <button class="btn-refuse-intent" style="flex: 1; background: transparent; border: 1px solid #f44336; color: #f44336; padding: 8px 12px; border-radius: 8px; cursor: pointer; font-weight: bold; font-size: 13px;">
                                 ❌ Refuser

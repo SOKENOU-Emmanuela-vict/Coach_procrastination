@@ -31,9 +31,6 @@ export class BilanView {
                 <div style="background: #11222c; border: 1px solid #4caf50; padding: 20px; border-radius: 10px; margin-top: 20px; text-align: center;">
                     <h3 style="color: #4caf50;">✅ Check-in déjà validé !</h3>
                     <p style="color: #e0e0e0;">Énergie: ${checkIn.energy}, Sommeil: ${checkIn.sleep.durationMinutes}min</p>
-                    <button id="btn-go-journal" style="width: 100%; margin-top: 15px; background: #00f2fe; color: #0f2027; font-weight: bold; border: none; padding: 14px; border-radius: 20px; cursor: pointer; font-size: 15px;">
-                        Passer au Journal Libre ➡️
-                    </button>
                 </div>
             `;
         } else {
@@ -140,12 +137,7 @@ export class BilanView {
             });
         }
 
-        const btnNext = document.getElementById('btn-go-journal');
-        if (btnNext) {
-            btnNext.addEventListener('click', () => {
-                this.app.renderView('journal');
-            });
-        }
+
 
         const btnBack = document.getElementById('btn-bilan-back');
         if (btnBack) {
