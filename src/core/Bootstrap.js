@@ -56,6 +56,7 @@ export class Bootstrap {
                 if (assessments) {
                     const cleanAssessments = assessments.filter(a => !a.id.startsWith('ass_s3_'));
                     await storage.saveData('acad_assessments', cleanAssessments);
+                }
             }
 
             // Migration des anciens journaux vers le nouveau format CheckIn
