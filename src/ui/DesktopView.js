@@ -7,6 +7,7 @@ export class DesktopView {
     render(state) {
         const userPrefs = state.userProfile?.preferences?.desktop || {};
         const widgets = userPrefs.widgets || {
+            checklist: true,
             now: true,
             today: true,
             upcoming: true,
@@ -99,6 +100,66 @@ export class DesktopView {
         <div class="bureau-dashboard">
             <!-- LEFT COLUMN -->
             <div class="bureau-column">`;
+
+        // CHECKLIST
+        if (widgets.checklist !== false) { // true par défaut
+            const sessions = state.dailyPlan && state.dailyPlan.sessions ? state.dailyPlan.sessions : [];
+            const habits = state.dailyPlan && state.dailyPlan.habits ? state.dailyPlan.habits : [];
+            
+            const pendingSessions = sessions.filter(s => !s.completed);
+            const pendingHabits = habits.filter(h => !h.completed);
+            const completedSessions = sessions.filter(s => s.completed);
+            const completedHabits = habits.filter(h => h.completed);
+
+            html += `
+                <div class="bureau-card">
+                    <div class="bureau-card-header">
+                        <div>
+                            <span class="bureau-card-kicker">ACTIONS RAPIDES</span>
+                            <h2>Checklist Express</h2>
+                        </div>
+                    </div>
+                    <div class="bureau-task-list">`;
+            
+            if (pendingSessions.length === 0 && pendingHabits.length === 0 && completedSessions.length === 0 && completedHabits.length === 0) {
+                html += `<div class="bureau-empty">Aucune tâche prévue aujourd'hui.</div>`;
+            } else {
+                // Pending sessions
+                pendingSessions.forEach(s => {
+                    html += `
+                        <div class="bureau-task">
+                            <input type="checkbox" class="chk-checklist-session" data-id="${s.id}">
+                            <span>${s.title} (${s.expectedDuration} min)</span>
+                        </div>`;
+                });
+                // Pending habits
+                pendingHabits.forEach(h => {
+                    html += `
+                        <div class="bureau-task">
+                            <input type="checkbox" class="chk-checklist-habit" data-id="${h.id}">
+                            <span>${h.title}</span>
+                        </div>`;
+                });
+                // Completed
+                completedSessions.forEach(s => {
+                    html += `
+                        <div class="bureau-task" style="opacity: 0.5;">
+                            <input type="checkbox" checked disabled>
+                            <span style="text-decoration: line-through;">${s.title}</span>
+                        </div>`;
+                });
+                completedHabits.forEach(h => {
+                    html += `
+                        <div class="bureau-task" style="opacity: 0.5;">
+                            <input type="checkbox" checked disabled>
+                            <span style="text-decoration: line-through;">${h.title}</span>
+                        </div>`;
+                });
+            }
+            html += `
+                    </div>
+                </div>`;
+        }
 
         // SCHEDULE
         if (widgets.today) {
@@ -348,6 +409,10 @@ export class DesktopView {
                 <input type="checkbox" id="chk-w-now" ${widgets.now ? 'checked' : ''}>
             </label>
             <label class="bureau-setting-row">
+                <strong>Checklist Express</strong>
+                <input type="checkbox" id="chk-w-checklist" ${widgets.checklist !== false ? 'checked' : ''}>
+            </label>
+            <label class="bureau-setting-row">
                 <strong>Programme du jour</strong>
                 <input type="checkbox" id="chk-w-today" ${widgets.today ? 'checked' : ''}>
             </label>
@@ -388,6 +453,25 @@ export class DesktopView {
             });
         });
 
+        // Checklist Bindings
+        this.container.querySelectorAll('.chk-checklist-session').forEach(chk => {
+            chk.addEventListener('change', (e) => {
+                const id = e.currentTarget.getAttribute('data-id');
+                if (id) {
+                    this.app.markSessionCompleted(id, { status: 'completed' }, 'desktop');
+                }
+            });
+        });
+
+        this.container.querySelectorAll('.chk-checklist-habit').forEach(chk => {
+            chk.addEventListener('change', (e) => {
+                const id = e.currentTarget.getAttribute('data-id');
+                if (id) {
+                    this.app.markHabitCompleted(id);
+                }
+            });
+        });
+
         const settingsBtn = document.getElementById('desktop-settings');
         const settingsModal = document.getElementById('desktop-settings-modal');
         const closeBtn = document.getElementById('btn-close-settings');
@@ -407,6 +491,7 @@ export class DesktopView {
         if (saveBtn) {
             saveBtn.addEventListener('click', async () => {
                 const wNow = document.getElementById('chk-w-now').checked;
+                const wChecklist = document.getElementById('chk-w-checklist').checked;
                 const wToday = document.getElementById('chk-w-today').checked;
                 const wUpcoming = document.getElementById('chk-w-upcoming').checked;
                 const wLang = document.getElementById('chk-w-languages').checked;
@@ -417,7 +502,7 @@ export class DesktopView {
                 if (!state.userProfile.preferences.desktop) state.userProfile.preferences.desktop = { shortcuts: [] };
                 
                 state.userProfile.preferences.desktop.widgets = {
-                    now: wNow, today: wToday, upcoming: wUpcoming, languages: wLang, shortcuts: wShort, academic: wAcad
+                    now: wNow, checklist: wChecklist, today: wToday, upcoming: wUpcoming, languages: wLang, shortcuts: wShort, academic: wAcad
                 };
 
                 await this.app.storage.saveData('user_profile', state.userProfile);
