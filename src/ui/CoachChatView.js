@@ -139,12 +139,17 @@ export class CoachChatView {
                 if (intentStr) {
                     try {
                         const intentData = JSON.parse(decodeURIComponent(intentStr));
-                        const intent = new PlanningIntent(intentData);
-                        await this.app.acceptCoachSuggestion(intent);
+                        const isCheckIn = intentData.action === 'save_checkin';
+                        
+                        // Ne pas utiliser PlanningIntent pour les checkins
+                        const intentToPass = isCheckIn ? intentData : new PlanningIntent(intentData);
+                        
+                        await this.app.acceptCoachSuggestion(intentToPass);
                         
                         // Modifier les boutons visuellement
                         const actionsDiv = e.target.closest('.intent-actions');
-                        actionsDiv.innerHTML = `<div style="text-align: center; color: #4caf50; font-weight: bold; width: 100%;">✅ Planifié !</div>`;
+                        const confirmMsg = isCheckIn ? '✅ Bilan enregistré !' : '✅ Planifié !';
+                        actionsDiv.innerHTML = `<div style="text-align: center; color: #4caf50; font-weight: bold; width: 100%;">${confirmMsg}</div>`;
                         
                     } catch(err) {
                         // Si le PlanningEngine refuse à cause d'un conflit

@@ -37,7 +37,6 @@ export class App {
             dailySummary: null,
             todayCheckIn: null,
             userProfile: null,
-            yesterdayJournal: null,
             fullHistory: [],
             analytics: null,
             systemHealth: null,
@@ -45,7 +44,6 @@ export class App {
             learningGraph: null,
             reflections: null,
             monthlyReport: null,
-            allJournals: {},
             fullProgram: [],
             academicSummary: null,
             todayEvents: [],
@@ -88,9 +86,6 @@ export class App {
     async refreshUserStats() {
         const dToday = new Date();
         const localDate = dToday.toLocaleDateString('fr-CA');
-        let dYesterday = new Date();
-        dYesterday.setDate(dYesterday.getDate() - 1);
-        const yesterdayDate = dYesterday.toLocaleDateString('fr-CA');
 
         this.state.dailyStats = await this.studyRecordEngine.getDailyStats(localDate);
         this.state.dailySummary = await this.checkInEngine.buildDailySummary(localDate);
@@ -106,8 +101,6 @@ export class App {
             groupe: null,
             currentSemesterId: 'sem_s3_26' // Changed to load seeded S3 data
         };
-        this.state.currentJournal = await this.studyRecordEngine.getJournal(localDate);
-        this.state.yesterdayJournal = await this.studyRecordEngine.getJournal(yesterdayDate);
         this.state.fullHistory = await this.studyRecordEngine.getFullHistory();
         
         // Charger les données du graphe d'apprentissage pour les widgets du dashboard
@@ -339,12 +332,6 @@ export class App {
         } catch (e) {
             alert("Erreur JS (Habitude): " + e.message);
         }
-    }
-    
-    async saveJournal(data) {
-        const localDate = new Date().toLocaleDateString('fr-CA');
-        await this.studyRecordEngine.saveDailyJournal(localDate, data);
-        await this.refreshUserStats();
     }
     
     async saveProgram(programData) {

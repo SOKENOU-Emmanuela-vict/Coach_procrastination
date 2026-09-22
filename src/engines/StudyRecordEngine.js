@@ -107,18 +107,7 @@ export class StudyRecordEngine {
         };
     }
 
-    async saveDailyJournal(dateStr, journalData) {
-        let journals = await this.storage.loadData('daily_journals') || {};
-        journals[dateStr] = journalData;
-        await this.storage.saveData('daily_journals', journals);
-        AppLogger.info(`StudyRecordEngine: Journal sauvegardé pour la date ${dateStr}`);
-    }
 
-    async getJournal(dateStr) {
-        let journals = await this.storage.loadData('daily_journals') || {};
-        return journals[dateStr] || null;
-    }
-    
     async getFullHistory() {
         return await this.storage.loadData('study_history') || [];
     }

@@ -5,15 +5,15 @@ export class ReflectionEngine {
         this.storage = storageProvider;
     }
     
-    async analyzeJournalTrends() {
-        const journals = await this.storage.loadData('daily_journals') || {};
+    async analyzeCheckInTrends() {
+        const checkins = await this.storage.loadData('daily_checkins') || {};
         
         let tiredCount = 0;
         let blockCount = 0;
         const keywordsTired = ["fatigué", "fatigue", "sommeil", "dors", "épuisé"];
         const keywordsHard = ["difficile", "bloqué", "dur", "comprends pas"];
         
-        Object.values(journals).forEach(j => {
+        Object.values(checkins).forEach(j => {
             const text = ((j.notes || "") + " " + (j.blockers || "") + " " + (j.improve || "")).toLowerCase();
             
             if (keywordsTired.some(kw => text.includes(kw)) || j.energy <= 2) tiredCount++;

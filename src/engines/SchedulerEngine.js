@@ -108,7 +108,7 @@ export class SchedulerEngine {
 
         if (!activeHabits) {
             activeHabits = [
-                new Habit("hab_3", "Journal (Bilan & Objectifs)", "reflection", "Critique", 5, "Soir", 7)
+                new Habit("hab_3", "Bilan & Objectifs du soir", "reflection", "Critique", 5, "Soir", 7)
             ];
         }
 

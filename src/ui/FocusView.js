@@ -343,7 +343,7 @@ export class FocusView {
                 this.focusEndTime = null;
 
                 // Logique intelligente de redirection
-                let nextView = 'journal';
+                let nextView = 'desktop';
                 
                 const sessions = this.app.state.dailyPlan && this.app.state.dailyPlan.sessions ? this.app.state.dailyPlan.sessions : [];
                 const habits = this.app.state.dailyPlan && this.app.state.dailyPlan.habits ? this.app.state.dailyPlan.habits : [];

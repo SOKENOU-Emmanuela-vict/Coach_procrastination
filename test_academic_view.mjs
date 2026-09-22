@@ -70,7 +70,7 @@ async function runTests() {
     };
     mockApp.planningEngine = { getEventsForDate: async ()=>[], getEvents: async()=>[], getAvailabilityWindows: async()=>[], getAvailableSlots: async()=>[], detectConflicts: async ()=>[] };
     mockApp.learningGraphEngine = { evaluateGraph: async()=>({}) };
-    mockApp.reflectionEngine = { analyzeJournalTrends: async()=>({}) };
+    mockApp.reflectionEngine = { analyzeCheckInTrends: async()=>({}) };
     mockApp.scheduler = { getFullProgram: async()=>[] };
 
     // 3. Test App Routing & currentSemesterId
