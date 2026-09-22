@@ -247,6 +247,22 @@ export class App {
         
         const activeBtn = document.querySelector(`#bottom-nav button[data-view="${viewName}"]`);
         if (activeBtn) activeBtn.classList.add('active');
+
+        // THEME MANAGEMENT
+        document.body.className = '';
+        if (viewName === 'desktop') {
+            document.body.classList.add('theme-cyber');
+        } else if (viewName === 'academic') {
+            document.body.classList.add('theme-light');
+        } else if (viewName === 'life') {
+            document.body.classList.add('theme-warm');
+        } else if (viewName === 'planning') {
+            document.body.classList.add('theme-teal');
+        } else if (viewName === 'calendar') {
+            document.body.classList.add('theme-glass');
+        } else {
+            document.body.classList.add('theme-cyber'); // Default fallback
+        }
         
         this.router.render(viewName, this.state);
     }

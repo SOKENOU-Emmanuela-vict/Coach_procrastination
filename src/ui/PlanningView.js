@@ -4,126 +4,248 @@ export class PlanningView {
         this.app = app;
     }
     
-    render(plan) {
-        let dateHtml = "du Jour";
-        let dayInfo = "";
-        if (plan && plan.date) {
-            const dateObj = new Date(plan.date + 'T12:00:00');
-            dateHtml = dateObj.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' });
-            
-            // Si on a l'index depuis App
-            if (this.app && typeof this.app.currentDayIndex === 'number') {
-                dayInfo = ` (Jour ${this.app.currentDayIndex + 1})`;
-            }
-        }
-        
+    render(state) {
+        document.body.className = 'theme-teal';
+
+        const svgHome = `<svg viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path><polyline points="9 22 9 12 15 12 15 22"></polyline></svg>`;
+        const svgCalendar = `<svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>`;
+        const svgSchool = `<svg viewBox="0 0 24 24"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path></svg>`;
+
         let html = `
-        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; margin-bottom: 15px;">
-            <button id="btn-prev-day" style="background:#152b36; color:#00f2fe; border:1px solid #00f2fe; padding:8px 12px; border-radius:8px; cursor:pointer; font-weight:bold;">⬅️ Précédent</button>
-            <h2 style="text-transform: capitalize; margin: 0; text-align: center; flex: 1;">📅 Planning <span style="color:#00f2fe;">${dateHtml}</span>${dayInfo}</h2>
-            <button id="btn-next-day" style="background:#152b36; color:#00f2fe; border:1px solid #00f2fe; padding:8px 12px; border-radius:8px; cursor:pointer; font-weight:bold;">Suivant ➡️</button>
+<div class="bureau">
+    <!-- SIDEBAR TEAL -->
+    <div class="bureau-sidebar">
+        <div class="bureau-brand">
+            <div style="display:flex; gap: 8px; align-items:center;">
+                <div style="width: 24px; height: 24px; background: var(--text-main); border-radius: 6px; display:flex; align-items:center; justify-content:center;">
+                    <span style="color:#000; font-weight:bold; font-size:14px;">L</span>
+                </div>
+                <strong>Learning OS</strong>
+            </div>
         </div>
-        `;
         
-        html += '<h3 style="color: #00f2fe; border-bottom: 1px solid #00f2fe; padding-bottom: 5px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;">';
-        html += '<span>🎯 Sessions du Bootcamp</span>';
-        html += '<div style="display: flex; gap: 8px; align-items: center;">';
-        html += '<a href="https://mail.google.com/" target="_blank" style="background:#ea4335; color:white; padding:5px 10px; font-size:12px; border-radius:15px; text-decoration:none; font-weight:bold; box-shadow: 0 2px 5px rgba(234,67,53,0.3);">📧 Gmail</a>';
-        html += '<button id="btn-launch-focus" style="background:#00f2fe; color:#0f2027; padding:5px 10px; font-size:12px; border-radius:15px; border:none; cursor:pointer; font-weight:bold;">▶️ Lancer Focus</button>';
-        html += '</div>';
-        html += '</h3>';
-        html += '<ul class="session-list" style="margin-bottom: 20px;">';
-        if (plan && plan.sessions && plan.sessions.length > 0) {
-            plan.sessions.forEach(s => {
-                const isCompleted = s.completed;
-                const style = isCompleted ? 'text-decoration: line-through; opacity: 0.5;' : '';
-                const checkIcon = isCompleted ? '✅' : '⬜';
-                const linkLabel = (s.resourceLink && s.resourceLink.includes('mail.google.com')) ? '📧 Ouvrir Gmail / Agenda' : '🔗 Ouvrir la ressource';
-                const resourceLink = s.resourceLink ? `<br><a href="${s.resourceLink}" target="_blank" style="color: #00f2fe; text-decoration: none; font-size:14px; display:inline-block; margin-top:5px; font-weight:bold;">${linkLabel}</a>` : '';
+        <div class="bureau-nav">
+            <button class="bureau-nav-item" data-route="desktop">
+                ${svgHome} <span>Bureau</span>
+            </button>
+            <button class="bureau-nav-item active" data-route="planning">
+                <svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline></svg>
+                <span>Planning</span>
+            </button>
+            <button class="bureau-nav-item" data-route="calendar">
+                ${svgCalendar} <span>Événements</span>
+            </button>
+            <button class="bureau-nav-item" data-route="academic">
+                ${svgSchool} <span>School</span>
+            </button>
+            <button class="bureau-nav-item" data-route="languages">
+                <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"></circle><line x1="2" y1="12" x2="22" y2="12"></line><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path></svg> 
+                <span>Langues</span>
+            </button>
+            <button class="bureau-nav-item" data-route="life">
+                <svg viewBox="0 0 24 24"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path></svg>
+                <span>Life/Projets</span>
+            </button>
+        </div>
+        
+        <!-- MOTS DU COACH TEAL -->
+        <div style="margin-top:auto; background:var(--bg-card); padding:15px; border-radius:12px; border:1px solid var(--border-color);">
+            <div style="display:flex; align-items:center; gap:10px; margin-bottom:8px;">
+                <span style="color:var(--accent-primary);">🤖</span>
+                <strong style="font-size:12px; color:var(--text-main);">Le Coach</strong>
+            </div>
+            <p style="margin:0; font-size:11px; color:var(--text-muted); line-height:1.4;">
+                Super rythme ! N'oublie pas de planifier tes révisions pour l'examen de Physique.
+            </p>
+        </div>
+    </div>
+
+    <!-- MAIN CONTENT -->
+    <div class="bureau-content">
+        <!-- TOPBAR -->
+        <div class="bureau-topbar">
+            <div>
+                <h1 style="font-size: 24px; font-weight: 700; color:var(--text-main); letter-spacing:1px;">PLANNING</h1>
+                <p style="color: var(--text-muted); font-size:14px; margin-top:5px;">Organise ton temps, maximise ton impact.</p>
+            </div>
+            <div class="bureau-topbar-actions" style="display:flex; gap:15px; align-items:center;">
+                <div style="text-align:right;">
+                    <strong style="display:block; font-size:20px; color:var(--accent-primary);">10:24</strong>
+                    <span style="color:var(--text-muted); font-size:12px;">⛅ 16°C Paris</span>
+                </div>
+                <div class="bureau-profile-avatar" style="width:40px; height:40px; border-radius:50%; background:var(--accent-primary); display:flex; align-items:center; justify-content:center; font-weight:bold; color:#000;">
+                    ${(state.userProfile?.name || 'M').charAt(0).toUpperCase()}
+                </div>
+            </div>
+        </div>
+
+        <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 20px;">
+            
+            <!-- TIMELINE (Option D Left part) -->
+            <div class="bureau-card" style="display:flex; flex-direction:column;">
                 
-                const timeHtml = s.startTime ? `<span style="background: #2a5268; padding: 2px 6px; border-radius: 4px; color: white; font-size: 12px; margin-right: 10px;">${s.startTime}</span>` : '';
-                const diffHtml = s.difficulty ? `<span style="margin-left:5px;">${s.difficulty}</span>` : '';
-                
-                const blockHtml = s.block ? `<span style="background:#0f2027; border: 1px solid #00f2fe; padding: 2px 6px; border-radius: 4px; font-size:11px; margin-right:6px;">${s.block}</span>` : '';
-                
-                html += `<li style="${style}; padding: 15px; margin-bottom: 12px; background: #0b1a20; border-left: 4px solid #00f2fe; border-radius: 6px;">
-                    <strong style="cursor: pointer;" class="task-checkbox" data-id="${s.id}">${checkIcon} ${timeHtml}${blockHtml}${s.title}</strong>
-                    <span style="float:right;">⭐ ${s.difficulty || '🟢'}</span>
-                    <br><small style="color: #ccc;">⏱ <strong>${s.expectedDuration} min</strong> | ⚡ Priorité : ${s.priority || 'Normale'} | <span style="color:#ff9800; font-weight:bold;">${s.skillLabel || ''}</span></small>
-                    <div style="margin-top: 8px; font-size: 13px; line-height: 1.5; background: rgba(0,242,254,0.05); padding: 8px; border-radius: 4px;">
-                        ${s.objective ? `<div><strong>🎯 Objectif :</strong> <span style="color:#e0e0e0;">${s.objective}</span></div>` : ''}
-                        ${s.expectedResult ? `<div><strong>📌 Résultat attendu :</strong> <span style="color:#a8d8ea;">${s.expectedResult}</span></div>` : ''}
-                        ${s.proof ? `<div><strong>📝 Preuve exigée :</strong> <span style="color:#ffb74d;">${s.proof}</span></div>` : ''}
-                        ${!isCompleted && s.resourceLink ? `<div style="margin-top:4px;"><strong>📚 Ressource :</strong> <a href="${s.resourceLink}" target="_blank" style="color: #00f2fe; text-decoration: underline;">Ouvrir le lien</a></div>` : ''}
+                <!-- HEADER DAYS -->
+                <div style="display:grid; grid-template-columns: 50px repeat(5, 1fr); gap:10px; border-bottom: 1px solid var(--border-color); padding-bottom:15px; margin-bottom:15px;">
+                    <div></div>
+                    <div style="text-align:center;">
+                        <div style="font-size:12px; color:var(--text-muted);">Lun</div>
+                        <strong style="font-size:16px;">25</strong>
                     </div>
-                </li>`;
-            });
-        } else {
-            html += `<li style="padding: 15px; color: #88a7b7; list-style: none;">Aucune session programmée pour ce jour.</li>`;
-        }
-        html += '</ul>';
+                    <div style="text-align:center;">
+                        <div style="font-size:12px; color:var(--text-muted);">Mar</div>
+                        <strong style="font-size:16px;">26</strong>
+                    </div>
+                    <div style="text-align:center;">
+                        <div style="font-size:12px; color:var(--accent-primary);">Mer</div>
+                        <strong style="font-size:16px; color:var(--accent-primary);">27</strong>
+                        <div style="width:4px; height:4px; background:var(--accent-primary); border-radius:50%; margin:4px auto 0;"></div>
+                    </div>
+                    <div style="text-align:center;">
+                        <div style="font-size:12px; color:var(--text-muted);">Jeu</div>
+                        <strong style="font-size:16px;">28</strong>
+                    </div>
+                    <div style="text-align:center;">
+                        <div style="font-size:12px; color:var(--text-muted);">Ven</div>
+                        <strong style="font-size:16px;">29</strong>
+                    </div>
+                </div>
 
-        html += '<h3 style="color: #ff9800; border-bottom: 1px solid #ff9800; padding-bottom: 5px;">🔥 Habitudes du Soir</h3>';
-        html += '<ul class="session-list" style="margin-bottom: 20px;">';
-        if (plan && plan.habits && plan.habits.length > 0) {
-            plan.habits.forEach(h => {
-                const isCompleted = h.completed;
-                const style = isCompleted ? 'text-decoration: line-through; opacity: 0.5;' : '';
-                const checkIcon = isCompleted ? '✅' : '⬜';
+                <!-- TIME BLOCKS GRID -->
+                <div style="display:grid; grid-template-columns: 50px repeat(5, 1fr); gap:10px; flex-grow:1; position:relative;">
+                    
+                    <!-- TIME LABELS -->
+                    <div style="display:flex; flex-direction:column; justify-content:space-between; color:var(--text-muted); font-size:12px;">
+                        <div>08:00</div>
+                        <div>10:00</div>
+                        <div>12:00</div>
+                        <div>14:00</div>
+                        <div>16:00</div>
+                        <div>18:00</div>
+                    </div>
+
+                    <!-- LUN -->
+                    <div style="position:relative; border-left:1px dashed rgba(255,255,255,0.05);">
+                        <!-- block -->
+                        <div style="position:absolute; top:10%; left:5px; right:5px; height:20%; background:rgba(14,165,233,0.15); border:1px solid #0ea5e9; border-radius:8px; padding:10px;">
+                            <strong style="font-size:12px; color:#0ea5e9;">Anglais</strong>
+                            <div style="font-size:10px; color:var(--text-muted); margin-top:4px;">09:00 - 10:30</div>
+                        </div>
+                        <div style="position:absolute; top:40%; left:5px; right:5px; height:15%; background:rgba(250,204,21,0.15); border:1px solid #facc15; border-radius:8px; padding:10px;">
+                            <strong style="font-size:12px; color:#facc15;">Physique</strong>
+                            <div style="font-size:10px; color:var(--text-muted); margin-top:4px;">14:00 - 15:00</div>
+                        </div>
+                    </div>
+
+                    <!-- MAR -->
+                    <div style="position:relative; border-left:1px dashed rgba(255,255,255,0.05);">
+                        <div style="position:absolute; top:50%; left:5px; right:5px; height:25%; background:rgba(139,92,246,0.15); border:1px solid #8b5cf6; border-radius:8px; padding:10px;">
+                            <strong style="font-size:12px; color:#8b5cf6;">Sport</strong>
+                            <div style="font-size:10px; color:var(--text-muted); margin-top:4px;">15:00 - 17:00</div>
+                        </div>
+                    </div>
+
+                    <!-- MER (Active day) -->
+                    <div style="position:relative; border-left:1px dashed rgba(255,255,255,0.05);">
+                        <div style="position:absolute; top:35%; left:0; right:0; height:1px; background:var(--accent-primary); z-index:10;">
+                            <div style="position:absolute; left:-4px; top:-4px; width:8px; height:8px; border-radius:50%; background:var(--accent-primary);"></div>
+                        </div>
+                        
+                        <div style="position:absolute; top:15%; left:5px; right:5px; height:15%; background:rgba(14,165,233,0.15); border:1px solid #0ea5e9; border-radius:8px; padding:10px;">
+                            <strong style="font-size:12px; color:#0ea5e9;">Anglais</strong>
+                            <div style="font-size:10px; color:var(--text-muted); margin-top:4px;">10:00 - 11:30</div>
+                        </div>
+                        <div style="position:absolute; top:60%; left:5px; right:5px; height:25%; background:rgba(34,197,94,0.15); border:1px solid #22c55e; border-radius:8px; padding:10px;">
+                            <strong style="font-size:12px; color:#22c55e;">Projet Code</strong>
+                            <div style="font-size:10px; color:var(--text-muted); margin-top:4px;">16:00 - 18:00</div>
+                        </div>
+                    </div>
+
+                    <!-- JEU -->
+                    <div style="position:relative; border-left:1px dashed rgba(255,255,255,0.05);">
+                    </div>
+
+                    <!-- VEN -->
+                    <div style="position:relative; border-left:1px dashed rgba(255,255,255,0.05);">
+                         <div style="position:absolute; top:5%; left:5px; right:5px; height:25%; background:rgba(250,204,21,0.15); border:1px solid #facc15; border-radius:8px; padding:10px;">
+                            <strong style="font-size:12px; color:#facc15;">Physique</strong>
+                            <div style="font-size:10px; color:var(--text-muted); margin-top:4px;">08:30 - 10:30</div>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+
+            <!-- RIGHT PANEL (Option D Right part) -->
+            <div style="display:flex; flex-direction:column; gap:20px;">
                 
-                html += `<li style="${style}; padding: 10px; margin-bottom: 8px;">
-                    <strong style="cursor: pointer;" class="habit-checkbox" data-id="${h.id}">${checkIcon} ${h.title} (${h.minTime} min)</strong>
-                    <br><small style="color: #88a7b7;">Objectif : ${h.skillLabel}</small>
-                </li>`;
-            });
-        } else {
-            html += `<li style="padding: 10px; color: #88a7b7; list-style: none;">Aucune habitude programmée pour ce soir.</li>`;
-        }
-        html += '</ul>';
+                <!-- OBJECTIFS DU MOIS -->
+                <div class="bureau-card">
+                    <span class="bureau-eyebrow">Objectifs du mois</span>
+                    <div style="margin-top:20px; display:flex; flex-direction:column; gap:20px;">
+                        <div>
+                            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+                                <strong style="font-size:14px;">Anglais</strong>
+                                <span style="font-size:12px; color:var(--text-muted);">8/10h</span>
+                            </div>
+                            <div style="height:6px; background:var(--bg-main); border-radius:3px;">
+                                <div style="width:80%; height:100%; background:#0ea5e9; border-radius:3px;"></div>
+                            </div>
+                        </div>
+                        <div>
+                            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+                                <strong style="font-size:14px;">Projet Code</strong>
+                                <span style="font-size:12px; color:var(--text-muted);">12/15h</span>
+                            </div>
+                            <div style="height:6px; background:var(--bg-main); border-radius:3px;">
+                                <div style="width:80%; height:100%; background:#22c55e; border-radius:3px;"></div>
+                            </div>
+                        </div>
+                        <div>
+                            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+                                <strong style="font-size:14px;">Sport</strong>
+                                <span style="font-size:12px; color:var(--text-muted);">3/8h</span>
+                            </div>
+                            <div style="height:6px; background:var(--bg-main); border-radius:3px;">
+                                <div style="width:37%; height:100%; background:#8b5cf6; border-radius:3px;"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
 
-        html += '<button id="btn-show-bilan" style="width:100%; margin-top:20px; background:#2a5268; color:white;">Voir le Bilan de fin de journée</button>';
+                <!-- ALERTS -->
+                <div class="bureau-card" style="background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.3);">
+                    <div style="color: #ef4444; font-weight:bold; font-size:14px; display:flex; align-items:center; gap:8px;">
+                        <span>⚠️</span> 2 examens
+                    </div>
+                    <div style="margin-top:15px; display:flex; flex-direction:column; gap:10px;">
+                        <div style="font-size:14px;">
+                            <strong>Mathématiques</strong><br>
+                            <span style="color:var(--text-muted); font-size:12px;">15 Juin 2026</span>
+                        </div>
+                        <div style="font-size:14px;">
+                            <strong>Physique</strong><br>
+                            <span style="color:var(--text-muted); font-size:12px;">18 Juin 2026</span>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+
+        </div>
+    </div>
+</div>
+`;
+
         this.container.innerHTML = html;
-        
-        this.container.querySelectorAll('.habit-checkbox').forEach(el => {
-            el.addEventListener('click', (e) => {
-                const id = e.currentTarget.getAttribute('data-id');
-                this.app.markHabitCompleted(id);
+
+        // BINDINGS
+        this.container.querySelectorAll('.bureau-nav-item').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                const route = e.currentTarget.getAttribute('data-route');
+                if (this.app && typeof this.app.renderView === 'function') {
+                    this.app.renderView(route);
+                }
             });
         });
-
-        this.container.querySelectorAll('.task-checkbox').forEach(el => {
-            el.addEventListener('click', (e) => {
-                const id = e.currentTarget.getAttribute('data-id');
-                this.app.markSessionCompleted(id, { status: 'completed' }); // Default to completed from Planning list
-            });
-        });
-        
-        const btnFocus = document.getElementById('btn-launch-focus');
-        if (btnFocus) {
-            btnFocus.addEventListener('click', () => {
-                this.app.renderView('focus');
-            });
-        }
-        
-        const btnPrevDay = document.getElementById('btn-prev-day');
-        if (btnPrevDay) {
-            btnPrevDay.addEventListener('click', () => {
-                if (this.app.shiftDay) this.app.shiftDay(-1);
-            });
-        }
-
-        const btnNextDay = document.getElementById('btn-next-day');
-        if (btnNextDay) {
-            btnNextDay.addEventListener('click', () => {
-                if (this.app.shiftDay) this.app.shiftDay(1);
-            });
-        }
-
-        const btnBilan = document.getElementById('btn-show-bilan');
-        if (btnBilan) {
-            btnBilan.addEventListener('click', () => {
-                this.app.showBilan();
-            });
-        }
     }
 }

@@ -6,7 +6,7 @@ import { CoachOrchestrator } from '../ai/CoachOrchestrator.js';
 import { AIGeneratorEngine } from '../engines/AIGeneratorEngine.js';
 import { AcademicEngine } from '../engines/AcademicEngine.js';
 import { AcademicSeeder } from '../data/AcademicSeeder.js';
-import { App } from './App.js?v=13';
+import { App } from './App.js?v=15';
 import { AppLogger } from '../utils/AppLogger.js';
 import { WeeklyReviewEngine } from '../engines/WeeklyReviewEngine.js';
 import { ChatHistoryEngine } from '../engines/ChatHistoryEngine.js';

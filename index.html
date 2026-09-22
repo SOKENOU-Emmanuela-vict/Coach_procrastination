@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Learning OS</title>
     <link rel="manifest" href="data/manifest.json">
-    <link rel="stylesheet" href="src/ui/styles/main.css">
+    <link rel="stylesheet" href="src/ui/styles/main.css?v=3">
 </head>
 <body>
     <div id="app-root">
@@ -18,10 +18,6 @@
         <button data-view="calendar">📅 Agenda</button>
         <button data-view="academic">🎓 Académique</button>
         <button data-view="chat">🤖 Coach</button>
-        <button data-view="planning">📋 Plan</button>
-        <button data-view="program">📅 Prog</button>
-        <!-- Bouton masqué pour garder la compatibilité si besoin, ou on l'enlève complètement -->
-        <button data-view="portfolio">🌟 Portfolio</button>
     </nav>
     <script>
         window.addEventListener('error', function(e) {
@@ -32,10 +28,24 @@
             const root = document.getElementById('app-root');
             if(root) root.innerHTML = '<p style="color:red; padding:20px;">Promesse rejetée : ' + e.reason + '</p>';
         });
+
+        // Supprimer toutes les données au chargement
+        // localStorage.clear();
+        // sessionStorage.clear();
+        
+        // Supprimer toutes les bases IndexedDB
+        async function clearAllDatabases() {
+            const dbs = await window.indexedDB.databases();
+            dbs.forEach(db => {
+                window.indexedDB.deleteDatabase(db.name);
+            });
+        }
+        // clearAllDatabases(); // Décommenter pour vider les DBs 
+        
         // Pas de setTimeout de secours ici
     </script>
     <script type="module">
-        import { Bootstrap } from './src/core/Bootstrap.js?v=44';
+        import { Bootstrap } from './src/core/Bootstrap.js?v=46';
         
         window.addEventListener('DOMContentLoaded', async () => {
             if ('serviceWorker' in navigator) {
