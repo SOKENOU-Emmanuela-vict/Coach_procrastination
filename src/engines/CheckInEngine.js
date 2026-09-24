@@ -48,12 +48,12 @@ export class CheckInEngine {
                        await this.planningEngine.getEventsForDate(dateStr) || [];
         
         let dailyPlan = { sessions: [] };
-        if (context && context.preloadedBootcamp && context.preloadedBootcamp[dateStr]) {
-             dailyPlan = context.preloadedBootcamp[dateStr];
+        if (context && context.preloadedPlans && context.preloadedPlans[dateStr]) {
+            dailyPlan = context.preloadedPlans[dateStr];
         } else if (this.schedulerEngine && typeof this.schedulerEngine.generateDailyPlan === 'function') {
              dailyPlan = await this.schedulerEngine.generateDailyPlan(dateStr);
         }
-        const bootcampSessions = dailyPlan.sessions || [];
+        const scheduledSessions = dailyPlan.sessions || [];
 
         // Deduplication rule: IDs are strictly distinct. A Set ensures no duplicate references.
         const plannedMap = new Map();
@@ -73,14 +73,14 @@ export class CheckInEngine {
             }
         });
 
-        bootcampSessions.forEach(s => {
+        scheduledSessions.forEach(s => {
             if (!plannedMap.has(s.id)) {
                 plannedMap.set(s.id, {
                     id: s.id,
                     title: s.title,
                     type: 'session',
                     plannedDuration: s.expectedDuration || 0,
-                    source: 'bootcamp',
+                    source: 'scheduler',
                     skillId: s.skillId
                 });
             }

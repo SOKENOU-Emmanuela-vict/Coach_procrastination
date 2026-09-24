@@ -6,8 +6,6 @@ import { PlanningView } from '../ui/PlanningView.js?v=99';
 import { FocusView } from '../ui/FocusView.js?v=10';
 import { BilanView } from '../ui/BilanView.js?v=4';
 import { PortfolioView } from '../ui/PortfolioView.js?v=5';
-import { ProgramView } from '../ui/ProgramView.js?v=6';
-import { AgentView } from '../ui/AgentView.js';
 import { WeeklyView } from '../ui/WeeklyView.js';
 import { CoachChatView } from '../ui/CoachChatView.js';
 import { LifeView } from '../ui/LifeView.js?v=99';
@@ -27,8 +25,6 @@ export class Router {
             focus: new FocusView(containerId, app),
             bilan: new BilanView(containerId, app),
             portfolio: new PortfolioView(containerId, app),
-            program: new ProgramView(containerId, app),
-            agent: new AgentView(containerId, app),
             weekly: new WeeklyView(containerId, app),
             chat: new CoachChatView(containerId, app)
         };
@@ -44,7 +40,6 @@ export class Router {
             }
             if (viewName === 'bilan') data = { summary: state.dailySummary, checkIn: state.todayCheckIn, stats: state.dailyStats };
             if (viewName === 'portfolio') data = state;
-            if (viewName === 'program') data = state.fullProgram;
             if (viewName === 'desktop') data = state;
             if (viewName === 'calendar') data = state;
             if (viewName === 'academic') data = state;

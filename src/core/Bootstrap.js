@@ -3,7 +3,6 @@ import { SchedulerEngine } from '../engines/SchedulerEngine.js?v=11';
 import { StudyRecordEngine } from '../engines/StudyRecordEngine.js';
 import { CheckInEngine } from '../engines/CheckInEngine.js';
 import { CoachOrchestrator } from '../ai/CoachOrchestrator.js';
-import { AIGeneratorEngine } from '../engines/AIGeneratorEngine.js';
 import { AcademicEngine } from '../engines/AcademicEngine.js';
 import { AcademicSeeder } from '../data/AcademicSeeder.js';
 import { App } from './App.js?v=15';
@@ -15,7 +14,7 @@ export class Bootstrap {
     static async init() {
         AppLogger.info("Démarrage du Bootstrap du Learning OS...");
         
-        let storage, scheduler, studyRecordEngine, checkInEngine, aiEngine, weeklyReviewEngine, chatHistoryEngine;
+        let storage, scheduler, studyRecordEngine, checkInEngine, weeklyReviewEngine, chatHistoryEngine;
         
         try {
             storage = new IndexedDBProvider();
@@ -38,12 +37,11 @@ export class Bootstrap {
                 AppLogger.info("Migration to IndexedDB complete!");
             }
             
-            const savedVersion = await storage.loadData('bootcamp_program_version');
-            if (savedVersion !== "2.8_eloquence_no_ted") {
-                await storage.clearData('bootcamp_program');
-                await storage.saveData('bootcamp_program_version', "2.8_eloquence_no_ted");
-                AppLogger.info("Cache du programme purgé (v2.8 : TED complètement remplacé par Storytelling en français) !");
-            }
+            // Nettoyage de l'ancien cache bootcamp (si encore présent sur la machine de l'utilisateur)
+            await storage.clearData('bootcamp_program');
+            await storage.clearData('bootcamp_program_version');
+            await storage.clearData('bootcamp_offset');
+            await storage.clearData('bootcamp_start_date');
 
             // Nettoyage des fausses notes générées par erreur (si présentes)
             const grades = await storage.loadData('acad_grades');
@@ -112,14 +110,10 @@ export class Bootstrap {
         } catch (e) { AppLogger.error("Erreur WeeklyReview: " + e.message); }
         
         try {
-            aiEngine = new AIGeneratorEngine(storage);
-        } catch (e) { AppLogger.error("Erreur AI: " + e.message); }
-        
-        try {
             chatHistoryEngine = new ChatHistoryEngine(storage);
         } catch (e) { AppLogger.error("Erreur ChatHistory: " + e.message); }
         
-        if (!storage || !scheduler || !studyRecordEngine || !checkInEngine || !aiEngine || !chatHistoryEngine) {
+        if (!storage || !scheduler || !studyRecordEngine || !checkInEngine || !chatHistoryEngine) {
             console.error("Erreur critique: Moteurs non initialisés.");
             return;
         }
@@ -133,7 +127,7 @@ export class Bootstrap {
             await seeder.seed();
         } catch (e) { AppLogger.error("Erreur Seeder: " + e.message); }
         
-        const app = new App(storage, scheduler, studyRecordEngine, checkInEngine, aiEngine, weeklyReviewEngine, chatHistoryEngine);
+        const app = new App(storage, scheduler, studyRecordEngine, checkInEngine, null, weeklyReviewEngine, chatHistoryEngine);
         try {
             await app.start();
         } catch (err) {

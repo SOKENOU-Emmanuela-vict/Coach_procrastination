@@ -9,7 +9,7 @@ export class PortfolioView {
         const report = state.monthlyReport || {
             month: new Date().getMonth() + 1,
             year: new Date().getFullYear(),
-            summary: "Bootcamp intensif en cours. Progression constante sur 4 semaines.",
+            summary: "Progression constante sur 4 semaines.",
             totalHours: 0,
             daysActive: 0,
             avgQuality: 4.0,
@@ -79,7 +79,7 @@ export class PortfolioView {
                             </div>` : ''}
 
                             <div style="margin-top: 10px; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
-                                <span style="font-size: 12px; color: #88a7b7;">Origine : <strong style="color:#e0e0e0;">${p.source || 'Séance du Bootcamp'}</strong></span>
+                                <span style="font-size: 12px; color: #88a7b7;">Origine : <strong style="color:#e0e0e0;">${p.source || 'Séance'}</strong></span>
                                 ${p.url ? `<a href="${p.url}" target="_blank" style="background: #00f2fe; color: #0f2027; padding: 5px 12px; border-radius: 15px; font-size: 12px; font-weight: bold; text-decoration: none;">🔗 Voir le lien officiel →</a>` : ''}
                             </div>
                         </div>`;
@@ -180,11 +180,11 @@ export class PortfolioView {
             <div style="background: linear-gradient(135deg, #152b36 0%, #0c1921 100%); border: 2px solid #00f2fe; border-radius: 15px; padding: 20px; margin-bottom: 25px; box-shadow: 0 8px 25px rgba(0,0,0,0.4);">
                 <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:15px; border-bottom:1px solid #2a5268; padding-bottom:15px; margin-bottom:15px;">
                     <div>
-                        <h3 style="color:#00f2fe; margin:0; font-size:18px;">🎓 Cohorte Force-N 2026 — Bootcamp 4 Semaines</h3>
+                        <h3 style="color:#00f2fe; margin:0; font-size:18px;">🎓 Programme d'Apprentissage Personnel</h3>
                         <p style="color:#e0e0e0; font-size:13px; margin:4px 0 0 0;">${report.summary}</p>
                     </div>
                     <div style="display:flex; gap:8px; flex-wrap:wrap;">
-                        <span style="background:#0f2027; color:#00f2fe; border:1px solid #00f2fe; padding:6px 12px; border-radius:20px; font-size:12px; font-weight:bold;">🚀 Bootcamp Actif</span>
+                        <span style="background:#0f2027; color:#00f2fe; border:1px solid #00f2fe; padding:6px 12px; border-radius:20px; font-size:12px; font-weight:bold;">🚀 Session Active</span>
                         <span style="background:#0f2027; color:#ff9800; border:1px solid #ff9800; padding:6px 12px; border-radius:20px; font-size:12px; font-weight:bold;">🎓 Force-N</span>
                     </div>
                 </div>
@@ -296,7 +296,7 @@ export class PortfolioView {
         if (btnExport) {
             btnExport.addEventListener('click', async () => {
                 try {
-                    const dbKeys = ['study_history', 'user_profile', 'daily_checkins', 'bootcamp_program_version'];
+                    const dbKeys = ['study_history', 'user_profile', 'daily_checkins'];
                     const exportData = {};
                     for (const key of dbKeys) {
                         exportData[key] = await this.app.storage.loadData(key);

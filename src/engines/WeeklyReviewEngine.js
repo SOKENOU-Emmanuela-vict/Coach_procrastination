@@ -19,7 +19,7 @@ export class WeeklyReviewEngine {
 
         const preloadedCheckIns = await this.checkInEngine.getCheckIns(startDateStr, endDateStr);
 
-        const preloadedBootcamp = {};
+        const preloadedPlans = {};
         
         let currentDate = new Date(startDateStr + 'T12:00:00Z');
         const end = new Date(endDateStr + 'T12:00:00Z');
@@ -29,7 +29,7 @@ export class WeeklyReviewEngine {
             const dStr = currentDate.toISOString().split('T')[0];
             dates.push(dStr);
             if (this.schedulerEngine && typeof this.schedulerEngine.generateDailyPlan === 'function') {
-                preloadedBootcamp[dStr] = await this.schedulerEngine.generateDailyPlan(dStr);
+                preloadedPlans[dStr] = await this.schedulerEngine.generateDailyPlan(dStr);
             }
             currentDate.setDate(currentDate.getDate() + 1);
         }
@@ -38,7 +38,7 @@ export class WeeklyReviewEngine {
             preloadedEvents,
             preloadedHistory,
             preloadedCheckIns,
-            preloadedBootcamp
+            preloadedPlans
         };
 
         // 2. Build Daily Summaries

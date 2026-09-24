@@ -128,9 +128,6 @@ export class DashboardView {
                 <button id="btn-open-weekly" style="background: linear-gradient(90deg, #4caf50, #8bc34a); color: #0f2027; border: none; padding: 12px 20px; border-radius: 20px; font-weight: bold; cursor: pointer; box-shadow: 0 4px 15px rgba(76,175,80,0.4); width: 100%; margin-bottom: 15px;">
                     📊 Voir ma Weekly Review
                 </button>
-                <button id="btn-open-agent" style="background: linear-gradient(90deg, #ff9800, #ff5722); color: white; border: none; padding: 12px 20px; border-radius: 20px; font-weight: bold; cursor: pointer; box-shadow: 0 4px 15px rgba(255,152,0,0.4); width: 100%;">
-                    🤖 Créer un nouveau Bootcamp via IA
-                </button>
             </div>
         `;
         
@@ -141,15 +138,6 @@ export class DashboardView {
         if (btnPlan) btnPlan.addEventListener('click', () => this.app.renderView('planning'));
         const btnPlanTop = document.getElementById('btn-dash-plan-top');
         if (btnPlanTop) btnPlanTop.addEventListener('click', () => this.app.renderView('planning'));
-        
-        const btnAgent = document.getElementById('btn-open-agent');
-        if (btnAgent) {
-            btnAgent.addEventListener('click', () => {
-                if (confirm("Générer un nouveau Bootcamp écrasera votre programme actuel (mais pas votre historique). Continuer ?")) {
-                    this.app.renderView('agent');
-                }
-            });
-        }
         
         const acceptBtns = this.container.querySelectorAll('[data-action="accept-coach-event"]');
         acceptBtns.forEach(btn => {
