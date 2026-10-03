@@ -20,33 +20,34 @@ body {
    1. THEME CYBER (Bureau - Option B)
    ========================================================= */
 body.theme-cyber {
-    --bg-main: #0b1120;
-    --bg-sidebar: #0f172a;
-    --bg-card: rgba(30, 41, 59, 0.7);
+    --bg-main: #0a0f1c; /* Very dark navy background */
+    --bg-sidebar: #0a0f1c; /* Same as background, but sidebar might have subtle right border */
+    --bg-card: #151e2f; /* Dark slate card background */
     --text-main: #f8fafc;
     --text-muted: #94a3b8;
-    --border-color: #334155;
-    --accent-primary: #0ea5e9; /* Cyan/Neon blue */
+    --border-color: #1e293b;
+    --accent-primary: #0ea5e9; /* Cyan */
     --accent-secondary: #8b5cf6;
-    --shadow-card: 0 4px 20px rgba(0, 0, 0, 0.5);
+    --shadow-card: 0 4px 15px rgba(0, 0, 0, 0.3);
     
-    background: var(--bg-main);
+    background: radial-gradient(circle at top, #0f172a 0%, var(--bg-main) 100%);
+    background-attachment: fixed;
     color: var(--text-main);
 }
 
 /* =========================================================
-   2. THEME LIGHT (School - Option A)
+   2. THEME LIGHT (School & Planning - Option A)
    ========================================================= */
 body.theme-light {
-    --bg-main: #f8f9fa;
+    --bg-main: #f0f4f8; /* Soft light blue/grey background */
     --bg-sidebar: #ffffff;
     --bg-card: #ffffff;
     --text-main: #1f2937;
-    --text-muted: #6b7280;
-    --border-color: #e5e7eb;
-    --accent-primary: #14b8a6; /* Soft Teal */
+    --text-muted: #64748b;
+    --border-color: #e2e8f0;
+    --accent-primary: #0ea5e9; /* Cyan/Blue */
     --accent-secondary: #f43f5e;
-    --shadow-card: 0 2px 10px rgba(0, 0, 0, 0.05);
+    --shadow-card: 0 4px 15px rgba(0, 0, 0, 0.03);
 
     background: var(--bg-main);
     color: var(--text-main);

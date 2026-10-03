@@ -8,15 +8,15 @@ Il repose sur la Clean Architecture et le principe de responsabilité unique (SO
 ```mermaid
 graph TD
     User((Utilisateur)) -->|App interactions| UI[UI Views]
-    Bootstrap --> Storage[StorageProvider]
+    Bootstrap --> Storage[IndexedDBProvider]
     Bootstrap --> Engines[Core Engines]
     
     UI --> Scheduler[SchedulerEngine]
     Scheduler -->|Generates| Session[Session]
     Session --> Focus[FocusView]
     Focus -->|Completes| Record[StudyRecord]
-    Record --> XP[XPEngine]
-    XP -->|Updates| Skill[Skill Level]
+    Record --> StudyEngine[StudyRecordEngine]
+    StudyEngine -->|Updates| Skill[Skill Level]
     Record --> Storage
 ```
 
@@ -41,20 +41,20 @@ graph TD
 
 ## Contrats des Moteurs (Engines)
 ### SchedulerEngine
-- **Entrées** : `bootcamp.json`, `events.json`, état des sessions précédentes.
+- **Entrées** : `events.json`, état des sessions précédentes.
 - **Sorties** : Liste ordonnée de `Session` pour la journée en cours.
 - **Responsabilités** : Générer le planning du jour.
 - **Ne fait PAS** : N'optimise pas l'énergie (c'est le rôle futur de `OptimizerEngine`), ne stocke pas les données.
 
-### XPEngine
+### StudyRecordEngine
 - **Entrées** : Object `StudyRecord`.
-- **Sorties** : Nombre entier (XP).
-- **Responsabilités** : Appliquer la formule `baseXP × difficulty × completionRate × quality × streakBonus`.
-- **Ne fait PAS** : Ne met pas à jour le profil User directement (retourne juste la valeur brute).
+- **Sorties** : Validation et intégration des données d'étude.
+- **Responsabilités** : Suivre les performances académiques.
+- **Ne fait PAS** : Ne génère pas d'alertes UI directement.
 
 ## Gestion de l'État (State Management)
-Pour le MVP, l'état global vit dans le navigateur et est géré par le `StorageProvider` (via `LocalStorage`). 
-Le fichier central `Bootstrap.js` charge l'état au démarrage, initialise les moteurs, puis injecte l'état dans les vues (ex: `DashboardView`).
+Pour le projet actuel, l'état global vit dans le navigateur et est géré par le `IndexedDBProvider` (migré depuis `LocalStorage`). 
+Le fichier central `Bootstrap.js` charge l'état au démarrage, initialise les moteurs, puis injecte l'état dans les vues (ex: `DesktopView`).
 
 ## Critères de Réussite du MVP (V1.0)
 La V1 sera considérée comme terminée et livrable quand :

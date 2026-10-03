@@ -5,7 +5,7 @@ import { CheckInEngine } from '../engines/CheckInEngine.js';
 import { CoachOrchestrator } from '../ai/CoachOrchestrator.js';
 import { AcademicEngine } from '../engines/AcademicEngine.js';
 import { AcademicSeeder } from '../data/AcademicSeeder.js';
-import { App } from './App.js?v=15';
+import { App } from './App.js?v=19';
 import { AppLogger } from '../utils/AppLogger.js';
 import { WeeklyReviewEngine } from '../engines/WeeklyReviewEngine.js';
 import { ChatHistoryEngine } from '../engines/ChatHistoryEngine.js';
@@ -93,10 +93,7 @@ export class Bootstrap {
             scheduler = new SchedulerEngine(storage);
         } catch (e) { AppLogger.error("Erreur Scheduler: " + e.message); }
         
-        try {
-            scheduler = new SchedulerEngine(storage);
-        } catch (e) { AppLogger.error("Erreur Scheduler: " + e.message); }
-        
+
         try {
             studyRecordEngine = new StudyRecordEngine(storage);
         } catch (e) { AppLogger.error("Erreur StudyRecord: " + e.message); }

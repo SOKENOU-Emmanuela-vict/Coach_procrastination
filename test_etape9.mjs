@@ -34,7 +34,8 @@ const createMockContainer = () => {
 global.document = {
     getElementById: () => currentMockContainer,
     querySelectorAll: () => [],
-    querySelector: () => ({ classList: { add:()=>{}, remove:()=>{} } })
+    querySelector: () => ({ classList: { add:()=>{}, remove:()=>{} } }),
+    body: { className: '', classList: { add: () => {}, remove: () => {} } }
 };
 
 async function runEtape9Tests() {

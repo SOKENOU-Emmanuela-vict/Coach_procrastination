@@ -16,7 +16,9 @@ export class CalendarView {
     }
     
     render(state) {
-        document.body.className = 'theme-cyber'; 
+        if (typeof document !== 'undefined' && document.body) {
+            document.body.className = 'theme-glass'; 
+        }
         
         const events = state.calendarData?.events || [];
         const projects = state.calendarData?.projects || [];
@@ -56,12 +58,27 @@ export class CalendarView {
                 </div>
             </div>
 
-            <div style="display:flex; flex-direction:column; gap:10px; margin-bottom:40px;">
-                <div style="display:flex; align-items:center; gap:15px; padding:12px 15px; background:rgba(255,255,255,0.1); color:#fff; border-radius:10px; cursor:pointer;">
-                    <i class="bi bi-calendar-check"></i> <span style="font-size:14px; font-weight:500;">Événements</span>
+            <div style="display:flex; flex-direction:column; gap:5px; flex-grow:1; margin-bottom:40px;">
+                <div class="bureau-nav-item" data-view="desktop" style="display:flex; align-items:center; gap:15px; padding:12px 15px; color:rgba(255,255,255,0.6); border-radius:10px; cursor:pointer; transition:all 0.2s;">
+                    <i class="bi bi-house-door"></i> <span style="font-size:14px; font-weight:500;">Bureau</span>
+                </div>
+                <div class="bureau-nav-item active" data-view="calendar" style="display:flex; align-items:center; gap:15px; padding:12px 15px; background:rgba(255,255,255,0.1); color:#fff; border-radius:10px; cursor:pointer;">
+                    <i class="bi bi-calendar-event"></i> <span style="font-size:14px; font-weight:500;">Événements</span>
                 </div>
                 <div class="bureau-nav-item" data-view="planning" style="display:flex; align-items:center; gap:15px; padding:12px 15px; color:rgba(255,255,255,0.6); border-radius:10px; cursor:pointer; transition:all 0.2s;">
-                    <i class="bi bi-clock-history"></i> <span style="font-size:14px; font-weight:500;">Planning (Hebdo)</span>
+                    <i class="bi bi-calendar3"></i> <span style="font-size:14px; font-weight:500;">Planning</span>
+                </div>
+                <div class="bureau-nav-item" data-view="academic" style="display:flex; align-items:center; gap:15px; padding:12px 15px; color:rgba(255,255,255,0.6); border-radius:10px; cursor:pointer; transition:all 0.2s;">
+                    <i class="bi bi-mortarboard"></i> <span style="font-size:14px; font-weight:500;">School</span>
+                </div>
+                <div class="bureau-nav-item" data-view="languages" style="display:flex; align-items:center; gap:15px; padding:12px 15px; color:rgba(255,255,255,0.6); border-radius:10px; cursor:pointer; transition:all 0.2s;">
+                    <i class="bi bi-globe"></i> <span style="font-size:14px; font-weight:500;">Langues</span>
+                </div>
+                <div class="bureau-nav-item" data-view="life" style="display:flex; align-items:center; gap:15px; padding:12px 15px; color:rgba(255,255,255,0.6); border-radius:10px; cursor:pointer; transition:all 0.2s;">
+                    <i class="bi bi-star"></i> <span style="font-size:14px; font-weight:500;">Projets</span>
+                </div>
+                <div class="bureau-nav-item" data-view="chat" style="display:flex; align-items:center; gap:15px; padding:12px 15px; color:rgba(255,255,255,0.6); border-radius:10px; cursor:pointer; transition:all 0.2s;">
+                    <i class="bi bi-robot"></i> <span style="font-size:14px; font-weight:500;">Coach</span>
                 </div>
             </div>
 

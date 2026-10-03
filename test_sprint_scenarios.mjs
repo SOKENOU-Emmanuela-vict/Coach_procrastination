@@ -61,8 +61,10 @@ async function runTests() {
     // Setup Mock Environment
     global.window = {};
     global.document = {
-        getElementById: () => ({ innerHTML: '', addEventListener: () => {} }),
-        body: { className: '' }
+        getElementById: () => ({ innerHTML: '', addEventListener: () => {}, querySelectorAll: () => [], querySelector: () => ({ addEventListener: () => {} }) }),
+        body: { className: '', classList: { add: () => {}, remove: () => {} } },
+        querySelectorAll: () => [],
+        querySelector: () => ({ classList: { add:()=>{}, remove:()=>{} } })
     };
 
     const storage = new MockStorage();

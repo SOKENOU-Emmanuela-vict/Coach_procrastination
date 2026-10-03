@@ -19,8 +19,10 @@ async function runTest() {
     // 1. Initialiser le DOM virtuel de base
     global.window = {};
     global.document = {
-        getElementById: () => ({ innerHTML: '', addEventListener: () => {} }),
-        body: { className: '' }
+        getElementById: () => ({ innerHTML: '', addEventListener: () => {}, querySelectorAll: () => [], querySelector: () => ({ addEventListener: () => {} }) }),
+        body: { className: '', classList: { add: () => {}, remove: () => {} } },
+        querySelectorAll: () => [],
+        querySelector: () => ({ classList: { add:()=>{}, remove:()=>{} } })
     };
 
     // 2. Initialiser l'App avec des mocks

@@ -5,7 +5,9 @@ export class DesktopView {
     }
 
     render(state) {
-        document.body.className = 'theme-cyber';
+        if (typeof document !== 'undefined' && document.body) {
+            document.body.className = 'theme-cyber';
+        }
         const userName = state.userProfile?.name || 'Mathieu';
         
         // Obtenir la date en format long (ex: Lundi 23 Juin 2026)
@@ -23,45 +25,34 @@ export class DesktopView {
         </div>
         
         <!-- ONGLETS -->
-        <div style="display:flex; flex-direction:column; gap:15px; flex-grow:1;">
-            <div class="bureau-nav-item active" data-view="desktop">
-                <span class="nav-icon">🏠</span> Bureau
+        <div style="display:flex; flex-direction:column; gap:5px; flex-grow:1; padding-right:15px;">
+            <div class="bureau-nav-item active" data-view="desktop" style="display:flex; align-items:center; gap:12px; cursor:pointer; background:rgba(14, 165, 233, 0.1); border-left:4px solid var(--accent-primary); border-radius:0 8px 8px 0; padding:12px 15px 12px 11px; color:var(--text-main); font-weight:600;">
+                <i class="bi bi-house-door" style="font-size:18px; color:var(--accent-primary);"></i> Bureau
             </div>
-            <div class="bureau-nav-item" data-view="planning">
-                <span class="nav-icon">📅</span> Planning
+            <div class="bureau-nav-item" data-view="planning" style="display:flex; align-items:center; gap:12px; cursor:pointer; padding:12px 15px; color:var(--text-muted); font-weight:500;">
+                <i class="bi bi-calendar3" style="font-size:18px;"></i> Planning
             </div>
-            <div class="bureau-nav-item" data-view="academic">
-                <span class="nav-icon">🎓</span> School
+            <div class="bureau-nav-item" data-view="academic" style="display:flex; align-items:center; gap:12px; cursor:pointer; padding:12px 15px; color:var(--text-muted); font-weight:500;">
+                <i class="bi bi-mortarboard" style="font-size:18px;"></i> School
             </div>
-            <div class="bureau-nav-item" data-view="languages">
-                <span class="nav-icon">🌐</span> Langues
+            <div class="bureau-nav-item" data-view="languages" style="display:flex; align-items:center; gap:12px; cursor:pointer; padding:12px 15px; color:var(--text-muted); font-weight:500;">
+                <i class="bi bi-globe" style="font-size:18px;"></i> Langues
             </div>
-            <div class="bureau-nav-item" data-view="life">
-                <span class="nav-icon">🌟</span> Projets
+            <div class="bureau-nav-item" data-view="life" style="display:flex; align-items:center; gap:12px; cursor:pointer; padding:12px 15px; color:var(--text-muted); font-weight:500;">
+                <i class="bi bi-star" style="font-size:18px;"></i> Life
             </div>
-            <!-- Ressources transversal n'est plus une vue complète, mais on le garde visuellement -->
-            <div class="bureau-nav-item" data-view="ressources">
-                <span class="nav-icon">📚</span> Ressources
-            </div>
-            <div class="bureau-nav-item" data-view="chat">
-                <span class="nav-icon">🤖</span> Coach
-            </div>
-            <div class="bureau-nav-item" data-view="objectifs">
-                <span class="nav-icon">🎯</span> Objectifs
-            </div>
-            <div class="bureau-nav-item" data-view="parametres" style="margin-top:auto;">
-                <span class="nav-icon">⚙️</span> Paramètres
+            <div class="bureau-nav-item" data-view="chat" style="display:flex; align-items:center; gap:12px; cursor:pointer; padding:12px 15px; color:var(--text-muted); font-weight:500;">
+                <i class="bi bi-robot" style="font-size:18px;"></i> Coach
             </div>
         </div>
-        
         <!-- WIDGET XP -->
         <div style="background:var(--bg-card); padding:15px; border-radius:12px; margin-top:20px;">
             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
-                <span style="font-size:12px; font-weight:bold;">Niveau 12</span>
-                <span style="font-size:10px; color:var(--text-muted);">1245 / 5000 XP</span>
+                <span style="font-size:12px; font-weight:bold;">Niveau ${state.userProfile?.gamification?.level || 1}</span>
+                <span style="font-size:10px; color:var(--text-muted);">${state.userProfile?.gamification?.xp || 0} / ${state.userProfile?.gamification?.nextLevelXp || 1000} XP</span>
             </div>
             <div style="height:6px; background:var(--border-color); border-radius:3px; overflow:hidden;">
-                <div style="height:100%; width:25%; background:var(--accent-primary); border-radius:3px;"></div>
+                <div style="height:100%; width:${Math.min(100, ((state.userProfile?.gamification?.xp || 0) / (state.userProfile?.gamification?.nextLevelXp || 1000)) * 100)}%; background:var(--accent-primary); border-radius:3px;"></div>
             </div>
         </div>
     </div>
@@ -96,63 +87,96 @@ export class DesktopView {
             <!-- ROW 1 -->
             <!-- Session en cours -->
             <div class="bureau-card" style="background: linear-gradient(135deg, var(--accent-primary), #0a1128); color:white; display:flex; flex-direction:column; justify-content:space-between;">
-                <div>
-                    <span style="font-size:12px; text-transform:uppercase; letter-spacing:1px; opacity:0.8;">Session en cours</span>
-                    <h3 style="margin:10px 0 5px 0; font-size:20px;">Anglais (Grammaire)</h3>
-                    <span style="font-size:14px; opacity:0.8;">45 min restantes</span>
-                </div>
-                <div style="display:flex; align-items:center; gap:15px; margin-top:20px;">
-                    <button style="background:white; color:var(--accent-primary); border:none; padding:10px 20px; border-radius:8px; font-weight:bold; cursor:pointer; flex-grow:1;">
-                        Voir le cours
-                    </button>
-                    <button style="background:rgba(255,255,255,0.2); color:white; border:none; width:40px; height:40px; border-radius:8px; display:flex; align-items:center; justify-content:center; cursor:pointer;">
-                        ▶
-                    </button>
-                </div>
+                ${(() => {
+                    const now = new Date();
+                    const currentDateStr = now.toLocaleDateString('fr-CA');
+                    const currentTimeStr = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
+                    const todayEvents = (state.calendarData?.events || []).filter(e => e.date === currentDateStr);
+                    let currentEvent = null;
+                    todayEvents.forEach(e => {
+                        if (!e.startTime) return;
+                        const startH = parseInt(e.startTime.split(':')[0]);
+                        const startM = parseInt(e.startTime.split(':')[1] || 0);
+                        let endH = startH + 1, endM = startM;
+                        if (e.endTime) {
+                            endH = parseInt(e.endTime.split(':')[0]);
+                            endM = parseInt(e.endTime.split(':')[1] || 0);
+                        } else if (e.targetDuration) {
+                            const totalM = startM + e.targetDuration;
+                            endH = startH + Math.floor(totalM / 60);
+                            endM = totalM % 60;
+                        }
+                        const endTimeStr = `${endH.toString().padStart(2, '0')}:${endM.toString().padStart(2, '0')}`;
+                        if (e.startTime <= currentTimeStr && endTimeStr > currentTimeStr) {
+                            currentEvent = { ...e, endTimeStr };
+                        }
+                    });
+
+                    if (currentEvent) {
+                        return `
+                        <div>
+                            <span style="font-size:12px; text-transform:uppercase; letter-spacing:1px; opacity:0.8;">Session en cours</span>
+                            <h3 style="margin:10px 0 5px 0; font-size:20px;">${currentEvent.title || currentEvent.type}</h3>
+                            <span style="font-size:14px; opacity:0.8;">${currentEvent.startTime} - ${currentEvent.endTimeStr}</span>
+                        </div>
+                        <div style="display:flex; align-items:center; gap:15px; margin-top:20px;">
+                            <button id="btn-desktop-course" style="background:white; color:var(--accent-primary); border:none; padding:10px 20px; border-radius:8px; font-weight:bold; cursor:pointer; flex-grow:1;">
+                                Continuer
+                            </button>
+                        </div>`;
+                    }
+                    return `
+                        <div>
+                            <span style="font-size:12px; text-transform:uppercase; letter-spacing:1px; opacity:0.8;">Repos</span>
+                            <h3 style="margin:10px 0 5px 0; font-size:20px;">Aucune session en cours</h3>
+                        </div>
+                    `;
+                })()}
             </div>
 
             <!-- Prochains rendez-vous -->
             <div class="bureau-card">
-                <h3 style="margin:0 0 20px 0; font-size:16px;">Prochains rendez-vous</h3>
+                <h3 style="margin:0 0 20px 0; font-size:16px;">Prochains événements</h3>
                 <div style="display:flex; flex-direction:column; gap:15px;">
-                    <div style="display:flex; gap:15px;">
-                        <div style="display:flex; flex-direction:column; align-items:center; min-width:40px;">
-                            <strong style="font-size:14px;">11:00</strong>
-                            <span style="font-size:12px; color:var(--text-muted);">13:00</span>
-                        </div>
-                        <div style="border-left:2px solid var(--accent-primary); padding-left:15px;">
-                            <strong style="font-size:14px;">Algèbre linéaire</strong>
-                            <div style="font-size:12px; color:var(--text-muted); margin-top:3px;">Amphi B</div>
-                        </div>
-                    </div>
-                    <div style="display:flex; gap:15px;">
-                        <div style="display:flex; flex-direction:column; align-items:center; min-width:40px;">
-                            <strong style="font-size:14px;">14:30</strong>
-                            <span style="font-size:12px; color:var(--text-muted);">16:00</span>
-                        </div>
-                        <div style="border-left:2px solid #84a98c; padding-left:15px;">
-                            <strong style="font-size:14px;">Projet de groupe JS</strong>
-                            <div style="font-size:12px; color:var(--text-muted); margin-top:3px;">Salle 124</div>
-                        </div>
-                    </div>
+                    ${(() => {
+                        const now = new Date();
+                        const currentDateStr = now.toLocaleDateString('fr-CA');
+                        const currentTimeStr = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
+                        const todayEvents = (state.calendarData?.events || []).filter(e => e.date === currentDateStr && e.startTime > currentTimeStr);
+                        todayEvents.sort((a, b) => (a.startTime || '').localeCompare(b.startTime || ''));
+                        
+                        if (todayEvents.length === 0) return '<div style="color:var(--text-muted); font-size:14px;">Aucun événement prévu.</div>';
+                        
+                        return todayEvents.slice(0, 3).map((e, i) => {
+                            const colors = ['var(--accent-primary)', '#84a98c', '#ef4444'];
+                            const color = colors[i % colors.length];
+                            return `
+                            <div style="display:flex; gap:15px;">
+                                <div style="display:flex; flex-direction:column; align-items:center; min-width:40px;">
+                                    <strong style="font-size:14px;">${e.startTime}</strong>
+                                </div>
+                                <div style="border-left:2px solid ${color}; padding-left:15px;">
+                                    <strong style="font-size:14px;">${e.title || e.type}</strong>
+                                </div>
+                            </div>`;
+                        }).join('');
+                    })()}
                 </div>
             </div>
 
-            <!-- 3 révisions -->
+            <!-- Résumé Académique -->
             <div class="bureau-card">
-                <h3 style="margin:0 0 20px 0; font-size:16px; color:#f43f5e;">⚠️ 3 révisions en retard</h3>
-                <div style="display:flex; flex-direction:column; gap:12px;">
-                    <div style="background:var(--bg-main); padding:10px 15px; border-radius:8px; display:flex; justify-content:space-between; align-items:center; border: 1px solid rgba(244, 63, 94, 0.2);">
-                        <strong style="font-size:14px;">Résistance des matériaux</strong>
-                        <span style="font-size:12px; color:#f43f5e; background:rgba(244,63,94,0.1); padding:3px 8px; border-radius:12px;">-2 jours</span>
+                <h3 style="margin:0 0 20px 0; font-size:16px; display:flex; align-items:center; gap:8px; color:var(--accent-primary);">
+                    <i class="bi bi-mortarboard"></i> Résumé Académique
+                </h3>
+                <div style="display:flex; flex-direction:column; gap:15px;">
+                    <div style="background:var(--bg-main); padding:15px; border-radius:8px; display:flex; justify-content:space-between; align-items:center; border: 1px solid var(--border-color);">
+                        <strong style="font-size:14px;">Moyenne Générale</strong>
+                        <span style="font-size:14px; color:var(--text-muted); font-weight:bold;">${state.academicSummary?.overallAverage ? state.academicSummary.overallAverage.toFixed(1) : '--'} / 20</span>
                     </div>
-                    <div style="background:var(--bg-main); padding:10px 15px; border-radius:8px; display:flex; justify-content:space-between; align-items:center; border: 1px solid rgba(244, 63, 94, 0.2);">
-                        <strong style="font-size:14px;">Physique quantique</strong>
-                        <span style="font-size:12px; color:#f43f5e; background:rgba(244,63,94,0.1); padding:3px 8px; border-radius:12px;">-1 jour</span>
-                    </div>
-                    <div style="background:var(--bg-main); padding:10px 15px; border-radius:8px; display:flex; justify-content:space-between; align-items:center; border: 1px solid rgba(244, 63, 94, 0.2);">
-                        <strong style="font-size:14px;">Bases de données SQL</strong>
-                        <span style="font-size:12px; color:#f43f5e; background:rgba(244,63,94,0.1); padding:3px 8px; border-radius:12px;">-1 jour</span>
+                    <div style="background:var(--bg-main); padding:15px; border-radius:8px; display:flex; justify-content:space-between; align-items:center; border: 1px solid var(--border-color);">
+                        <strong style="font-size:14px;">Crédits Validés</strong>
+                        <span style="font-size:14px; color:var(--text-muted); font-weight:bold;">${state.academicSummary?.earnedCredits || '--'} / ${state.academicSummary?.targetCredits || '--'}</span>
                     </div>
                 </div>
             </div>
@@ -162,38 +186,30 @@ export class DesktopView {
             <div class="bureau-card" style="grid-column: 1 / 3;">
                 <h3 style="margin:0 0 20px 0; font-size:16px;">Raccourcis</h3>
                 <div style="display:grid; grid-template-columns: repeat(4, 1fr); gap:15px;">
-                    <div style="display:flex; flex-direction:column; align-items:center; gap:8px; cursor:pointer; padding:15px; background:var(--bg-main); border-radius:12px; border:1px solid var(--border-color); transition:all 0.2s;">
-                        <span style="font-size:24px;">🧠</span>
-                        <span style="font-size:12px; font-weight:bold;">Anki</span>
-                    </div>
-                    <div style="display:flex; flex-direction:column; align-items:center; gap:8px; cursor:pointer; padding:15px; background:var(--bg-main); border-radius:12px; border:1px solid var(--border-color); transition:all 0.2s;">
-                        <span style="font-size:24px;">📓</span>
-                        <span style="font-size:12px; font-weight:bold;">Notion</span>
-                    </div>
-                    <div style="display:flex; flex-direction:column; align-items:center; gap:8px; cursor:pointer; padding:15px; background:var(--bg-main); border-radius:12px; border:1px solid var(--border-color); transition:all 0.2s;">
-                        <span style="font-size:24px;">🐙</span>
-                        <span style="font-size:12px; font-weight:bold;">GitHub</span>
-                    </div>
-                    <div style="display:flex; flex-direction:column; align-items:center; gap:8px; cursor:pointer; padding:15px; background:var(--bg-main); border-radius:12px; border:1px solid var(--border-color); transition:all 0.2s;">
-                        <span style="font-size:24px;">▶️</span>
-                        <span style="font-size:12px; font-weight:bold;">YouTube</span>
-                    </div>
-                    <div style="display:flex; flex-direction:column; align-items:center; gap:8px; cursor:pointer; padding:15px; background:var(--bg-main); border-radius:12px; border:1px solid var(--border-color); transition:all 0.2s;">
-                        <span style="font-size:24px;">🎨</span>
-                        <span style="font-size:12px; font-weight:bold;">Figma</span>
-                    </div>
-                    <div style="display:flex; flex-direction:column; align-items:center; gap:8px; cursor:pointer; padding:15px; background:var(--bg-main); border-radius:12px; border:1px solid var(--border-color); transition:all 0.2s;">
-                        <span style="font-size:24px;">🎵</span>
-                        <span style="font-size:12px; font-weight:bold;">Spotify</span>
-                    </div>
-                    <div style="display:flex; flex-direction:column; align-items:center; gap:8px; cursor:pointer; padding:15px; background:var(--bg-main); border-radius:12px; border:1px solid var(--border-color); transition:all 0.2s;">
-                        <span style="font-size:24px;">📁</span>
-                        <span style="font-size:12px; font-weight:bold;">Drive</span>
-                    </div>
-                    <div style="display:flex; flex-direction:column; align-items:center; justify-content:center; gap:8px; cursor:pointer; padding:15px; background:var(--bg-main); border-radius:12px; border:1px dashed var(--border-color); color:var(--text-muted); transition:all 0.2s;">
-                        <span style="font-size:20px;">+</span>
-                        <span style="font-size:12px;">Ajouter</span>
-                    </div>
+                    <a href="https://github.com" target="_blank" style="text-decoration:none; color:inherit;">
+                        <div style="display:flex; flex-direction:column; align-items:center; gap:8px; cursor:pointer; padding:15px; background:var(--bg-main); border-radius:12px; border:1px solid var(--border-color); transition:all 0.2s;">
+                            <i class="bi bi-github" style="font-size:24px;"></i>
+                            <span style="font-size:12px; font-weight:bold;">GitHub</span>
+                        </div>
+                    </a>
+                    <a href="https://youtube.com" target="_blank" style="text-decoration:none; color:inherit;">
+                        <div style="display:flex; flex-direction:column; align-items:center; gap:8px; cursor:pointer; padding:15px; background:var(--bg-main); border-radius:12px; border:1px solid var(--border-color); transition:all 0.2s;">
+                            <i class="bi bi-youtube" style="font-size:24px; color:#ff0000;"></i>
+                            <span style="font-size:12px; font-weight:bold;">YouTube</span>
+                        </div>
+                    </a>
+                    <a href="https://google.com" target="_blank" style="text-decoration:none; color:inherit;">
+                        <div style="display:flex; flex-direction:column; align-items:center; gap:8px; cursor:pointer; padding:15px; background:var(--bg-main); border-radius:12px; border:1px solid var(--border-color); transition:all 0.2s;">
+                            <i class="bi bi-browser-chrome" style="font-size:24px; color:#4285F4;"></i>
+                            <span style="font-size:12px; font-weight:bold;">Chrome</span>
+                        </div>
+                    </a>
+                    <a href="https://open.spotify.com" target="_blank" style="text-decoration:none; color:inherit;">
+                        <div style="display:flex; flex-direction:column; align-items:center; gap:8px; cursor:pointer; padding:15px; background:var(--bg-main); border-radius:12px; border:1px solid var(--border-color); transition:all 0.2s;">
+                            <i class="bi bi-spotify" style="font-size:24px; color:#1DB954;"></i>
+                            <span style="font-size:12px; font-weight:bold;">Spotify</span>
+                        </div>
+                    </a>
                 </div>
             </div>
 
@@ -201,27 +217,25 @@ export class DesktopView {
             <div class="bureau-card">
                 <h3 style="margin:0 0 20px 0; font-size:16px;">Progrès langues</h3>
                 <div style="display:flex; flex-direction:column; gap:20px; flex-grow:1; justify-content:center;">
-                    <div style="display:flex; align-items:center; gap:15px;">
-                        <div style="width:50px; height:50px; border-radius:50%; border:4px solid var(--accent-primary); display:flex; align-items:center; justify-content:center; font-weight:bold; font-size:14px;">65%</div>
-                        <div>
-                            <strong style="display:block; font-size:14px;">Anglais</strong>
-                            <span style="font-size:12px; color:var(--text-muted);">Niveau Intermédiaire B2</span>
-                        </div>
-                    </div>
-                    <div style="display:flex; align-items:center; gap:15px;">
-                        <div style="width:50px; height:50px; border-radius:50%; border:4px solid #84a98c; border-top-color:transparent; display:flex; align-items:center; justify-content:center; font-weight:bold; font-size:14px;">42%</div>
-                        <div>
-                            <strong style="display:block; font-size:14px;">Russe</strong>
-                            <span style="font-size:12px; color:var(--text-muted);">Niveau Débutant A2</span>
-                        </div>
-                    </div>
-                    <div style="display:flex; align-items:center; gap:15px;">
-                        <div style="width:50px; height:50px; border-radius:50%; border:4px solid #f43f5e; border-top-color:transparent; border-right-color:transparent; display:flex; align-items:center; justify-content:center; font-weight:bold; font-size:14px;">18%</div>
-                        <div>
-                            <strong style="display:block; font-size:14px;">Mandarin</strong>
-                            <span style="font-size:12px; color:var(--text-muted);">Niveau Débutant A1</span>
-                        </div>
-                    </div>
+                    ${(() => {
+                        const langNodes = (state.learningGraph?.nodes || []).filter(n => n.type === 'language' || n.category === 'language');
+                        if (langNodes.length === 0) {
+                            return '<div style="color:var(--text-muted); font-size:14px; text-align:center;">Aucune langue suivie.</div>';
+                        }
+                        return langNodes.slice(0, 3).map((l, i) => {
+                            const colors = ['var(--accent-primary)', '#84a98c', '#f43f5e'];
+                            const color = colors[i % colors.length];
+                            const prog = l.progress || 0;
+                            return `
+                            <div style="display:flex; align-items:center; gap:15px;">
+                                <div style="width:50px; height:50px; border-radius:50%; border:4px solid ${color}; border-top-color:${prog < 50 ? 'transparent' : color}; display:flex; align-items:center; justify-content:center; font-weight:bold; font-size:14px;">${prog}%</div>
+                                <div>
+                                    <strong style="display:block; font-size:14px;">${l.title || l.name}</strong>
+                                    <span style="font-size:12px; color:var(--text-muted);">Niveau ${l.level || 'Non défini'}</span>
+                                </div>
+                            </div>`;
+                        }).join('');
+                    })()}
                 </div>
             </div>
 
@@ -231,26 +245,40 @@ export class DesktopView {
                 <h3 style="margin:0 0 20px 0; font-size:16px;">Aujourd'hui</h3>
                 <div style="display:flex; gap:20px;">
                     <div style="background:var(--bg-main); padding:20px; border-radius:12px; flex:1; text-align:center; border:1px solid var(--border-color);">
-                        <strong style="font-size:32px; color:var(--accent-primary); display:block;">3</strong>
+                        <strong style="font-size:32px; color:var(--accent-primary); display:block;">${state.dailyPlan?.sessions?.length || 0}</strong>
                         <span style="font-size:12px; color:var(--text-muted); text-transform:uppercase;">Sessions</span>
                     </div>
                     <div style="background:var(--bg-main); padding:20px; border-radius:12px; flex:1; text-align:center; border:1px solid var(--border-color);">
-                        <strong style="font-size:32px; color:#10b981; display:block;">2<span style="font-size:16px;">h</span>45</strong>
-                        <span style="font-size:12px; color:var(--text-muted); text-transform:uppercase;">Travail</span>
+                        <strong style="font-size:32px; color:#10b981; display:block;">${(state.dailyPlan?.sessions || []).filter(s => s.completed).length}</strong>
+                        <span style="font-size:12px; color:var(--text-muted); text-transform:uppercase;">Complétées</span>
                     </div>
                 </div>
             </div>
 
-            <!-- Focus du jour -->
+            <!-- Life & Bien-être -->
             <div class="bureau-card">
-                <h3 style="margin:0 0 20px 0; font-size:16px;">Focus du jour</h3>
-                <div style="background:rgba(16, 185, 129, 0.1); border:1px solid rgba(16, 185, 129, 0.3); border-radius:12px; padding:20px; display:flex; align-items:center; gap:20px;">
-                    <div style="width:60px; height:60px; border-radius:50%; background:#10b981; color:white; display:flex; align-items:center; justify-content:center; font-size:24px; font-weight:bold;">
-                        2/3
+                <h3 style="margin:0 0 20px 0; font-size:16px;">Life & Bien-être</h3>
+                <div style="display:flex; flex-direction:column; gap:15px;">
+                    <div style="display:flex; justify-content:space-between; align-items:center;">
+                        <div style="display:flex; align-items:center; gap:10px;">
+                            <i class="bi bi-droplet-fill" style="color:#0ea5e9; font-size:20px;"></i>
+                            <span style="font-size:14px; font-weight:bold;">Hydratation</span>
+                        </div>
+                        <span style="font-size:14px; font-weight:bold; color:var(--accent-primary);">${state.todayCheckIn?.water ? state.todayCheckIn.water + 'L' : '-- / 2L'}</span>
                     </div>
-                    <div>
-                        <strong style="font-size:18px; display:block; margin-bottom:5px; color:#10b981;">Réviser Anglais</strong>
-                        <span style="font-size:14px; color:var(--text-muted);">Vous êtes sur la bonne voie, continuez !</span>
+                    <div style="height:6px; background:var(--bg-main); border-radius:3px; overflow:hidden;">
+                        <div style="height:100%; width:${state.todayCheckIn?.water ? Math.min(100, (state.todayCheckIn.water/2)*100) : 0}%; background:#0ea5e9; border-radius:3px;"></div>
+                    </div>
+                    
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-top:10px;">
+                        <div style="display:flex; align-items:center; gap:10px;">
+                            <i class="bi bi-moon-stars-fill" style="color:#8b5cf6; font-size:20px;"></i>
+                            <span style="font-size:14px; font-weight:bold;">Sommeil</span>
+                        </div>
+                        <span style="font-size:14px; font-weight:bold; color:var(--accent-primary);">${state.todayCheckIn?.sleep ? state.todayCheckIn.sleep + 'h' : '--'}</span>
+                    </div>
+                    <div style="height:6px; background:var(--bg-main); border-radius:3px; overflow:hidden;">
+                        <div style="height:100%; width:${state.todayCheckIn?.sleep ? Math.min(100, (state.todayCheckIn.sleep/8)*100) : 0}%; background:#8b5cf6; border-radius:3px;"></div>
                     </div>
                 </div>
             </div>
@@ -262,14 +290,13 @@ export class DesktopView {
                     <span style="font-size:20px;">🤖</span>
                 </div>
                 <div style="background:var(--bg-main); padding:15px; border-radius:12px; border-bottom-left-radius:2px; font-size:14px; line-height:1.5; color:var(--text-main); margin-bottom:15px; border:1px solid var(--border-color);">
-                    "Tu as fait un super boulot sur ton projet hier. Aujourd'hui, concentre-toi sur l'algèbre pour ne pas prendre de retard. Prêt ?"
+                    "${state.coachInsights?.dailyMessage || 'Salut ! Je suis là si tu as besoin d\'aide pour t\'organiser.'}"
                 </div>
                 <div style="display:flex; gap:10px;">
                     <input type="text" placeholder="Demander conseil..." style="flex:1; padding:10px 15px; border-radius:8px; border:1px solid var(--border-color); background:var(--bg-main); color:var(--text-main);">
-                    <button style="background:var(--accent-primary); color:white; border:none; padding:0 20px; border-radius:8px; cursor:pointer;">➔</button>
+                    <button class="bureau-nav-item" data-view="chat" style="background:var(--accent-primary); color:white; border:none; padding:0 20px; border-radius:8px; cursor:pointer;">➔</button>
                 </div>
             </div>
-
         </div>
     </div>
 </div>
@@ -286,5 +313,15 @@ export class DesktopView {
                 }
             });
         });
+
+        const btnCourse = this.container.querySelector('#btn-desktop-course');
+        if (btnCourse) {
+            btnCourse.addEventListener('click', () => {
+                // Pour la maquette : La session est "Anglais", on redirige vers l'espace Langues
+                if (this.app.router) {
+                    this.app.renderView('languages');
+                }
+            });
+        }
     }
 }

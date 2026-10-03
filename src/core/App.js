@@ -1,4 +1,4 @@
-import { Router } from './Router.js?v=9';
+import { Router } from './Router.js?v=10';
 import { AppLogger } from '../utils/AppLogger.js';
 import { LearningGraphEngine } from '../engines/LearningGraphEngine.js?v=2';
 import { ReflectionEngine } from '../engines/ReflectionEngine.js';
@@ -44,7 +44,6 @@ export class App {
             learningGraph: null,
             reflections: null,
             monthlyReport: null,
-            fullProgram: [],
             academicSummary: null,
             todayEvents: [],
             calendarData: {
@@ -63,8 +62,6 @@ export class App {
         this.setupNavigation();
         
         const localDate = new Date().toLocaleDateString('fr-CA');
-        
-        this.currentDayIndex = await this.scheduler.getDayIndex(localDate);
         
         const plan = await this.scheduler.generateDailyPlan(localDate);
         document.getElementById('app-root').innerHTML = '<p style="text-align:center;">Génération du planning... (Etape 2)</p>';
@@ -113,7 +110,6 @@ export class App {
         const dTodayLocal = new Date(localDate);
         this.state.monthlyReport = await this.studyRecordEngine.getMonthlyStats(dTodayLocal.getFullYear(), dTodayLocal.getMonth());
         this.state.allCheckins = await this.storage.loadData('daily_checkins') || {};
-        this.state.fullProgram = await this.scheduler.getFullProgram();
         
         // Données pour le Bureau (Desktop) et Espace Académique
         const semesterId = this.state.userProfile.currentSemesterId || null;
@@ -249,19 +245,21 @@ export class App {
         if (activeBtn) activeBtn.classList.add('active');
 
         // THEME MANAGEMENT
-        document.body.className = '';
-        if (viewName === 'desktop') {
-            document.body.classList.add('theme-cyber');
-        } else if (viewName === 'academic') {
-            document.body.classList.add('theme-light');
-        } else if (viewName === 'life') {
-            document.body.classList.add('theme-warm');
-        } else if (viewName === 'planning') {
-            document.body.classList.add('theme-teal');
-        } else if (viewName === 'calendar') {
-            document.body.classList.add('theme-glass');
-        } else {
-            document.body.classList.add('theme-cyber'); // Default fallback
+        if (typeof document !== 'undefined' && document.body && document.body.classList) {
+            document.body.className = '';
+            if (viewName === 'desktop') {
+                document.body.classList.add('theme-cyber');
+            } else if (viewName === 'academic') {
+                document.body.classList.add('theme-light');
+            } else if (viewName === 'life') {
+                document.body.classList.add('theme-warm');
+            } else if (viewName === 'planning') {
+                document.body.classList.add('theme-teal');
+            } else if (viewName === 'calendar') {
+                document.body.classList.add('theme-glass');
+            } else {
+                document.body.classList.add('theme-cyber'); // Default fallback
+            }
         }
         
         this.router.render(viewName, this.state);

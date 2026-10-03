@@ -7,55 +7,115 @@ export class CoachChatView {
     }
 
     render(messages) {
+        if (typeof document !== 'undefined' && document.body) {
+            document.body.className = 'theme-cyber';
+        }
         messages = messages || [];
         
         let html = `
-            <div style="max-width: 600px; margin: 0 auto; display: flex; flex-direction: column; height: 80vh; background: linear-gradient(135deg, #152b36 0%, #0c1921 100%); border: 1px solid #2a5268; border-radius: 12px; overflow: hidden; box-shadow: 0 8px 25px rgba(0,0,0,0.5);">
-                
-                <!-- Header -->
-                <div style="background: rgba(0, 242, 254, 0.1); padding: 15px 20px; border-bottom: 1px solid #2a5268; display: flex; justify-content: space-between; align-items: center;">
-                    <div>
-                        <h2 style="color: #00f2fe; margin: 0; font-size: 20px;">🤖 Coach IA</h2>
-                        <div style="font-size: 12px; color: #4caf50;">En ligne</div>
+<div class="bureau" style="display:flex; height:100vh; overflow:hidden;">
+    <!-- SIDEBAR -->
+    <div class="bureau-sidebar" style="width: 250px; background: var(--bg-sidebar); border-right: 1px solid var(--border-color); padding: 20px; display: flex; flex-direction: column;">
+        <div style="font-size:24px; font-weight:bold; margin-bottom:40px; display:flex; align-items:center; gap:10px;">
+            <div style="width:30px; height:30px; border-radius:8px; background:var(--bg-main); border:1px solid var(--border-color); display:flex; align-items:center; justify-content:center; color:var(--text-main);">
+                <span style="font-weight:900;">L</span>
+            </div>
+            Learning OS
+        </div>
+        
+        <!-- ONGLETS -->
+        <div style="display:flex; flex-direction:column; gap:5px; flex-grow:1; padding-right:15px;">
+            <div class="bureau-nav-item" data-view="desktop" style="display:flex; align-items:center; gap:12px; cursor:pointer; padding:12px 15px; color:var(--text-muted); font-weight:500;">
+                <i class="bi bi-house-door" style="font-size:18px;"></i> Bureau
+            </div>
+            <div class="bureau-nav-item" data-view="planning" style="display:flex; align-items:center; gap:12px; cursor:pointer; padding:12px 15px; color:var(--text-muted); font-weight:500;">
+                <i class="bi bi-calendar3" style="font-size:18px;"></i> Planning
+            </div>
+            <div class="bureau-nav-item" data-view="academic" style="display:flex; align-items:center; gap:12px; cursor:pointer; padding:12px 15px; color:var(--text-muted); font-weight:500;">
+                <i class="bi bi-mortarboard" style="font-size:18px;"></i> School
+            </div>
+            <div class="bureau-nav-item" data-view="languages" style="display:flex; align-items:center; gap:12px; cursor:pointer; padding:12px 15px; color:var(--text-muted); font-weight:500;">
+                <i class="bi bi-globe" style="font-size:18px;"></i> Langues
+            </div>
+            <div class="bureau-nav-item" data-view="life" style="display:flex; align-items:center; gap:12px; cursor:pointer; padding:12px 15px; color:var(--text-muted); font-weight:500;">
+                <i class="bi bi-star" style="font-size:18px;"></i> Life
+            </div>
+            <div class="bureau-nav-item active" data-view="chat" style="display:flex; align-items:center; gap:12px; cursor:pointer; background:rgba(14, 165, 233, 0.1); border-left:4px solid var(--accent-primary); border-radius:0 8px 8px 0; padding:12px 15px 12px 11px; color:var(--text-main); font-weight:600;">
+                <i class="bi bi-robot" style="font-size:18px; color:var(--accent-primary);"></i> Coach
+            </div>
+        </div>
+        </div>
+    </div>
+
+    <!-- MAIN CONTENT -->
+    <div class="bureau-content" style="flex: 1; padding: 30px; display:flex; flex-direction:column; background: var(--bg-main);">
+        <!-- TOPBAR -->
+        <div class="bureau-topbar" style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 30px; flex-shrink:0;">
+            <div>
+                <h1 style="font-size: 24px; font-weight: 700; color:var(--text-main); letter-spacing:1px; margin:0;">Ton Coach Personnel</h1>
+                <p style="color: var(--text-muted); font-size:14px; margin:5px 0 0 0;">Il est temps de faire le point.</p>
+            </div>
+            <div class="bureau-topbar-actions" style="display:flex; gap:15px; align-items:center;">
+                <div style="display:flex; align-items:center; gap:10px; background:var(--bg-card); border: 1px solid var(--border-color); padding:10px 15px; border-radius:20px;">
+                    <span>⛅</span>
+                    <span style="font-weight:bold; font-size:14px;">18°C</span>
+                    <span style="color:var(--text-muted); font-size:14px;">Paris</span>
+                </div>
+                <div class="bureau-profile-avatar" style="width:40px; height:40px; border-radius:12px; background:var(--accent-primary); display:flex; align-items:center; justify-content:center; font-weight:bold; color:#000; font-size:18px;">
+                    É
+                </div>
+            </div>
+        </div>
+
+        <div style="display: grid; grid-template-columns: 1fr 350px; gap: 30px; flex:1; min-height:0;">
+            
+            <!-- CHAT INTERFACE (Left) -->
+            <div style="display:flex; flex-direction:column; background: var(--bg-card); border-radius: 12px; border: 1px solid var(--border-color); overflow: hidden;">
+                <!-- Header Chat -->
+                <div style="padding:20px; border-bottom:1px solid var(--border-color); display:flex; align-items:center; gap:15px;">
+                    <div style="width:40px; height:40px; border-radius:50%; background:rgba(14,165,233,0.1); display:flex; align-items:center; justify-content:center; color:var(--accent-primary); font-size:20px;">
+                        🤖
                     </div>
-                    <button id="btn-chat-close" style="background: transparent; color: #88a7b7; border: none; cursor: pointer; font-size: 20px;">✖</button>
+                    <div>
+                        <strong style="display:block; font-size:16px;">Chat avec ton coach</strong>
+                        <span style="font-size:12px; color:var(--text-muted); display:flex; align-items:center; gap:5px;"><span style="display:inline-block; width:8px; height:8px; background:#10b981; border-radius:50%;"></span> Toujours là pour t'aider</span>
+                    </div>
                 </div>
 
                 <!-- Messages -->
-                <div id="chat-messages-container" style="flex: 1; padding: 20px; overflow-y: auto; display: flex; flex-direction: column; gap: 15px;">
+                <div id="chat-messages-container" style="flex:1; padding:20px; overflow-y:auto; display:flex; flex-direction:column; gap:20px;">
         `;
 
         if (messages.length === 0) {
             html += `
-                <div style="text-align: center; color: #88a7b7; margin-top: 50px;">
-                    <div style="font-size: 40px; margin-bottom: 15px;">💬</div>
-                    Bonjour ! Je suis ton Coach. Pose-moi une question ou demande-moi un conseil sur ton emploi du temps.
-                </div>
+                    <div style="text-align: center; color: var(--text-muted); margin-top: 50px;">
+                        <div style="font-size: 40px; margin-bottom: 15px;">👋</div>
+                        Bonjour ! Je suis ton Coach. Comment s'est passée ta journée ?
+                    </div>
             `;
         } else {
             messages.forEach(msg => {
                 const isUser = msg.role === 'user';
                 const align = isUser ? 'align-self: flex-end;' : 'align-self: flex-start;';
-                const bg = isUser ? 'background: #00f2fe; color: #0f2027;' : 'background: #1e3f52; color: #e0e0e0;';
+                const bg = isUser ? 'background: var(--accent-primary); color: #000;' : 'background: rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.1); color: var(--text-main);';
                 const radius = isUser ? 'border-radius: 15px 15px 0 15px;' : 'border-radius: 15px 15px 15px 0;';
                 
                 html += `
-                    <div style="max-width: 80%; ${align} ${bg} ${radius} padding: 12px 16px; font-size: 14px; line-height: 1.4; box-shadow: 0 2px 5px rgba(0,0,0,0.2);">
+                    <div style="max-width: 80%; ${align} ${bg} ${radius} padding: 15px 20px; font-size: 14px; line-height: 1.5; box-shadow: 0 4px 15px rgba(0,0,0,0.1);">
                         ${msg.content.replace(/\n/g, '<br>')}
                 `;
 
-                // If intent exists, show the actionable buttons
                 if (!isUser && msg.metadata && msg.metadata.intent) {
                     const intentJson = encodeURIComponent(JSON.stringify(msg.metadata.intent));
                     const isCheckIn = msg.metadata.intent.action === 'save_checkin';
                     const acceptLabel = isCheckIn ? '✅ Enregistrer le Bilan' : '✅ Accepter';
                     html += `
-                        <div class="intent-actions" style="display: flex; gap: 10px; margin-top: 10px; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 10px;">
-                            <button class="btn-accept-intent" data-intent="${intentJson}" style="flex: 1; background: #4caf50; color: white; border: none; padding: 8px 12px; border-radius: 8px; cursor: pointer; font-weight: bold; font-size: 13px;">
+                        <div class="intent-actions" style="display: flex; gap: 10px; margin-top: 15px; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 15px;">
+                            <button class="btn-accept-intent" data-intent="${intentJson}" style="flex: 1; background: #10b981; color: white; border: none; padding: 10px; border-radius: 8px; cursor: pointer; font-weight: bold; font-size: 13px; transition:0.2s;">
                                 ${acceptLabel}
                             </button>
-                            <button class="btn-refuse-intent" style="flex: 1; background: transparent; border: 1px solid #f44336; color: #f44336; padding: 8px 12px; border-radius: 8px; cursor: pointer; font-weight: bold; font-size: 13px;">
-                                ❌ Refuser
+                            <button class="btn-refuse-intent" style="flex: 1; background: transparent; border: 1px solid rgba(255,255,255,0.2); color: var(--text-muted); padding: 10px; border-radius: 8px; cursor: pointer; font-weight: bold; font-size: 13px; transition:0.2s;">
+                                ❌ Ignorer
                             </button>
                         </div>
                     `;
@@ -71,13 +131,85 @@ export class CoachChatView {
                 </div>
 
                 <!-- Input Area -->
-                <div style="padding: 15px; border-top: 1px solid #2a5268; background: #0f2027; display: flex; gap: 10px;">
-                    <textarea id="chat-input-text" placeholder="Écris ton message ici..." rows="1" style="flex: 1; background: #162c38; color: white; border: 1px solid #2a5268; padding: 12px; border-radius: 20px; resize: none; font-family: inherit; font-size: 14px;"></textarea>
-                    <button id="btn-chat-send" style="background: #00f2fe; color: #0f2027; border: none; width: 45px; height: 45px; border-radius: 50%; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 18px;">
-                        ➤
+                <div style="padding:20px; border-top:1px solid var(--border-color); background:rgba(0,0,0,0.2); display:flex; gap:15px; align-items:center;">
+                    <button style="background:transparent; border:none; color:var(--text-muted); font-size:20px; cursor:pointer;"><i class="bi bi-paperclip"></i></button>
+                    <textarea id="chat-input-text" placeholder="Écris ton message ici..." rows="1" style="flex:1; background:rgba(255,255,255,0.05); color:white; border:1px solid var(--border-color); padding:15px 20px; border-radius:25px; resize:none; font-family:inherit; font-size:14px; outline:none;"></textarea>
+                    <button id="btn-chat-send" style="background:var(--accent-primary); color:#000; border:none; width:50px; height:50px; border-radius:50%; cursor:pointer; display:flex; align-items:center; justify-content:center; font-size:20px; transition:0.2s;">
+                        <i class="bi bi-send-fill"></i>
                     </button>
                 </div>
             </div>
+
+            <!-- CONTEXTE & OBJECTIFS (Right) -->
+            <div style="display:flex; flex-direction:column; gap:20px; overflow-y:auto; padding-right:10px;">
+                
+                <!-- Contexte Actuel -->
+                <div class="bureau-card" style="background: var(--bg-card); border-radius: 12px; border: 1px solid var(--border-color); padding:20px;">
+                    <div style="font-size:12px; font-weight:bold; color:var(--text-muted); text-transform:uppercase; letter-spacing:1px; margin-bottom:15px;">Contexte Actuel</div>
+                    <strong style="display:block; font-size:16px; margin-bottom:15px;">Ta journée (18 Sept.)</strong>
+                    
+                    <div style="display:flex; flex-direction:column; gap:12px; font-size:14px;">
+                        <div style="display:flex; align-items:center; gap:10px;">
+                            <i class="bi bi-check2-circle" style="color:#10b981; font-size:18px;"></i>
+                            <span><strong>3/5</strong> sessions complétées</span>
+                        </div>
+                        <div style="display:flex; align-items:center; gap:10px;">
+                            <i class="bi bi-battery-charging" style="color:#3b82f6; font-size:18px;"></i>
+                            <span>Énergie : <strong>Bonne</strong></span>
+                        </div>
+                        <div style="display:flex; align-items:center; gap:10px;">
+                            <i class="bi bi-exclamation-triangle" style="color:#f59e0b; font-size:18px;"></i>
+                            <span>2 CC à venir cette semaine</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Tes Objectifs -->
+                <div class="bureau-card" style="background: var(--bg-card); border-radius: 12px; border: 1px solid var(--border-color); padding:20px;">
+                    <div style="font-size:12px; font-weight:bold; color:var(--text-muted); text-transform:uppercase; letter-spacing:1px; margin-bottom:15px;">Tes Objectifs</div>
+                    
+                    <div style="display:flex; flex-direction:column; gap:15px;">
+                        <div>
+                            <div style="display:flex; justify-content:space-between; font-size:14px; margin-bottom:8px;">
+                                <strong>Maths</strong>
+                                <span>17/20</span>
+                            </div>
+                            <div style="height:6px; background:rgba(255,255,255,0.1); border-radius:3px;">
+                                <div style="height:100%; width:85%; background:var(--accent-primary); border-radius:3px;"></div>
+                            </div>
+                        </div>
+                        <div>
+                            <div style="display:flex; justify-content:space-between; font-size:14px; margin-bottom:8px;">
+                                <strong>Physique</strong>
+                                <span>14/20</span>
+                            </div>
+                            <div style="height:6px; background:rgba(255,255,255,0.1); border-radius:3px;">
+                                <div style="height:100%; width:70%; background:#f59e0b; border-radius:3px;"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Suggestions -->
+                <div class="bureau-card" style="background: rgba(14,165,233,0.05); border-radius: 12px; border: 1px solid rgba(14,165,233,0.2); padding:20px;">
+                    <div style="font-size:12px; font-weight:bold; color:var(--accent-primary); text-transform:uppercase; letter-spacing:1px; margin-bottom:15px;">Aujourd'hui, tu pourrais aussi...</div>
+                    <div style="display:flex; flex-direction:column; gap:10px; font-size:14px;">
+                        <div style="display:flex; align-items:center; gap:10px; background:rgba(0,0,0,0.2); padding:10px 15px; border-radius:8px; cursor:pointer;">
+                            <i class="bi bi-laptop" style="color:var(--accent-primary);"></i>
+                            Avancer ton projet d'informatique
+                        </div>
+                        <div style="display:flex; align-items:center; gap:10px; background:rgba(0,0,0,0.2); padding:10px 15px; border-radius:8px; cursor:pointer;">
+                            <i class="bi bi-activity" style="color:#10b981;"></i>
+                            Faire une séance de sport (30min)
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+
+        </div>
+    </div>
+</div>
         `;
 
         this.container.innerHTML = html;
@@ -87,6 +219,16 @@ export class CoachChatView {
         if (msgContainer) {
             msgContainer.scrollTop = msgContainer.scrollHeight;
         }
+
+        // BINDINGS SIDEBAR
+        this.container.querySelectorAll('.bureau-nav-item').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                const viewName = e.currentTarget.getAttribute('data-view');
+                if (viewName && this.app.router) {
+                    this.app.router.render(viewName, this.app.state);
+                }
+            });
+        });
 
         this.attachEvents();
     }
@@ -100,7 +242,7 @@ export class CoachChatView {
             if (text) {
                 // Disable input during request
                 inputField.disabled = true;
-                btnSend.disabled = true;
+                if(btnSend) btnSend.disabled = true;
                 this.app.sendChatMessage(text);
             }
         };
@@ -124,13 +266,6 @@ export class CoachChatView {
             });
         }
 
-        const btnClose = document.getElementById('btn-chat-close');
-        if (btnClose) {
-            btnClose.addEventListener('click', () => {
-                this.app.renderView('desktop');
-            });
-        }
-
         // Delegation for Accept Intent buttons
         const acceptButtons = this.container.querySelectorAll('.btn-accept-intent');
         acceptButtons.forEach(btn => {
@@ -149,13 +284,13 @@ export class CoachChatView {
                         // Modifier les boutons visuellement
                         const actionsDiv = e.target.closest('.intent-actions');
                         const confirmMsg = isCheckIn ? '✅ Bilan enregistré !' : '✅ Planifié !';
-                        actionsDiv.innerHTML = `<div style="text-align: center; color: #4caf50; font-weight: bold; width: 100%;">${confirmMsg}</div>`;
+                        actionsDiv.innerHTML = `<div style="text-align: center; color: #10b981; font-weight: bold; width: 100%;">${confirmMsg}</div>`;
                         
                     } catch(err) {
                         // Si le PlanningEngine refuse à cause d'un conflit
                         if (err.message && err.message.includes('CONFLICT')) {
                             const actionsDiv = e.target.closest('.intent-actions');
-                            actionsDiv.innerHTML = `<div style="text-align: center; color: #f44336; font-size: 13px; width: 100%;">⚠️ Conflit détecté. Demande un autre créneau au Coach.</div>`;
+                            actionsDiv.innerHTML = `<div style="text-align: center; color: #ef4444; font-size: 13px; width: 100%;">⚠️ Conflit détecté. Demande un autre créneau au Coach.</div>`;
                         } else {
                             alert("Erreur lors de la planification : " + err.message);
                         }
@@ -169,7 +304,7 @@ export class CoachChatView {
         refuseButtons.forEach(btn => {
             btn.addEventListener('click', (e) => {
                 const actionsDiv = e.target.closest('.intent-actions');
-                actionsDiv.innerHTML = `<div style="text-align: center; color: #88a7b7; font-size: 13px; width: 100%;">❌ Proposition refusée</div>`;
+                actionsDiv.innerHTML = `<div style="text-align: center; color: var(--text-muted); font-size: 13px; width: 100%;">❌ Proposition ignorée</div>`;
             });
         });
     }
