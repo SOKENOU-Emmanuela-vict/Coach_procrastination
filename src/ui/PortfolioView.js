@@ -185,7 +185,6 @@ export class PortfolioView {
                     </div>
                     <div style="display:flex; gap:8px; flex-wrap:wrap;">
                         <span style="background:#0f2027; color:#00f2fe; border:1px solid #00f2fe; padding:6px 12px; border-radius:20px; font-size:12px; font-weight:bold;">🚀 Session Active</span>
-                        <span style="background:#0f2027; color:#ff9800; border:1px solid #ff9800; padding:6px 12px; border-radius:20px; font-size:12px; font-weight:bold;">🎓 Force-N</span>
                     </div>
                 </div>
 
@@ -259,6 +258,7 @@ export class PortfolioView {
         const buttons = document.querySelectorAll('.tab-btn-portfolio');
         const secProofs = document.getElementById('portfolio-section-proofs');
         const secCheckins = document.getElementById('portfolio-section-checkins');
+        const secSettings = document.getElementById('portfolio-section-settings');
 
         buttons.forEach(btn => {
             btn.addEventListener('click', (e) => {

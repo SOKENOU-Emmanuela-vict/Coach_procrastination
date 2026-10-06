@@ -40,4 +40,100 @@ export class SchedulerEngine {
             sessions: [] // Plus de sessions statiques de bootcamp
         };
     }
+
+    async getFullProgram() {
+        // Maintien de compatibilité minimale pour l'accès aux données legacy du bootcamp
+        return await this.storage.loadData('bootcamp_program') || null;
+    }
+
+    async getAvailableSlots(dateStr) {
+        AppLogger.info(`Scheduler: Recherche de créneaux libres pour le ${dateStr}`);
+        
+        // Plage de base (08:00 - 22:00)
+        const wakeTime = 8 * 60; // 08:00
+        const sleepTime = 22 * 60; // 22:00
+        
+        let busyBlocks = [];
+
+        // Récupérer les événements du calendrier
+        let rawEvents = await this.storage.loadData('user_events');
+        let events = [];
+        if (Array.isArray(rawEvents)) {
+            events = rawEvents;
+        } else if (rawEvents && rawEvents.events) {
+            events = rawEvents.events;
+        }
+        
+        const dayEvents = events.filter(e => e.date === dateStr);
+        
+        for (const e of dayEvents) {
+            if (e.startTime && e.endTime) {
+                busyBlocks.push({
+                    start: this._timeToMins(e.startTime),
+                    end: this._timeToMins(e.endTime)
+                });
+            }
+        }
+
+        // TODO: Ajouter la vérification des habitudes qui ont un créneau fixe
+        // Pour le moment on ne gère que les événements stricts
+
+        // Fusionner et trier les blocs occupés
+        busyBlocks.sort((a, b) => a.start - b.start);
+        
+        const mergedBlocks = [];
+        for (const block of busyBlocks) {
+            if (mergedBlocks.length === 0) {
+                mergedBlocks.push(block);
+            } else {
+                let last = mergedBlocks[mergedBlocks.length - 1];
+                if (block.start <= last.end) {
+                    last.end = Math.max(last.end, block.end);
+                } else {
+                    mergedBlocks.push(block);
+                }
+            }
+        }
+
+        // Calculer les trous (créneaux libres)
+        const freeSlots = [];
+        let currentStart = wakeTime;
+
+        for (const block of mergedBlocks) {
+            // Ignorer les blocs avant le réveil
+            if (block.end <= wakeTime) continue;
+            
+            // Ajuster le début du bloc s'il commence avant le réveil
+            const blockStart = Math.max(block.start, wakeTime);
+
+            if (currentStart < blockStart) {
+                freeSlots.push({
+                    startTime: this._minsToTime(currentStart),
+                    endTime: this._minsToTime(blockStart)
+                });
+            }
+            currentStart = Math.max(currentStart, block.end);
+        }
+
+        if (currentStart < sleepTime) {
+            freeSlots.push({
+                startTime: this._minsToTime(currentStart),
+                endTime: this._minsToTime(sleepTime)
+            });
+        }
+
+        return freeSlots;
+    }
+
+    _timeToMins(timeStr) {
+        if (!timeStr) return 0;
+        const [h, m] = timeStr.split(':').map(Number);
+        return h * 60 + m;
+    }
+
+    _minsToTime(mins) {
+        const h = Math.floor(mins / 60);
+        const m = mins % 60;
+        return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`;
+    }
 }

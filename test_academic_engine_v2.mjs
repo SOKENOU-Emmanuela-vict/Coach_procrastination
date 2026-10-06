@@ -91,4 +91,4 @@ async function runEngineTests() {
     console.log("\n=== FIN DES TESTS ===");
 }
 
-runEngineTests().catch(console.error);
+runEngineTests().catch(e => { console.error(e); process.exitCode = 1; });

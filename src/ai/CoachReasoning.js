@@ -9,7 +9,8 @@ export class CoachReasoning {
         
         if (!context) return decisions;
 
-        const { academic, planning } = context;
+        const { academic, planning, riskProfile } = context;
+        const now = new Date();
 
         // 1. Relais des alertes académiques
         if (academic && academic.alerts) {
@@ -180,15 +181,33 @@ export class CoachReasoning {
             });
         }
 
+        // 6. Diagnostic de Procrastination (Risk Engine)
+        if (riskProfile && riskProfile.level !== 'LOW') {
+            decisions.push({
+                signal: {
+                    type: "PROCRASTINATION_RISK",
+                    evidence: riskProfile.factors.map(f => f.type)
+                },
+                decision: {
+                    type: "ADDRESS_PROCRASTINATION_RISK",
+                    severity: riskProfile.level === 'CRITICAL' ? "high" : "warning",
+                    priority: riskProfile.level === 'CRITICAL' ? "critical" : "high",
+                    rationale: `Risque de procrastination détecté (${riskProfile.level}). Facteurs principaux: ${riskProfile.factors.map(f => f.description).join(', ')}`,
+                    payload: { riskProfile }
+                }
+            });
+        }
+
         // Tri et Priorisation Déterministe
         const priorityMap = {
-            "PAST_DUE_ASSESSMENT": 1,
-            "SCHEDULE_CONFLICT": 2,
-            "UNPREPARED_ASSESSMENT": 3,
-            "ACADEMIC_ALERT_ACTIVE": 4,
-            "CECT_DISCREPANCY": 5,
-            "ASSESSMENT_MISSING_DATE": 6,
-            "AVAILABLE_TIME_SLOT": 7
+            "PROCRASTINATION_RISK": 1,
+            "PAST_DUE_ASSESSMENT": 2,
+            "SCHEDULE_CONFLICT": 3,
+            "UNPREPARED_ASSESSMENT": 4,
+            "ACADEMIC_ALERT_ACTIVE": 5,
+            "CECT_DISCREPANCY": 6,
+            "ASSESSMENT_MISSING_DATE": 7,
+            "AVAILABLE_TIME_SLOT": 8
         };
 
         decisions.sort((a, b) => {

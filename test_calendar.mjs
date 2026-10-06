@@ -24,7 +24,7 @@ async function runTests() {
             console.log(`✅ PASS: ${message}`);
             passed++;
         } else {
-            console.error(`❌ FAIL: ${message}`);
+            console.error(`❌ FAIL: ${message}`); process.exitCode = 1;
         }
     };
 
@@ -180,4 +180,4 @@ async function runTests() {
     if (passed !== total) process.exit(1);
 }
 
-runTests().catch(console.error);
+runTests().catch(e => { console.error(e); process.exitCode = 1; });

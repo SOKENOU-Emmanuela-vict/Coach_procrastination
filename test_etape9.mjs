@@ -49,7 +49,7 @@ async function runEtape9Tests() {
             console.log(`✅ PASS: ${message}`);
             passed++;
         } else {
-            console.error(`❌ FAIL: ${message}`);
+            console.error(`❌ FAIL: ${message}`); process.exitCode = 1;
         }
     };
 
@@ -165,4 +165,4 @@ async function runEtape9Tests() {
     if (passed !== total) process.exit(1);
 }
 
-runEtape9Tests().catch(console.error);
+runEtape9Tests().catch(e => { console.error(e); process.exitCode = 1; });

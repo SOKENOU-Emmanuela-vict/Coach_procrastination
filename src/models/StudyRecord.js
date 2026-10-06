@@ -1,8 +1,8 @@
 export class StudyRecord {
-    constructor(id, sessionId, date, startTime, skillIds = []) {
+    constructor(id, sessionId, date, startTime, skillId = null) {
         this.id = id;
         this.sessionId = sessionId;
-        this.skillIds = Array.isArray(skillIds) ? skillIds : [skillIds];
+        this.skillId = skillId;
         this.date = date; // ISO string (YYYY-MM-DD)
         
         // Time & Duration

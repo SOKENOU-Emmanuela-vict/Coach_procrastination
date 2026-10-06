@@ -55,7 +55,11 @@ export class PlanningView {
             const top = (startH - 7) * 51 + (startM / 60) * 51;
             const height = (durationMinutes / 60) * 51 - 2;
 
-            const isSchool = e.subjectId || e.type === 'Cours' || e.type === 'TD';
+            let isSchool = !!e.subjectId;
+            if (!isSchool && e.type) {
+                const t = e.type.toLowerCase();
+                isSchool = t === 'course' || t === 'cours' || t === 'td' || t === 'exam' || t === 'revision' || t === 'révision';
+            }
             const bgColor = isSchool ? '#0ea5e9' : (e.type === 'Force-N' ? '#ef4444' : '#10b981');
 
             return `
@@ -173,7 +177,6 @@ export class PlanningView {
             <div class="bureau-nav-item" data-view="chat" style="display:flex; align-items:center; gap:12px; cursor:pointer; padding:12px 15px; color:var(--text-muted); font-weight:500;">
                 <i class="bi bi-robot" style="font-size:18px;"></i> Coach
             </div>
-        </div>
         </div>
     </div>
 

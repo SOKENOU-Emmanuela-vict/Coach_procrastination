@@ -10,7 +10,7 @@ function runTests() {
         if (condition) {
             passed++;
         } else {
-            console.error(`❌ FAIL: ${message}`);
+            console.error(`❌ FAIL: ${message}`); process.exitCode = 1;
         }
     };
 

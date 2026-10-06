@@ -109,4 +109,4 @@ async function runPlanningTests() {
     console.log("\n=== FIN DES TESTS ===");
 }
 
-runPlanningTests().catch(console.error);
+runPlanningTests().catch(e => { console.error(e); process.exitCode = 1; });

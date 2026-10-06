@@ -54,4 +54,4 @@ async function runTests() {
     console.log("--- FIN DES TESTS ---");
 }
 
-runTests().catch(console.error);
+runTests().catch(e => { console.error(e); process.exitCode = 1; });

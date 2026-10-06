@@ -8,14 +8,14 @@ async function runAcademicSummaryTests() {
     const engine = new AcademicEngine(storage);
     
     // Setup
-    await engine.saveSemester({ id: 's4', name: 'Semestre S4', yearId: 'y2', metadata: { cectDiscrepancy: 4, officialCectTotal: 30, calculatedDetailedCectTotal: 26, cectStatus: 'to_confirm' } });
+    await engine.saveSemester({ id: 'sem_s4_27', name: 'Semestre S4', yearId: 'y2', metadata: { cectDiscrepancy: 4, officialCectTotal: 30, calculatedDetailedCectTotal: 26, cectStatus: 'to_confirm' } });
     
     // Subject 1: with coeff
-    await engine.saveSubject({ id: 'sub_1', semesterId: 's4', name: 'Maths', cect: 5, gradeCoefficient: 2 });
+    await engine.saveSubject({ id: 'sub_1', semesterId: 'sem_s4_27', name: 'Maths', cect: 5, gradeCoefficient: 2 });
     // Subject 2: NO coeff, but has CECT
-    await engine.saveSubject({ id: 'sub_2', semesterId: 's4', name: 'Physique', cect: 4 });
+    await engine.saveSubject({ id: 'sub_2', semesterId: 'sem_s4_27', name: 'Physique', cect: 4 });
     // Subject 3: NO coeff, NO CECT
-    await engine.saveSubject({ id: 'sub_3', semesterId: 's4', name: 'Chimie', cect: null });
+    await engine.saveSubject({ id: 'sub_3', semesterId: 'sem_s4_27', name: 'Chimie', cect: null });
     
     // Assessments
     await engine.saveAssessment({ id: 'ass_1', subjectId: 'sub_1', title: 'Exam Maths', type: 'exam', weight: 1, maxScore: 20, targetDate: '2026-10-20' }); // Future
@@ -31,8 +31,8 @@ async function runAcademicSummaryTests() {
     
     const dateRef = '2026-10-10';
 
-    const summary1 = await engine.getSemesterSummary('s4', dateRef);
-    const summary2 = await engine.getSemesterSummary('s4', dateRef);
+    const summary1 = await engine.getSemesterSummary('sem_s4_27', dateRef);
+    const summary2 = await engine.getSemesterSummary('sem_s4_27', dateRef);
 
     // 13. Aucune mutation
     console.log(`\n--- TEST 13 : Aucune mutation ---`);
@@ -66,7 +66,7 @@ async function runAcademicSummaryTests() {
     const hasLowAvgAlertDefault = defaultAlerts.some(a => a.code === 'LOW_AVERAGE');
     
     // Force threshold to 15 to trigger alert
-    const customSummary = await engine.getSemesterSummary('s4', dateRef, { alertThresholdAverage: 15, imminentDaysThreshold: 15 });
+    const customSummary = await engine.getSemesterSummary('sem_s4_27', dateRef, { alertThresholdAverage: 15, imminentDaysThreshold: 15 });
     const hasLowAvgAlertCustom = customSummary.alerts.some(a => a.code === 'LOW_AVERAGE');
     const imminentAlertDefault = defaultAlerts.some(a => a.code === 'IMMINENT_ASSESSMENT' && a.message.includes('ass_1')); // ass_1 is 10 days away. 10 > 7 default, so false.
     const imminentAlertCustom = customSummary.alerts.some(a => a.code === 'IMMINENT_ASSESSMENT' && a.message.includes('Exam Maths')); // 10 <= 15 custom, so true.
@@ -102,4 +102,4 @@ async function runAcademicSummaryTests() {
     console.log("\n=== FIN DES TESTS ===");
 }
 
-runAcademicSummaryTests().catch(console.error);
+runAcademicSummaryTests().catch(e => { console.error(e); process.exitCode = 1; });

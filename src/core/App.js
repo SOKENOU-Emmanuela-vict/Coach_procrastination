@@ -8,6 +8,8 @@ import { PlanningIntelligence } from '../engines/PlanningIntelligence.js';
 import { CoachOrchestrator } from '../ai/CoachOrchestrator.js';
 import { KnowledgeEngine } from '../engines/KnowledgeEngine.js';
 import { KnowledgeRetriever } from '../engines/KnowledgeRetriever.js';
+import { AcademicSeeder } from '../data/AcademicSeeder.js';
+import { RiskEngine } from '../engines/RiskEngine.js';
 
 export class App {
     constructor(storage, scheduler, studyRecordEngine, checkInEngine, aiEngine, weeklyReviewEngine, chatHistoryEngine) {
@@ -22,13 +24,14 @@ export class App {
         this.reflectionEngine = new ReflectionEngine(storage);
         this.academicEngine = new AcademicEngine(storage);
         this.planningEngine = new PlanningEngine(storage);
+        this.riskEngine = new RiskEngine(storage);
         if (this.checkInEngine) this.checkInEngine.planningEngine = this.planningEngine;
         if (this.weeklyReviewEngine) this.weeklyReviewEngine.planningEngine = this.planningEngine;
         
         this.planningIntelligence = new PlanningIntelligence(this.planningEngine);
         this.knowledgeEngine = new KnowledgeEngine(storage);
         this.knowledgeRetriever = new KnowledgeRetriever(this.knowledgeEngine);
-        this.coachEngine = new CoachOrchestrator(this.planningIntelligence, this.knowledgeRetriever);
+        this.coachEngine = new CoachOrchestrator(this.planningIntelligence, this.knowledgeRetriever, this.riskEngine);
         
         this.state = {
             currentView: 'desktop',
@@ -46,6 +49,7 @@ export class App {
             monthlyReport: null,
             academicSummary: null,
             todayEvents: [],
+            academicSubjects: [],
             calendarData: {
                 events: [],
                 availabilities: [],
@@ -55,13 +59,27 @@ export class App {
         this.router = new Router('app-root', this);
     }
     
+    getPedagogicalDate(dateObj = new Date()) {
+        const d = new Date(dateObj);
+        // Si l'heure est avant 4h du matin, on considère que c'est la journée de la veille (jour pédagogique)
+        if (d.getHours() < 4) {
+            d.setDate(d.getDate() - 1);
+        }
+        return d.toLocaleDateString('fr-CA');
+    }
+
     async start() {
         AppLogger.info("Lancement de l'application (start)");
         document.getElementById('app-root').innerHTML = '<p style="text-align:center;">Génération du planning... (Etape 1)</p>';
         document.getElementById('bottom-nav').style.display = 'flex';
         this.setupNavigation();
         
-        const localDate = new Date().toLocaleDateString('fr-CA');
+        // Initialisation des données académiques
+        const seeder = new AcademicSeeder(this.academicEngine);
+        await seeder.seed();
+        this.state.academicSubjects = await this.academicEngine.getSubjects();
+        
+        const localDate = this.getPedagogicalDate();
         
         const plan = await this.scheduler.generateDailyPlan(localDate);
         document.getElementById('app-root').innerHTML = '<p style="text-align:center;">Génération du planning... (Etape 2)</p>';
@@ -82,7 +100,7 @@ export class App {
     
     async refreshUserStats() {
         const dToday = new Date();
-        const localDate = dToday.toLocaleDateString('fr-CA');
+        const localDate = this.getPedagogicalDate(dToday);
 
         this.state.dailyStats = await this.studyRecordEngine.getDailyStats(localDate);
         this.state.dailySummary = await this.checkInEngine.buildDailySummary(localDate);
@@ -122,7 +140,7 @@ export class App {
         for (let i = 0; i <= 5; i++) {
             const d = new Date(dToday);
             d.setDate(d.getDate() + i);
-            const dateStr = d.toLocaleDateString('fr-CA');
+            const dateStr = this.getPedagogicalDate(d);
             
             const evs = await this.planningEngine.getEventsForDate(dateStr);
             temporalEvents.push(...evs);
@@ -157,7 +175,7 @@ export class App {
             if (this.checkInEngine) {
                 // Ensure the date is injected if missing
                 const payload = intent.payload || {};
-                payload.date = payload.date || new Date().toLocaleDateString('fr-CA');
+                payload.date = payload.date || this.getPedagogicalDate();
                 await this.checkInEngine.saveCheckIn(payload);
             }
         } else if (this.planningEngine) {
@@ -231,10 +249,10 @@ export class App {
         
         if (viewName === 'weekly') {
             const dToday = new Date();
-            const endDate = dToday.toLocaleDateString('fr-CA');
+            const endDate = this.getPedagogicalDate(dToday);
             const dStart = new Date(dToday);
             dStart.setDate(dStart.getDate() - 6);
-            const startDate = dStart.toLocaleDateString('fr-CA');
+            const startDate = this.getPedagogicalDate(dStart);
             this.state.weeklySummary = await this.getWeeklyReport(startDate, endDate);
         }
         
@@ -262,7 +280,7 @@ export class App {
             }
         }
         
-        this.router.render(viewName, this.state);
+        await this.router.render(viewName, this.state);
     }
     
     async markSessionCompleted(sessionId, metrics = { status: 'completed' }, redirectView = null) {
@@ -271,11 +289,11 @@ export class App {
             if (session) {
                 if (!session.completed) {
                     session.completed = true;
-                    await this.studyRecordEngine.completeSession(session, metrics);
+                    await this.studyRecordEngine.completeSession(session, metrics, this.state.dailyPlan?.date);
                 } else {
                     session.completed = false;
-                    const localDate = new Date().toLocaleDateString('fr-CA');
-                    await this.studyRecordEngine.uncompleteSession(sessionId, localDate);
+                    const planDate = this.state.dailyPlan?.date || this.getPedagogicalDate();
+                    await this.studyRecordEngine.uncompleteSession(sessionId, planDate);
                 }
                 await this.refreshUserStats();
                 this.renderView(redirectView || this.state.currentView);
@@ -308,7 +326,7 @@ export class App {
     async addXP(amount) {
         AppLogger.info(`Shift day by ${amount}`);
         this.currentDayIndex = await this.scheduler.shiftDayIndex(amount);
-        const localDate = new Date().toLocaleDateString('fr-CA'); // Note: date string remains today, but dayIndex dictates the content
+        const localDate = this.getPedagogicalDate(); // Note: date string remains today, but dayIndex dictates the content
         
         const plan = await this.scheduler.generateDailyPlan(localDate);
         const history = await this.storage.loadData('study_history') || [];
@@ -337,7 +355,7 @@ export class App {
                     await this.studyRecordEngine.completeSession(pseudoSession, { status: 'completed', quality: 4 });
                 } else {
                     habit.completed = false;
-                    const localDate = new Date().toLocaleDateString('fr-CA');
+                    const localDate = this.getPedagogicalDate();
                     await this.studyRecordEngine.uncompleteSession(habitId, localDate);
                 }
                 await this.refreshUserStats();
@@ -351,7 +369,7 @@ export class App {
     async saveProgram(programData) {
         await this.scheduler.saveFullProgram(programData);
         await this.refreshUserStats();
-        const localDate = new Date().toLocaleDateString('fr-CA');
+        const localDate = this.getPedagogicalDate();
         this.state.dailyPlan = await this.scheduler.generateDailyPlan(localDate);
         this.renderView('program');
     }

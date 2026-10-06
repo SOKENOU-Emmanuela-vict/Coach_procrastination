@@ -55,6 +55,12 @@ export class CoachAI {
                 rec.message = `L'évaluation '${decision.payload.assessment.title}' approche. Il est recommandé de planifier une session de révision de ${rec.planningRequest.duration} minutes.`;
             } else if (decision.type === "RELAY_ACADEMIC_ALERT") {
                 rec.message = decision.payload.message;
+            } else if (decision.type === "ADDRESS_PROCRASTINATION_RISK") {
+                rec.message = decision.rationale;
+                // Si critique, on pourrait forcer un Check-in ou un appel à l'action
+                if (decision.severity === "high") {
+                    rec.actionable = false; // Pas d'action de planning direct, mais c'est un signal fort
+                }
             }
 
             recommendations.push(rec);
@@ -106,6 +112,7 @@ export class CoachAI {
             case "REVIEW_PAST_DUE_ASSESSMENT": return "Évaluation passée";
             case "RESOLVE_SCHEDULE_CONFLICT": return "Conflit d'agenda";
             case "CONSIDER_AVAILABLE_SLOT": return "Créneau de disponibilité";
+            case "ADDRESS_PROCRASTINATION_RISK": return "Alerte Procrastination";
             default: return "Recommandation";
         }
     }

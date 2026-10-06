@@ -1,7 +1,7 @@
 import { DashboardView } from '../ui/DashboardView.js?v=99';
 import { DesktopView } from '../ui/DesktopView.js?v=101';
 import { CalendarView } from '../ui/CalendarView.js?v=101';
-import { AcademicView } from '../ui/AcademicView.js?v=100';
+import { AcademicView } from '../ui/AcademicView.js?v=102';
 import { PlanningView } from '../ui/PlanningView.js?v=101';
 import { FocusView } from '../ui/FocusView.js?v=10';
 import { BilanView } from '../ui/BilanView.js?v=4';
@@ -30,11 +30,18 @@ export class Router {
         };
     }
 
-    render(viewName, state) {
+    async render(viewName, state) {
+        if (viewName !== 'focus' && this.views.focus && this.views.focus.timerInterval) {
+            clearInterval(this.views.focus.timerInterval);
+        }
+        
+        const renderToken = Date.now();
+        this.currentRenderToken = renderToken;
+        
         const view = this.views[viewName];
         if (view) {
             let data = state;
-            if (viewName === 'planning') data = state.dailyPlan;
+            if (viewName === 'planning') data = state;
             if (viewName === 'focus') {
                 data = state.dailyPlan.sessions.find(s => !s.completed) || null;
             }
@@ -46,13 +53,16 @@ export class Router {
             if (viewName === 'weekly') data = state.weeklySummary;
             if (viewName === 'chat') {
                 // Fetch chat history asynchronously inside the router
-                this.app.chatHistoryEngine.getConversation('default').then(messages => {
-                    view.render(messages);
-                });
-                return; // Render is done asynchronously
+                const messages = await this.app.chatHistoryEngine.getConversation('default');
+                if (this.currentRenderToken === renderToken) {
+                    await view.render(messages);
+                }
+                return;
             }
             
-            view.render(data);
+            if (this.currentRenderToken === renderToken) {
+                await view.render(data);
+            }
         } else {
             console.error(`View ${viewName} not found`);
         }

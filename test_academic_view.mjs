@@ -24,7 +24,7 @@ async function runTests() {
             console.log(`✅ PASS: ${message}`);
             passed++;
         } else {
-            console.error(`❌ FAIL: ${message}`);
+            console.error(`❌ FAIL: ${message}`); process.exitCode = 1;
         }
     };
 
@@ -35,8 +35,8 @@ async function runTests() {
     assert(user.formation === null && user.niveau === null && user.currentSemesterId === null, "Modèle User : nouveaux champs initialisés à null");
     
     user.formation = 'Licence Pro IA';
-    user.currentSemesterId = 's4';
-    assert(user.formation === 'Licence Pro IA' && user.currentSemesterId === 's4', "Modèle User : mutation des nouveaux champs fonctionnelle");
+    user.currentSemesterId = 'sem_s4_27';
+    assert(user.formation === 'Licence Pro IA' && user.currentSemesterId === 'sem_s4_27', "Modèle User : mutation des nouveaux champs fonctionnelle");
 
     // Mock Storage
     const mockDb = { 'user_profile': user };
@@ -79,13 +79,13 @@ async function runTests() {
 
     // 3. Test App Routing & currentSemesterId
     await mockApp.refreshUserStats();
-    assert(requestedSemester === 's4', "App : currentSemesterId ('s4') est bien extrait du profil et transmis à getSemesterSummary");
+    assert(requestedSemester === 'sem_s4_27', "App : currentSemesterId ('sem_s4_27') est bien extrait du profil et transmis à getSemesterSummary");
     assert(mockApp.state.academicSummary.cectStatus.discrepancy === 4, "App : Le cas S4 (30/26/4/to_confirm) est préservé et transmis dans le state");
 
     // Test avec un autre semestre
-    user.currentSemesterId = 's3';
+    user.currentSemesterId = 'sem_s3_26';
     await mockApp.refreshUserStats();
-    assert(requestedSemester === 's3', "App : la dépendance au 's4' hardcodé est retirée, suit le currentSemesterId");
+    assert(requestedSemester === 'sem_s3_26', "App : la dépendance au 's4' hardcodé est retirée, suit le currentSemesterId");
 
     // 4. Test UI Isolation
     const view = new AcademicView('dummy', mockApp);
@@ -97,7 +97,7 @@ async function runTests() {
     assert(!hasStorage && !hasEngineCall, "AcademicView : UI isolée (READ-ONLY), aucun appel Storage ou Engine direct");
 
     // Test Rendu
-    let fakeContainer = { innerHTML: '', querySelectorAll: () => [] };
+    let fakeContainer = { innerHTML: '', querySelectorAll: () => [], querySelector: () => null };
     view.container = fakeContainer;
     view.render(mockApp.state);
     assert(fakeContainer.innerHTML.length > 100, "AcademicView : rendu effectue l'affichage correct des données de l'App (READ-ONLY)");
@@ -106,4 +106,4 @@ async function runTests() {
     if (passed !== total) process.exit(1);
 }
 
-runTests().catch(console.error);
+runTests().catch(e => { console.error(e); process.exitCode = 1; });

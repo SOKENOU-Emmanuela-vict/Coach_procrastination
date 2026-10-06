@@ -207,6 +207,7 @@ export class FocusView {
 
         if (this.currentSessionId !== session.id || !this.focusEndTime) {
             this.currentSessionId = session.id;
+            this.focusStartTime = Date.now();
             this.focusEndTime = Date.now() + (session.expectedDuration * 60 * 1000);
             this.hasWarned15Min = false;
         }
@@ -325,13 +326,16 @@ export class FocusView {
                         url: document.getElementById('f-proof-url').value,
                         description: document.getElementById('f-proof-desc').value,
                         image: this.currentProofImage || null,
-                        date: new Date().toLocaleDateString('fr-CA'),
+                        date: this.app.getPedagogicalDate(),
                         source: session.title
                     };
                 }
                 
+                const actualDuration = this.focusStartTime ? Math.round((Date.now() - this.focusStartTime) / 60000) : session.expectedDuration;
+                
                 const metrics = {
-                    status: 'completed',
+                    status: document.getElementById('f-status').value || 'completed',
+                    actualDuration: actualDuration,
                     proof: proofObj,
                     difficulty: document.getElementById('f-actual-difficulty').value,
                     reflection: document.getElementById('f-reflection').value,
@@ -340,6 +344,7 @@ export class FocusView {
                 };
                 
                 this.currentSessionId = null;
+                this.focusStartTime = null;
                 this.focusEndTime = null;
 
                 // Logique intelligente de redirection

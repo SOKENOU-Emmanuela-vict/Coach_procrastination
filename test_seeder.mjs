@@ -64,4 +64,4 @@ async function runSeederTests() {
     console.log(`9. Legacy Intact (Bootcamp non touché): ${legacy1 !== null && legacy2 !== null}`);
 }
 
-runSeederTests().catch(console.error);
+runSeederTests().catch(e => { console.error(e); process.exitCode = 1; });

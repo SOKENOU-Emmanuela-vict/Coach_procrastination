@@ -9,32 +9,51 @@ export class LanguageView {
             document.body.className = 'theme-cyber';
         }
 
-        const langNodes = (state.learningGraph?.nodes || []).filter(n => n.type === 'language' || n.category === 'language');
-        
-        let cardsHtml = '<div style="color:var(--text-muted); font-size:14px;">Aucune langue suivie.</div>';
-        if (langNodes.length > 0) {
-            cardsHtml = langNodes.map(l => {
-                return '<div class="bureau-card" style="background: var(--bg-card); border-radius: 12px; border: 1px solid var(--border-color); padding:20px;">' +
-                    '<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">' +
-                        '<h3 style="margin:0; font-size:16px;">' + (l.title || l.name) + '</h3>' +
-                        '<span style="font-size:14px; color:var(--text-muted);">Niveau ' + (l.level || 'Non défini') + '</span>' +
-                    '</div>' +
-                    '<div style="display:flex; align-items:center; gap:15px;">' +
-                        '<div style="flex-grow:1; height:8px; background:var(--bg-main); border-radius:4px; overflow:hidden;">' +
-                            '<div style="height:100%; width:' + (l.progress || 0) + '%; background:var(--accent-primary); border-radius:4px;"></div>' +
-                        '</div>' +
-                        '<span style="font-size:14px; font-weight:bold;">' + (l.progress || 0) + '%</span>' +
-                    '</div>' +
-                '</div>';
-            }).join('');
-        }
+        const langs = [
+            { name: "Anglais", level: "B2", progress: 75, icon: "🇬🇧" },
+            { name: "Français", level: "C2", progress: 95, icon: "🇫🇷" },
+            { name: "Mandarin", level: "A1", progress: 15, icon: "🇨🇳" },
+            { name: "Russe", level: "A1", progress: 10, icon: "🇷🇺" }
+        ];
+
+        let cardsHtml = langs.map(l => {
+            return `
+            <div class="bureau-card" style="background: var(--bg-card); border-radius: 12px; border: 1px solid var(--border-color); padding:20px; position:relative;">
+                <!-- Bouton EDIT -->
+                <button style="position:absolute; top:15px; right:15px; background:transparent; border:none; color:var(--text-muted); cursor:pointer;">
+                    <i class="bi bi-pencil-square" style="font-size:16px;"></i>
+                </button>
+
+                <div style="display:flex; align-items:center; gap:15px; margin-bottom:20px;">
+                    <div style="font-size:40px;">${l.icon}</div>
+                    <div>
+                        <h3 style="margin:0; font-size:20px; color:var(--text-main);">${l.name}</h3>
+                        <span style="font-size:14px; color:var(--text-muted);">Niveau Actuel : <strong>${l.level}</strong></span>
+                    </div>
+                </div>
+
+                <div style="display:flex; align-items:center; gap:15px; margin-bottom:25px;">
+                    <div style="flex-grow:1; height:10px; background:var(--bg-main); border-radius:5px; overflow:hidden;">
+                        <div style="height:100%; width:${l.progress}%; background:var(--accent-primary); border-radius:5px;"></div>
+                    </div>
+                    <span style="font-size:16px; font-weight:bold; color:var(--text-main);">${l.progress}%</span>
+                </div>
+
+                <!-- ADD BUTTON -->
+                <button style="width:100%; background:var(--bg-main); color:var(--text-main); border:1px dashed var(--border-color); padding:12px; border-radius:8px; font-weight:bold; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:10px; transition:all 0.2s;" onmouseover="this.style.background='var(--accent-primary)'; this.style.color='white'; this.style.borderStyle='solid'" onmouseout="this.style.background='var(--bg-main)'; this.style.color='var(--text-main)'; this.style.borderStyle='dashed'">
+                    <i class="bi bi-plus-circle"></i> ADD (Progression App)
+                </button>
+            </div>`;
+        }).join('');
         
         let html = `
 <div class="bureau" style="display:flex; height:100vh;">
     <!-- SIDEBAR -->
     <div class="bureau-sidebar" style="width: 250px; background: var(--bg-sidebar); border-right: 1px solid var(--border-color); padding: 20px; display: flex; flex-direction: column;">
         <div style="font-size:24px; font-weight:bold; margin-bottom:40px; display:flex; align-items:center; gap:10px;">
-            <div style="width:30px; height:30px; border-radius:8px; background:var(--accent-primary); display:flex; align-items:center; justify-content:center; color:#fff;">⚡</div>
+            <div style="width:30px; height:30px; border-radius:8px; background:var(--bg-main); border:1px solid var(--border-color); display:flex; align-items:center; justify-content:center; color:var(--text-main);">
+                <i class="bi bi-book"></i>
+            </div>
             Learning OS
         </div>
         
@@ -69,6 +88,9 @@ export class LanguageView {
                 <h1 style="font-size: 24px; font-weight: 700; color:var(--text-main); letter-spacing:1px; margin:0;">LANGUES</h1>
                 <p style="color: var(--text-muted); font-size:14px; margin:5px 0 0 0;">Tes statistiques et ta progression.</p>
             </div>
+            <div class="bureau-profile-avatar" style="width:40px; height:40px; border-radius:50%; background:var(--accent-primary); display:flex; align-items:center; justify-content:center; font-weight:bold; color:white; font-size:18px; cursor:pointer;" id="btn-profile">
+                E
+            </div>
         </div>
 
         <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px;">
@@ -89,5 +111,16 @@ export class LanguageView {
                 }
             });
         });
+
+        const btnProfile = this.container.querySelector('#btn-profile');
+        if (btnProfile) {
+            btnProfile.addEventListener('click', () => {
+                if (this.app.renderView) {
+                    this.app.renderView('portfolio');
+                } else if (this.app.router) {
+                    this.app.router.render('portfolio', this.app.state);
+                }
+            });
+        }
     }
 }

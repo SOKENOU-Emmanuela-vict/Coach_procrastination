@@ -64,8 +64,11 @@ export class LearningGraphEngine {
 
         history.forEach(r => {
             if (r.status === 'completed' || r.status === 'partial') {
-                // Mapping : on cherche d'abord projectId, puis subjectId, puis l'ancien skillId
-                const rawSkillId = r.projectId || r.subjectId || r.skillId || 'reflection';
+                // Mapping : on cherche d'abord skillId direct, sinon dans le tableau legacy skillIds, puis projectId/subjectId
+                let rawSkillId = r.skillId || r.projectId || r.subjectId || 'reflection';
+                if (!r.skillId && r.skillIds && r.skillIds.length > 0) {
+                    rawSkillId = r.skillIds[0];
+                }
                 
                 // On essaie de trouver le noeud direct, sinon on tente la fallback map
                 let catId = rawSkillId;

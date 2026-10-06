@@ -6,23 +6,29 @@ export class StudyRecordEngine {
         this.storage = storageProvider;
     }
     
-    async completeSession(session, metrics = {}) {
+    async completeSession(session, metrics = {}, planDate = null) {
         AppLogger.info(`StudyRecordEngine: Enregistrement complet de la session ${session.title}`);
         
         let user = await this.storage.loadData('user_profile') || { streak: 1, lastActive: null };
-        const today = new Date().toLocaleDateString('fr-CA');
+        
+        const d = new Date();
+        if (d.getHours() < 4) d.setDate(d.getDate() - 1);
+        const today = d.toLocaleDateString('fr-CA');
+        const sessionDate = planDate || today;
         
         const quality = metrics.quality || 3;
         const difficulty = session.priority === 'Haute' ? 1.5 : (session.priority === 'Critique' ? 2.0 : 1.2);
         
+        const recordId = `rec_${session.id}_${sessionDate}`;
+        
         const record = new StudyRecord(
-            `rec_${Date.now()}`,
+            recordId,
             session.id,
-            today,
+            sessionDate,
             new Date().toISOString(),
-            session.skillIds || session.skillId || session.subjectId || session.projectId
+            session.skillId || session.subjectId || session.projectId || (Array.isArray(session.skillIds) ? session.skillIds[0] : session.skillIds)
         );
-        record.finish(new Date().toISOString(), session.expectedDuration, metrics.status || 'completed', 1.0, metrics);
+        record.finish(new Date().toISOString(), metrics.actualDuration || session.expectedDuration, metrics.status || 'completed', 1.0, metrics);
         
         if (metrics.proof && metrics.proof.type) {
             record.proof = {
@@ -42,7 +48,13 @@ export class StudyRecordEngine {
         record.actualDifficulty = metrics.difficulty || session.difficulty;
         
         let history = await this.storage.loadData('study_history') || [];
-        history.push(record);
+        const existingIndex = history.findIndex(r => r.id === recordId);
+        if (existingIndex !== -1) {
+            history[existingIndex] = record;
+            AppLogger.info(`StudyRecordEngine: Mise à jour du StudyRecord existant (upsert)`);
+        } else {
+            history.push(record);
+        }
         await this.storage.saveData('study_history', history);
         
         const yesterday = new Date();

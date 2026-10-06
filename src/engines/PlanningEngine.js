@@ -50,15 +50,30 @@ export class PlanningEngine {
             return { success: false, reason: `Assessment ${intent.payload.assessmentId} not found` };
         }
 
+        let rawType = (intent.payload.type || '').toLowerCase();
+        let canonType = 'personal';
+        if (rawType.includes('révision') || rawType.includes('revision')) canonType = 'revision';
+        else if (rawType.includes('exam') || rawType.includes('eval') || rawType === 'cc') canonType = 'exam';
+        else if (rawType.includes('cours') || rawType.includes('td') || rawType.includes('tp') || rawType.includes('course')) canonType = 'course';
+        else if (rawType) canonType = rawType; // fallback if specific type needed
+
+        let eventTitle = intent.payload.title || 'Nouvel événement';
+        if (canonType === 'revision' && intent.payload.subjectId) {
+            const subject = subjects.find(s => s.id === intent.payload.subjectId);
+            if (subject) {
+                eventTitle = `Révision — ${subject.name || subject.title || intent.payload.subjectId}`;
+            }
+        }
+
         const evConfig = {
             id: `ev_${Date.now()}_${Math.floor(Math.random() * 1000)}`,
-            title: intent.payload.title || 'Nouvel événement',
+            title: eventTitle,
             date: intent.constraints.date,
             startTime: intent.constraints.startTime || null,
             endTime: intent.constraints.endTime || null,
             duration: intent.payload.duration || 0,
             targetDuration: intent.payload.targetDuration || null,
-            type: intent.payload.type || 'defaut',
+            type: canonType,
             impact: 'bloc',
             mandatory: true,
             lockStatus: intent.payload.lockStatus || 'flexible',

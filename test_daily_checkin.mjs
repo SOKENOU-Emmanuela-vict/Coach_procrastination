@@ -39,7 +39,7 @@ class MockStudyRecordEngine {
 
 function assert(condition, message) {
     if (!condition) {
-        console.error(`❌ FAIL: ${message}`);
+        console.error(`❌ FAIL: ${message}`); process.exitCode = 1;
         process.exit(1);
     }
     console.log(`✅ PASS: ${message}`);
@@ -175,7 +175,4 @@ async function runTests() {
     console.log(`\n=== RÉSULTATS : ${passed}/${total} TESTS PASSÉS ===`);
 }
 
-runTests().catch(e => {
-    console.error(e);
-    process.exit(1);
-});
+runTests().catch(e => { console.error(e); process.exitCode = 1; });

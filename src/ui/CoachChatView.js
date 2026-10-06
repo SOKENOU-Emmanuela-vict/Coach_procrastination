@@ -44,7 +44,6 @@ export class CoachChatView {
                 <i class="bi bi-robot" style="font-size:18px; color:var(--accent-primary);"></i> Coach
             </div>
         </div>
-        </div>
     </div>
 
     <!-- MAIN CONTENT -->
@@ -169,24 +168,22 @@ export class CoachChatView {
                     <div style="font-size:12px; font-weight:bold; color:var(--text-muted); text-transform:uppercase; letter-spacing:1px; margin-bottom:15px;">Tes Objectifs</div>
                     
                     <div style="display:flex; flex-direction:column; gap:15px;">
-                        <div>
-                            <div style="display:flex; justify-content:space-between; font-size:14px; margin-bottom:8px;">
-                                <strong>Maths</strong>
-                                <span>17/20</span>
-                            </div>
-                            <div style="height:6px; background:rgba(255,255,255,0.1); border-radius:3px;">
-                                <div style="height:100%; width:85%; background:var(--accent-primary); border-radius:3px;"></div>
-                            </div>
-                        </div>
-                        <div>
-                            <div style="display:flex; justify-content:space-between; font-size:14px; margin-bottom:8px;">
-                                <strong>Physique</strong>
-                                <span>14/20</span>
-                            </div>
-                            <div style="height:6px; background:rgba(255,255,255,0.1); border-radius:3px;">
-                                <div style="height:100%; width:70%; background:#f59e0b; border-radius:3px;"></div>
-                            </div>
-                        </div>
+                        ${(this.app.state.academicSubjects && this.app.state.academicSubjects.length > 0) 
+                            ? this.app.state.academicSubjects.slice(0, 3).map(sub => `
+                                <div>
+                                    <div style="display:flex; justify-content:space-between; font-size:14px; margin-bottom:8px;">
+                                        <strong>${sub.name.substring(0, 20)}${sub.name.length > 20 ? '...' : ''}</strong>
+                                        <span>${sub.cect} CECT</span>
+                                    </div>
+                                    <div style="height:6px; background:rgba(255,255,255,0.1); border-radius:3px;">
+                                        <div style="height:100%; width:100%; background:var(--accent-primary); border-radius:3px;"></div>
+                                    </div>
+                                </div>
+                            `).join('')
+                            : `
+                                <div style="font-size:13px; color:var(--text-muted);">Aucun objectif défini</div>
+                            `
+                        }
                     </div>
                 </div>
 
@@ -250,6 +247,7 @@ export class CoachChatView {
         if (btnSend) {
             btnSend.addEventListener('click', sendMessage);
         }
+
 
         if (inputField) {
             inputField.addEventListener('keydown', (e) => {

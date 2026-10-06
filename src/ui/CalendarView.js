@@ -15,7 +15,7 @@ export class CalendarView {
         };
     }
     
-    render(state) {
+    async render(state) {
         if (typeof document !== 'undefined' && document.body) {
             document.body.className = 'theme-glass'; 
         }
@@ -23,6 +23,7 @@ export class CalendarView {
         const events = state.calendarData?.events || [];
         const projects = state.calendarData?.projects || [];
         const assessments = state.calendarData?.assessments || [];
+        const subjects = state.calendarData?.subjects || await this.app.storage.loadData('acad_subjects') || [];
         
         const monthNames = ["Janvier", "Février", "Mars", "Avril", "Mai", "Juin", "Juillet", "Août", "Septembre", "Octobre", "Novembre", "Décembre"];
         const monthName = monthNames[this.currentMonth];
@@ -31,8 +32,12 @@ export class CalendarView {
         const firstDayIndex = new Date(this.currentYear, this.currentMonth, 1).getDay(); // 0 (Sun) to 6 (Sat)
         const todayStr = new Date().toLocaleDateString('fr-CA');
         
-        // --- HELPERS POUR CATÉGORIES ---
-        const isSchool = (e) => !!e.subjectId || e.type === 'Cours' || e.type === 'TD' || e.type === 'Exam';
+        const isSchool = (e) => {
+            if (!!e.subjectId) return true;
+            if (!e.type) return false;
+            const t = e.type.toLowerCase();
+            return t === 'course' || t === 'cours' || t === 'td' || t === 'exam' || t === 'revision' || t === 'révision';
+        };
         const isLife = (e) => !!e.projectId && !isSchool(e) && !isLang(e);
         const isLang = (e) => (e.type && (e.type.toLowerCase() === 'langue' || e.type.toLowerCase() === 'language')) || (e.title && (e.title.toLowerCase().includes('anglais') || e.title.toLowerCase().includes('russe')));
         

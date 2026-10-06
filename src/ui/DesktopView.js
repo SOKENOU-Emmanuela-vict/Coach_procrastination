@@ -75,7 +75,7 @@ export class DesktopView {
                     <span>🕒</span>
                     <span style="font-weight:bold;">10:24</span>
                 </div>
-                <div style="width:40px; height:40px; border-radius:50%; background:var(--accent-primary); display:flex; align-items:center; justify-content:center; color:white; font-weight:bold; font-size:18px;">
+                <div id="btn-profile" style="width:40px; height:40px; border-radius:50%; background:var(--accent-primary); display:flex; align-items:center; justify-content:center; color:white; font-weight:bold; font-size:18px; cursor:pointer; transition: transform 0.2s;" onmouseover="this.style.transform='scale(1.1)'" onmouseout="this.style.transform='scale(1)'">
                     ${userName.charAt(0)}
                 </div>
             </div>
@@ -89,7 +89,7 @@ export class DesktopView {
             <div class="bureau-card" style="background: linear-gradient(135deg, var(--accent-primary), #0a1128); color:white; display:flex; flex-direction:column; justify-content:space-between;">
                 ${(() => {
                     const now = new Date();
-                    const currentDateStr = now.toLocaleDateString('fr-CA');
+                    const currentDateStr = this.app.getPedagogicalDate(now);
                     const currentTimeStr = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
                     const todayEvents = (state.calendarData?.events || []).filter(e => e.date === currentDateStr);
                     let currentEvent = null;
@@ -121,7 +121,7 @@ export class DesktopView {
                         </div>
                         <div style="display:flex; align-items:center; gap:15px; margin-top:20px;">
                             <button id="btn-desktop-course" style="background:white; color:var(--accent-primary); border:none; padding:10px 20px; border-radius:8px; font-weight:bold; cursor:pointer; flex-grow:1;">
-                                Continuer
+                                Voir le cours
                             </button>
                         </div>`;
                     }
@@ -140,7 +140,7 @@ export class DesktopView {
                 <div style="display:flex; flex-direction:column; gap:15px;">
                     ${(() => {
                         const now = new Date();
-                        const currentDateStr = now.toLocaleDateString('fr-CA');
+                        const currentDateStr = this.app.getPedagogicalDate(now);
                         const currentTimeStr = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
                         const todayEvents = (state.calendarData?.events || []).filter(e => e.date === currentDateStr && e.startTime > currentTimeStr);
                         todayEvents.sort((a, b) => (a.startTime || '').localeCompare(b.startTime || ''));
@@ -318,8 +318,21 @@ export class DesktopView {
         if (btnCourse) {
             btnCourse.addEventListener('click', () => {
                 // Pour la maquette : La session est "Anglais", on redirige vers l'espace Langues
-                if (this.app.router) {
+                if (this.app.renderView) {
                     this.app.renderView('languages');
+                } else if (this.app.router) {
+                    this.app.router.render('languages', this.app.state);
+                }
+            });
+        }
+
+        const btnProfile = this.container.querySelector('#btn-profile');
+        if (btnProfile) {
+            btnProfile.addEventListener('click', () => {
+                if (this.app.renderView) {
+                    this.app.renderView('portfolio');
+                } else if (this.app.router) {
+                    this.app.router.render('portfolio', this.app.state);
                 }
             });
         }

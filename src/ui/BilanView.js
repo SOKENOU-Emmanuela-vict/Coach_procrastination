@@ -122,7 +122,7 @@ export class BilanView {
                 });
 
                 const payload = {
-                    date: summary ? summary.date : new Date().toLocaleDateString('fr-CA'),
+                    date: summary ? summary.date : this.app.getPedagogicalDate(),
                     energy: energy,
                     sleep: {
                         durationMinutes: sleepHours * 60,

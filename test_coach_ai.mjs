@@ -25,7 +25,7 @@ class MockPlanningIntelligence {
 
 function assert(condition, message) {
     if (!condition) {
-        console.error(`❌ FAIL: ${message}`);
+        console.error(`❌ FAIL: ${message}`); process.exitCode = 1;
         process.exit(1);
     }
     console.log(`✅ PASS: ${message}`);
@@ -178,7 +178,4 @@ async function runTests() {
     if (passed !== total) process.exit(1);
 }
 
-runTests().catch(e => {
-    console.error(e);
-    process.exit(1);
-});
+runTests().catch(e => { console.error(e); process.exitCode = 1; });

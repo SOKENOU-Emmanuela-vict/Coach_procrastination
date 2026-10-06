@@ -81,7 +81,7 @@ async function runTests() {
     app.planningEngine = planningEngine;
     app.state = { 
         userProfile: { 
-            academic: { currentSemesterId: 's4' } 
+            academic: { currentSemesterId: 'sem_s4_27' } 
         },
         availableSlots: [
             { id: 'w1', date: '2026-09-18', startTime: '14:00', endTime: '18:00' },

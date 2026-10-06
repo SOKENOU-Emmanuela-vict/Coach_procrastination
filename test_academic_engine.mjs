@@ -19,4 +19,4 @@ async function run() {
     console.log(JSON.stringify(summary, null, 2));
 }
 
-run().catch(console.error);
+run().catch(e => { console.error(e); process.exitCode = 1; });

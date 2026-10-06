@@ -30,7 +30,13 @@ export class PromptBuilder {
   "intent": {
     "action": "create" | "save_checkin",
     "target": "event" | "checkin",
-    "payload": { ... }
+    "payload": {
+      "title": "Titre clair de l'événement (ex: Révision - Mathématiques)",
+      "type": "Révision" | "Projet" | "Langue" | "Life",
+      "duration": 60,
+      "subjectId": "optional_id_matiere",
+      "priority": "high"
+    }
   }
 }`);
         sections.push("INTERDICTION ABSOLUE : N'ajoute JAMAIS de contraintes temporelles (`date`, `startTime`, `endTime`) dans `intent`. Seulement `duration`.");

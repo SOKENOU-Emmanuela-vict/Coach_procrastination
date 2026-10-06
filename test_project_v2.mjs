@@ -160,4 +160,4 @@ async function runTests() {
     console.log("=> TOUS LES TESTS PROJET V2 SONT VERTS !");
 }
 
-runTests().catch(console.error);
+runTests().catch(e => { console.error(e); process.exitCode = 1; });

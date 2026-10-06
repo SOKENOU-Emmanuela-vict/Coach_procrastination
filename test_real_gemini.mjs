@@ -8,6 +8,7 @@ import { PlanningIntelligence } from './src/engines/PlanningIntelligence.js';
 class MockPlanningEngine {
     async getEventsForDate(date) { return []; }
     async getAvailabilityWindows() { return [{ date: "2026-09-15", startTime: "17:00", endTime: "19:00", id: "w1" }]; }
+    async getAvailableSlots(date) { return [{ date: date, startTime: "17:00", endTime: "19:00" }]; }
 }
 
 async function runTest() {
