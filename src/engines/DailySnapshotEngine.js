@@ -147,6 +147,51 @@ export class DailySnapshotEngine {
             minutes: trendDir(window7.avgMinutes, baseline14.avgMinutes)
         };
 
-        return { window7, window30, baseline14, trends, today, insufficientData };
+        const result = { window7, window30, baseline14, trends, today, insufficientData };
+        result.sentence = this.formatTrendSentence(result);
+        return result;
+    }
+
+    /**
+     * Produit une phrase en français, chiffrée et bienveillante résumant la tendance :
+     * « tu t'améliores » / « stable » / « tu procrastines plus qu'avant ».
+     * Si insufficientData : le dit sans conclure.
+     */
+    formatTrendSentence(trendsData) {
+        if (!trendsData || trendsData.insufficientData) {
+            return "Données insuffisantes pour établir une tendance fiable : il faut au moins 21 jours de recul (14 jours de référence et 7 jours récents).";
+        }
+
+        const baseRisk = trendsData.baseline14?.avgRisk;
+        const currRisk = trendsData.window7?.avgRisk;
+
+        if (baseRisk !== null && baseRisk !== undefined && currRisk !== null && currRisk !== undefined) {
+            const delta = currRisk - baseRisk;
+            const sign = delta > 0 ? `+${delta}` : `${delta}`;
+            if (delta <= -5) {
+                return `Tu t'améliores : ton risque moyen est passé de ${baseRisk} à ${currRisk} sur 7 jours (${sign} points).`;
+            } else if (delta >= 5) {
+                return `Tu procrastines plus qu'avant : ton risque moyen est passé de ${baseRisk} à ${currRisk} sur 7 jours (${sign} points).`;
+            } else {
+                return `Tendance stable : ton risque moyen est passé de ${baseRisk} à ${currRisk} sur 7 jours (${sign} points).`;
+            }
+        }
+
+        // Fallback si pas de risque mais completion
+        const baseComp = trendsData.baseline14?.avgCompletion;
+        const currComp = trendsData.window7?.avgCompletion;
+        if (baseComp !== null && baseComp !== undefined && currComp !== null && currComp !== undefined) {
+            const delta = currComp - baseComp;
+            const sign = delta > 0 ? `+${delta}` : `${delta}`;
+            if (delta >= 5) {
+                return `Tu t'améliores : ton taux de complétion est passé de ${baseComp}% à ${currComp}% sur 7 jours (${sign} points).`;
+            } else if (delta <= -5) {
+                return `Tu procrastines plus qu'avant : ton taux de complétion est passé de ${baseComp}% à ${currComp}% sur 7 jours (${sign} points).`;
+            } else {
+                return `Tendance stable : ton taux de complétion est passé de ${baseComp}% à ${currComp}% sur 7 jours (${sign} points).`;
+            }
+        }
+
+        return "Tendance stable : aucune variation significative observée sur les 7 derniers jours.";
     }
 }
