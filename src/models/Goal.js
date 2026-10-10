@@ -6,6 +6,7 @@ export class Goal {
         this.deadline = config.deadline || null;
         this.progress = config.progress || 0; // 0 to 100
         this.milestones = Array.isArray(config.milestones) ? config.milestones : [];
-        // milestone example: { title: 'Etape 1', completed: false, targetDate: '2026-12-01' }
+        // { type: 'pages', target: 200 } ou { type: 'streak', target: 30 }
+        this.autoMetric = config.autoMetric || null; 
     }
 }
