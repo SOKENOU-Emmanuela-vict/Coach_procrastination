@@ -53,8 +53,8 @@ async function testSnapshot() {
         return d.toLocaleDateString('fr-CA');
     };
 
-    // Baseline (J-31 à J-37)
-    for (let i = 31; i <= 37; i++) {
+    // Baseline : 14 premiers jours (J-20 à J-7)
+    for (let i = 20; i >= 7; i--) {
         await snap.saveSnapshot({ date: baselineDate(i), risk: 60, completion: 50, energy: 'medium', mood: 'ok', sessionsCompleted: 2, minutesStudied: 60 });
     }
 

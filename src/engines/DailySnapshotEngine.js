@@ -92,31 +92,47 @@ export class DailySnapshotEngine {
     async getTrends(today = new Date().toLocaleDateString('fr-CA')) {
         const snapshots = await this.getSnapshots();
 
-        const daysBefore = (baseDate, n) => {
-            const d = new Date(baseDate);
-            d.setDate(d.getDate() - n);
-            return d.toLocaleDateString('fr-CA');
-        };
-
-        const date7Start  = daysBefore(today, 7);
-        const date30Start = daysBefore(today, 30);
-        const dateBase14Start = daysBefore(today, 44); // baseline = J-44 à J-30
-        const dateBase14End   = daysBefore(today, 30);
-
-        const inRange = (snap, start, end) => snap.date >= start && snap.date <= end;
-
-        const w7   = snapshots.filter(s => inRange(s, date7Start, today));
-        const w30  = snapshots.filter(s => inRange(s, date30Start, today));
-        const base = snapshots.filter(s => inRange(s, dateBase14Start, dateBase14End));
+        // Trier par date croissante
+        const sorted = snapshots
+            .filter(s => s && s.date && (!today || s.date <= today))
+            .sort((a, b) => a.date.localeCompare(b.date));
 
         const avg = (arr, key) => {
             const vals = arr.map(s => s[key]).filter(v => v !== null && v !== undefined);
             return vals.length > 0 ? Math.round(vals.reduce((a, b) => a + b, 0) / vals.length) : null;
         };
 
-        const window7 = { days: w7.length, avgRisk: avg(w7, 'risk'), avgCompletion: avg(w7, 'completion'), avgMinutes: avg(w7, 'minutesStudied') };
-        const window30 = { days: w30.length, avgRisk: avg(w30, 'risk'), avgCompletion: avg(w30, 'completion'), avgMinutes: avg(w30, 'minutesStudied') };
-        const baseline14 = { days: base.length, avgRisk: avg(base, 'risk'), avgCompletion: avg(base, 'completion'), avgMinutes: avg(base, 'minutesStudied'), insufficientData: base.length < 7 };
+        const totalDays = sorted.length;
+        const insufficientData = totalDays < 21;
+
+        // La ligne de base = mes 14 PREMIERS jours de snapshots
+        const base = sorted.slice(0, Math.min(14, totalDays));
+
+        // Fenêtre 7 jours récents = 7 derniers snapshots enregistrés
+        const w7 = sorted.slice(-Math.min(7, totalDays));
+
+        // Fenêtre 30 jours (jusqu'à 30 derniers snapshots)
+        const w30 = sorted.slice(-Math.min(30, totalDays));
+
+        const window7 = {
+            days: w7.length,
+            avgRisk: avg(w7, 'risk'),
+            avgCompletion: avg(w7, 'completion'),
+            avgMinutes: avg(w7, 'minutesStudied')
+        };
+        const window30 = {
+            days: w30.length,
+            avgRisk: avg(w30, 'risk'),
+            avgCompletion: avg(w30, 'completion'),
+            avgMinutes: avg(w30, 'minutesStudied')
+        };
+        const baseline14 = {
+            days: base.length,
+            avgRisk: avg(base, 'risk'),
+            avgCompletion: avg(base, 'completion'),
+            avgMinutes: avg(base, 'minutesStudied'),
+            insufficientData
+        };
 
         const trendDir = (current, ref) => {
             if (current === null || ref === null) return 'unknown';
@@ -131,6 +147,6 @@ export class DailySnapshotEngine {
             minutes: trendDir(window7.avgMinutes, baseline14.avgMinutes)
         };
 
-        return { window7, window30, baseline14, trends, today };
+        return { window7, window30, baseline14, trends, today, insufficientData };
     }
 }
