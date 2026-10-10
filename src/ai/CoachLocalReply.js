@@ -73,6 +73,8 @@ export class CoachLocalReply {
             const isPlanned = planning && planning.events && planning.events.some(ev => ev.projectId === p.id && new Date(ev.date) >= new Date(today));
             return !isPlanned;
         });
+        // Parmi les stagnants, ceux à faible détermination (pas de session récente ET pas de retour coach)
+        const lowDeterminationProjects = stagnatingProjects.filter(p => !p.determination || p.determination.score < 40);
         const tasks = context.personalTasks || [];
         const books = context.books || [];
 
@@ -131,7 +133,10 @@ export class CoachLocalReply {
         } else if (postponedTasks.length > 0) {
             question = `La tâche « ${CoachLocalReply._short(postponedTasks[0].title, 30)} » a été reportée plusieurs fois. Veux-tu la faire aujourd'hui ou l'abandonner ?`;
         } else if (stagnatingProjects.length > 0) {
-            question = `Où en es-tu sur le projet « ${CoachLocalReply._short(stagnatingProjects[0].title, 30)} » ? Aucune session n'est planifiée.`;
+            const p0 = lowDeterminationProjects[0] || stagnatingProjects[0];
+            const detScore = p0.determination ? p0.determination.score : null;
+            const detHint = detScore !== null && detScore < 40 ? ` (score de détermination : ${detScore}/100)` : '';
+            question = `Où en es-tu sur le projet « ${CoachLocalReply._short(p0.title, 30)} »${detHint} ? Aucune session n'est planifiée.`;
         } else if (exams.length === 0) {
             question = "As-tu un examen ou un devoir bientôt ? Dis-le-moi, par exemple : « examen de Structures algébriques le 15/10 ».";
         } else if (slots.length > 0) {

@@ -11,6 +11,8 @@ export class Project {
             this.category = config.category || 'skill'; // skill, hobby, wellbeing, life
             this.priority = config.priority || 'medium'; // high, medium, low
             this.tasks = config.tasks || [];
+            this.coachAssessments = config.coachAssessments || [];
+            this.determination = config.determination || null;
         } else {
             // Legacy constructor compat: new Project(id, title)
             this.id = idOrConfig;

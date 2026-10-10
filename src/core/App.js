@@ -22,6 +22,7 @@ import { CourseProgressEngine } from '../engines/CourseProgressEngine.js';
 import { SubjectMatcher } from '../engines/SubjectMatcher.js';
 import { ExamRevisionPlanner } from '../ai/ExamRevisionPlanner.js';
 import { parseExamAnnouncement, parseGradeAnswer, parseGradeStatement, isNotYetAnswer, parseBookProgress, parsePersonalTaskCreation, parseTaskCompletion, parseItemUpdate, parseItemDeletion } from '../ai/ChatIntentParser.js';
+import { DailySnapshotEngine } from '../engines/DailySnapshotEngine.js';
 
 // Disponibilités par défaut tant qu'aucune n'a été saisie (seulement après un premier import d'emploi du temps)
 export const DEFAULT_STUDY_WINDOW = { startTime: '08:00', endTime: '21:00' };
@@ -43,6 +44,7 @@ export class App {
         this.planningEngine = new PlanningEngine(storage);
         this.projectEngine = new ProjectEngine(storage);
         this.riskEngine = new RiskEngine(storage);
+        this.snapshotEngine = new DailySnapshotEngine(storage);
         if (this.checkInEngine) this.checkInEngine.planningEngine = this.planningEngine;
         if (this.weeklyReviewEngine) this.weeklyReviewEngine.planningEngine = this.planningEngine;
         
@@ -279,7 +281,13 @@ export class App {
         return {
             userProfile: this.state.userProfile,
             academicSummary: this.state.academicSummary,
-            projects: await this.projectEngine.getProjects(),
+            projects: await (async () => {
+                const projs = await this.projectEngine.getProjects();
+                for (const p of projs) {
+                    try { p.determination = await this.projectEngine.calculateProjectDetermination(p.id); } catch (_) {}
+                }
+                return projs;
+            })(),
             books: await this.projectEngine.getBooks(),
             personalTasks: await this.projectEngine.getPersonalTasks(),
             goals: await this.projectEngine.getGoals(),
@@ -1063,19 +1071,28 @@ export class App {
                 { intent: null, proactive: 'grade', gradeRequest: r });
         }
 
-        // --- NUDGE RAPPELS TACHES PERSONNELLES (J-2, J-1, Jour J) ---
+        // --- NUDGE RAPPELS TACHES PERSONNELLES ESCALADANTS (J-2, J-1, Jour J) ---
         if (this.projectEngine) {
             const pTasks = (await this.projectEngine.getPersonalTasks()) || [];
             for (const t of pTasks) {
-                if (!t.dueDate || t.status === 'done' || t.status === 'cancelled') continue;
+                if (!t.dueDate || t.status === 'faite' || t.status === 'done' || t.status === 'cancelled') continue;
                 const days = this._daysBetween(today, t.dueDate);
-                if (days >= 0 && days <= 2) {
-                    const key = `ptask_remind_${t.id}_${days}`;
-                    if (!due(key)) continue;
-                    mark(key);
-                    const when = days === 0 ? "aujourd'hui" : (days === 1 ? 'demain' : `dans ${days} jours`);
-                    await this._sayCoach(`Rappel : ta tâche "${t.title}" est à faire pour ${when}. N'oublie pas de la planifier ou de la réaliser !`, { intent: null, proactive: 'task_remind' });
+                if (days < 0 || days > 2) continue;
+                const key = `ptask_remind_${t.id}_${days}`;
+                if (!due(key)) continue;
+                mark(key);
+                let msg;
+                if (days === 2) {
+                    msg = `📌 Rappel (J-2) : ta tâche « ${t.title} » doit être faite dans 2 jours. Pense à la planifier !`;
+                } else if (days === 1) {
+                    msg = `⚠️ Rappel (J-1) : ta tâche « ${t.title} » doit être faite demain. C'est le moment de t'y mettre sérieusement !`;
+                } else {
+                    msg = `🚨 URGENT (Jour J) : ta tâche « ${t.title} » est à rendre aujourd'hui ! Dis-moi quand c'est fait.`;
+                    if (typeof window !== 'undefined' && window.dispatchEvent) {
+                        window.dispatchEvent(new CustomEvent('toast', { detail: { message: `Tâche urgente : « ${t.title} »` } }));
+                    }
                 }
+                await this._sayCoach(msg, { intent: null, proactive: 'task_remind', taskId: t.id, urgency: days });
             }
         }
 
@@ -1253,6 +1270,29 @@ export class App {
         this.state.coachInsights = insights;
         this.state.todayEvents = await this.planningEngine.getEventsForDate(localDate);
         await this.refreshCalendarData();
+
+        // --- SNAPSHOT JOURNALIER (Request B) ---
+        if (this.snapshotEngine) {
+            try {
+                const riskProfile = this.riskEngine ? await this.riskEngine.evaluateRisk(
+                    this.state.academicSummary || {},
+                    await this.studyRecordEngine.getFullHistory(),
+                    this.state.allCheckins || {}
+                ) : null;
+                const history = this.state.fullHistory || [];
+                await this.snapshotEngine.buildAndSave({
+                    date: localDate,
+                    riskProfile,
+                    checkIn: this.state.todayCheckIn || null,
+                    history,
+                    dailySummary: this.state.dailySummary || null
+                });
+                // Stocker les tendances dans le state pour l'UI
+                this.state.trends = await this.snapshotEngine.getTrends(localDate);
+            } catch (e) {
+                AppLogger.warn('Snapshot journalier: ' + (e && e.message));
+            }
+        }
     }
 
     /**
@@ -1276,6 +1316,23 @@ export class App {
             payload.date = payload.date || this.getPedagogicalDate();
             const checkIn = await this.checkInEngine.saveCheckIn(payload);
             result = { success: true, checkIn };
+        } else if (intent.action === 'update_project') {
+            const { projectId, score, message } = intent.payload || {};
+            if (!projectId) throw new Error('Projet non identifié dans la réponse du coach.');
+            const projects = await this.projectEngine.getProjects();
+            const project = projects.find(p => p.id === projectId);
+            if (!project) throw new Error('Projet introuvable.');
+            project.coachAssessments = project.coachAssessments || [];
+            project.coachAssessments.push({
+                date: this.getPedagogicalDate(),
+                score: Number(score) || 0,
+                message: message || ''
+            });
+            // Mettre à jour le score de détermination
+            const det = await this.projectEngine.calculateProjectDetermination(project.id);
+            project.determination = det;
+            await this.projectEngine.saveProject(project);
+            result = { success: true, project };
         } else if (this.planningEngine) {
             const execResult = await this.planningEngine.executeIntent(intent, { now: new Date(), ...options });
             if (execResult && execResult.success === false) {

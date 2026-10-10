@@ -48,6 +48,40 @@ export class ProjectEngine {
         return { score, daysWorked: uniqueDays, daysElapsed };
     }
 
+    /**
+     * Score de détermination (0-100) : régularité + fraîcheur + réponses coach.
+     *  - Régularité (40 pts) : ratio jours travaillés / jours écoulés
+     *  - Fraîcheur  (30 pts) : dernière activité < 3j → 30, < 7j → 15, sinon 0
+     *  - Coach feedback (30 pts) : moyenne des scores laissés lors des "où en es-tu ?"
+     */
+    async calculateProjectDetermination(projectId) {
+        const regularity = await this.calculateProjectRegularity(projectId);
+        const regularityPart = Math.round(regularity.score * 0.4);
+
+        // Fraîcheur : dernière session enregistrée dans study_history pour ce projet
+        const history = await this.storage.loadData('study_history') || [];
+        const projectRecords = history.filter(r => r.skillId === projectId && r.status === 'completed');
+        let freshnessPart = 0;
+        if (projectRecords.length > 0) {
+            const lastDate = projectRecords.map(r => r.date).sort().reverse()[0];
+            const daysSinceLast = Math.floor((new Date() - new Date(lastDate)) / (1000 * 60 * 60 * 24));
+            freshnessPart = daysSinceLast < 3 ? 30 : (daysSinceLast < 7 ? 15 : 0);
+        }
+
+        // Coach feedback
+        const projects = await this.getProjects();
+        const project = projects.find(p => p.id === projectId);
+        let coachPart = 0;
+        if (project && project.coachAssessments && project.coachAssessments.length > 0) {
+            const avg = project.coachAssessments.reduce((s, a) => s + (Number(a.score) || 0), 0) / project.coachAssessments.length;
+            coachPart = Math.round(avg * 0.3);
+        }
+
+        const score = Math.min(100, regularityPart + freshnessPart + coachPart);
+        AppLogger.info(`ProjectEngine: Détermination de ${projectId} = ${score}`);
+        return { score, regularityPart, freshnessPart, coachPart };
+    }
+
     // --- LECTURES ---
     async getBooks() {
         const raw = await this.storage.loadData('books') || [];

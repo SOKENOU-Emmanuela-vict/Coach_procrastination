@@ -123,6 +123,11 @@ export class CoachAI {
                     rec.title = "Bilan du soir";
                     rec.actionable = true;
                     rec.intent = { version: 1, action: 'save_checkin', target: 'checkin', payload };
+                } else if (llmDecision.type === "project_intent" && llmDecision.intent) {
+                    const payload = { ...(llmDecision.intent.payload || {}) };
+                    rec.title = "Mise à jour du projet";
+                    rec.actionable = true;
+                    rec.intent = { version: 1, action: 'update_project', target: 'project', payload };
                 }
 
                 recommendations.push(rec);

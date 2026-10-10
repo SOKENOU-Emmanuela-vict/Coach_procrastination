@@ -28,12 +28,18 @@ export class PortfolioView {
         if (state.projects) {
             state.projects.forEach(p => {
                 const regScore = p.regularity ? p.regularity.score : 0;
-                projectsHtml += `<div style="background:#12242f; padding:15px; border:1px solid #2a5268; border-radius:10px; position:relative;">
+                const det = p.determination || null;
+                const detScore = det ? det.score : null;
+                const detColor = detScore === null ? '#88a7b7' : (detScore >= 70 ? '#4CAF50' : detScore >= 40 ? '#ffb74d' : '#f44336');
+                const detIcon = detScore === null ? '' : (detScore >= 70 ? '🔥' : detScore >= 40 ? '📈' : '⚠️');
+                const detLabel = detScore !== null ? `<span style="color:${detColor}; font-size:11px;">${detIcon} Détermination : ${detScore}/100</span>` : '';
+                projectsHtml += `<div style="background:#12242f; padding:15px; border:1px solid ${detColor}; border-radius:10px; position:relative;">
                     <h4 style="color:#00f2fe; margin:0 0 5px 0; padding-right:50px;">🎯 ${escapeHtml(p.title)}</h4>
                     <div style="color:#88a7b7; font-size:12px;">Domaine: ${p.domain || '-'} | Progression : ${p.progress}% | Régularité : ${regScore}%</div>
                     <div style="background:#071015; border-radius:10px; height:6px; overflow:hidden; margin-top:5px;">
                         <div style="width:${p.progress}%; background:#00f2fe; height:100%;"></div>
                     </div>
+                    <div style="margin-top:5px;">${detLabel}</div>
                     <div style="position:absolute; top:15px; right:15px; display:flex; gap:5px;">
                         <button class="btn-edit-item" data-id="${p.id}" data-type="project" style="background:transparent; border:none; color:#ffb74d; cursor:pointer;">✏️</button>
                         <button class="btn-delete-item" data-id="${p.id}" data-type="project" style="background:transparent; border:none; color:#f44336; cursor:pointer;">🗑️</button>
@@ -72,7 +78,51 @@ export class PortfolioView {
             projectsHtml = `<div style="background: #0f2027; border: 1px dashed #2a5268; border-radius: 10px; padding: 25px; text-align: center; color: #88a7b7;">Aucun projet, livre ou tâche pour le moment. Vous pouvez en créer via le chat avec le Coach !</div>`;
         }
 
-        // Collecter les stats par domaine
+        // --- Widget Tendances (Request B) ---
+        const trends = state.trends || null;
+        const trendsHtml = (() => {
+            if (!trends || !trends.window7 || trends.window7.days < 2) {
+                return `<div style="background:#12242f; border:1px solid #2a5268; border-radius:10px; padding:15px; margin-bottom:15px; color:#88a7b7; font-size:13px;">
+                    📊 <strong style="color:#00f2fe;">Tendances</strong> — Pas encore assez de données (minimum 2 jours). Les tendances s'afficheront après quelques sessions.
+                </div>`;
+            }
+            const { window7, window30, trends: t } = trends;
+            const trendArrow = v => v === 'up' ? '▲' : v === 'down' ? '▼' : '—';
+            const trendColor = (v, invert = false) => {
+                if (v === 'stable') return '#88a7b7';
+                const isGood = (v === 'up' && !invert) || (v === 'down' && invert);
+                return isGood ? '#4CAF50' : '#f44336';
+            };
+            const riskColor = trendColor(t.risk, true);
+            const compColor = trendColor(t.completion);
+            const minColor  = trendColor(t.minutes);
+            return `
+            <div style="background:linear-gradient(135deg,#12242f,#0c1921); border:1px solid #2a5268; border-radius:10px; padding:15px; margin-bottom:15px;">
+                <h4 style="color:#00f2fe; margin:0 0 12px 0;">📊 Tendances (7 derniers jours)</h4>
+                <div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(140px,1fr)); gap:10px;">
+                    <div style="background:#071015; border-radius:8px; padding:10px; text-align:center;">
+                        <div style="color:#88a7b7; font-size:11px;">Risque</div>
+                        <div style="font-size:20px; color:${riskColor}; font-weight:bold;">${trendArrow(t.risk)} ${window7.avgRisk !== null ? window7.avgRisk + '/100' : '—'}</div>
+                        <div style="font-size:10px; color:#556b7d;">7j vs baseline 14j</div>
+                    </div>
+                    <div style="background:#071015; border-radius:8px; padding:10px; text-align:center;">
+                        <div style="color:#88a7b7; font-size:11px;">Complétion</div>
+                        <div style="font-size:20px; color:${compColor}; font-weight:bold;">${trendArrow(t.completion)} ${window7.avgCompletion !== null ? window7.avgCompletion + '%' : '—'}</div>
+                        <div style="font-size:10px; color:#556b7d;">7j vs baseline 14j</div>
+                    </div>
+                    <div style="background:#071015; border-radius:8px; padding:10px; text-align:center;">
+                        <div style="color:#88a7b7; font-size:11px;">Minutes / jour</div>
+                        <div style="font-size:20px; color:${minColor}; font-weight:bold;">${trendArrow(t.minutes)} ${window7.avgMinutes !== null ? window7.avgMinutes + 'min' : '—'}</div>
+                        <div style="font-size:10px; color:#556b7d;">7j vs baseline 14j</div>
+                    </div>
+                    <div style="background:#071015; border-radius:8px; padding:10px; text-align:center;">
+                        <div style="color:#88a7b7; font-size:11px;">Données 30j</div>
+                        <div style="font-size:15px; color:#00f2fe; font-weight:bold;">${window30.days} jours</div>
+                        <div style="font-size:10px; color:#556b7d;">${window30.avgCompletion !== null ? window30.avgCompletion + '% complétion' : '—'}</div>
+                    </div>
+                </div>
+            </div>`;
+        })();
         let domainsHtml = "";
         if (state.learningGraph && state.learningGraph.nodes) {
             domainsHtml = `<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 15px; margin-bottom: 25px;">`;
@@ -317,6 +367,7 @@ export class PortfolioView {
                 <h3 style="color: #00f2fe; border-left: 4px solid #00f2fe; padding-left: 10px; margin-bottom: 15px; font-size: 18px;">
                     🎯 Mes Projets, Livres & Tâches
                 </h3>
+                ${trendsHtml}
                 ${projectsHtml}
             </div>
         `;
