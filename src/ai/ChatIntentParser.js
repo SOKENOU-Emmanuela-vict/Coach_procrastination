@@ -183,3 +183,29 @@ export function parseTaskCompletion(text) {
     if (!title || title.length < 2) return null;
     return { title };
 }
+
+/** « change l'échéance de X au 15/10 », « repousse X à demain » */
+export function parseItemUpdate(text, today = new Date()) {
+    const t = norm(text);
+    const m = t.match(/\b(change|modifie|repousse|decale)\s+(?:l echeance de |la date de )?(?:la tache |le projet |le livre |l objectif )?(.+?)\s+(?:au|a|le|jusqu au)\s+(.+)\b/);
+    if (!m) return null;
+    let title = m[2].trim();
+    let dateStr = m[3].trim();
+    // parseFrenchDate a besoin du contexte pour bien matcher
+    const dateInfo = parseFrenchDate(t, today); // On passe la phrase entière pour que la date soit extraite
+    if (!title || !dateInfo) return null;
+    
+    // Nettoyer le titre (enlever la date matchée de la fin si elle a fuité)
+    title = title.replace(dateInfo.raw, '').trim();
+    return { titlePhrase: title, newDate: dateInfo.date };
+}
+
+/** « supprime la tâche X », « supprime le projet Y » */
+export function parseItemDeletion(text) {
+    const t = norm(text);
+    const m = t.match(/\b(supprime|efface|retire|enleve)\s+(?:la tache |le projet |le livre |l objectif |l element )?(.+)\b/);
+    if (!m) return null;
+    let title = m[2].replace(/\b(s il te plait|stp)\b/g, '').trim();
+    if (!title || title.length < 2) return null;
+    return { titlePhrase: title };
+}

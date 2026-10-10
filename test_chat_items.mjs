@@ -1,7 +1,9 @@
 import { 
     parseBookProgress, 
     parsePersonalTaskCreation, 
-    parseTaskCompletion 
+    parseTaskCompletion,
+    parseItemUpdate,
+    parseItemDeletion
 } from './src/ai/ChatIntentParser.js';
 
 let failed = 0;
@@ -50,6 +52,20 @@ assert(done2 && done2.title === 'faire le menage', "Task done 2");
 
 const done3 = parseTaskCompletion("J'ai fini mon livre Dune");
 assert(done3 && done3.title === 'mon livre dune', "Task done 3");
+
+// Item Update
+const update1 = parseItemUpdate("change l'échéance de mon projet site web au 15/10");
+assert(update1 && update1.titlePhrase === 'mon projet site web' && update1.newDate, "Item update 1");
+
+const update2 = parseItemUpdate("repousse la tâche faire les courses à demain");
+assert(update2 && update2.titlePhrase === 'faire les courses' && update2.newDate, "Item update 2");
+
+// Item Deletion
+const del1 = parseItemDeletion("supprime la tâche faire les courses s'il te plaît");
+assert(del1 && del1.titlePhrase === 'faire les courses', "Item deletion 1");
+
+const del2 = parseItemDeletion("efface mon livre Dune");
+assert(del2 && del2.titlePhrase === 'mon livre dune', "Item deletion 2");
 
 console.log(`Assertions PASS : ${passed}`);
 console.log(`Assertions FAIL : ${failed}`);

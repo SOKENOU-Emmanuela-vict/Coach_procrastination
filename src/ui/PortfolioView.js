@@ -20,43 +20,48 @@ export class PortfolioView {
 
         // Section Projets & Tâches
         let projectsHtml = `
-        <div style="background:#12242f; padding:15px; border:1px solid #2a5268; border-radius:10px; margin-bottom:15px;">
-            <h4 style="color:#00f2fe; margin:0 0 10px 0;">➕ Nouvel Élément</h4>
-            <div style="display:flex; gap:10px;">
-                <select id="new-item-type" style="padding:8px; border-radius:5px; background:#0f2027; color:#e0e0e0; border:1px solid #2a5268;">
-                    <option value="project">Projet</option>
-                    <option value="book">Livre</option>
-                    <option value="task">Tâche</option>
-                </select>
-                <input type="text" id="new-item-title" placeholder="Titre..." style="flex:1; padding:8px; border-radius:5px; background:#0f2027; color:#e0e0e0; border:1px solid #2a5268;">
-                <button type="button" id="btn-add-item" style="background:#00f2fe; color:#0f2027; border:none; padding:8px 15px; border-radius:5px; cursor:pointer; font-weight:bold;">Ajouter</button>
-            </div>
+        <div style="background:#12242f; padding:15px; border:1px solid #2a5268; border-radius:10px; margin-bottom:15px; display:flex; justify-content:space-between; align-items:center;">
+            <h4 style="color:#00f2fe; margin:0;">🎯 Mes Éléments</h4>
+            <button type="button" class="btn-open-modal" data-action="new" style="background:#00f2fe; color:#0f2027; border:none; padding:8px 15px; border-radius:5px; cursor:pointer; font-weight:bold;">➕ Ajouter un élément</button>
         </div>
         <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 15px;">`;
         if (state.projects) {
             state.projects.forEach(p => {
-                projectsHtml += `<div style="background:#12242f; padding:15px; border:1px solid #2a5268; border-radius:10px;">
-                    <h4 style="color:#00f2fe; margin:0 0 5px 0;">🎯 ${escapeHtml(p.title)}</h4>
-                    <div style="color:#88a7b7; font-size:12px;">Progression : ${p.progress}%</div>
+                projectsHtml += `<div style="background:#12242f; padding:15px; border:1px solid #2a5268; border-radius:10px; position:relative;">
+                    <h4 style="color:#00f2fe; margin:0 0 5px 0; padding-right:50px;">🎯 ${escapeHtml(p.title)}</h4>
+                    <div style="color:#88a7b7; font-size:12px;">Domaine: ${p.domain || '-'} | Progression : ${p.progress}%</div>
                     <div style="background:#071015; border-radius:10px; height:6px; overflow:hidden; margin-top:5px;">
                         <div style="width:${p.progress}%; background:#00f2fe; height:100%;"></div>
+                    </div>
+                    <div style="position:absolute; top:15px; right:15px; display:flex; gap:5px;">
+                        <button class="btn-edit-item" data-id="${p.id}" data-type="project" style="background:transparent; border:none; color:#ffb74d; cursor:pointer;">✏️</button>
+                        <button class="btn-delete-item" data-id="${p.id}" data-type="project" style="background:transparent; border:none; color:#f44336; cursor:pointer;">🗑️</button>
                     </div>
                 </div>`;
             });
         }
         if (state.books) {
             state.books.forEach(b => {
-                projectsHtml += `<div style="background:#12242f; padding:15px; border:1px solid #ffb74d; border-radius:10px;">
-                    <h4 style="color:#ffb74d; margin:0 0 5px 0;">📖 ${escapeHtml(b.title)}</h4>
-                    <div style="color:#88a7b7; font-size:12px;">Avancement : ${b.progressPages} pages / ${b.progressChapters} chap.</div>
+                projectsHtml += `<div style="background:#12242f; padding:15px; border:1px solid #ffb74d; border-radius:10px; position:relative;">
+                    <h4 style="color:#ffb74d; margin:0 0 5px 0; padding-right:50px;">📖 ${escapeHtml(b.title)}</h4>
+                    <div style="color:#88a7b7; font-size:12px;">Domaine: ${b.domain || '-'} | Avancement : ${b.pagesRead}/${b.totalPages} pages</div>
+                    <div style="position:absolute; top:15px; right:15px; display:flex; gap:5px;">
+                        <button class="btn-edit-item" data-id="${b.id}" data-type="book" style="background:transparent; border:none; color:#ffb74d; cursor:pointer;">✏️</button>
+                        <button class="btn-delete-item" data-id="${b.id}" data-type="book" style="background:transparent; border:none; color:#f44336; cursor:pointer;">🗑️</button>
+                    </div>
                 </div>`;
             });
         }
         if (state.personalTasks) {
             state.personalTasks.forEach(t => {
-                const color = t.status === 'completed' ? '#4CAF50' : '#e0e0e0';
-                projectsHtml += `<div style="background:#12242f; padding:15px; border:1px solid ${color}; border-radius:10px;">
-                    <h4 style="color:${color}; margin:0; font-size:14px;">${t.status === 'completed' ? '✅' : '⏳'} ${escapeHtml(t.title)}</h4>
+                const color = t.status === 'completed' || t.status === 'done' ? '#4CAF50' : '#e0e0e0';
+                projectsHtml += `<div style="background:#12242f; padding:15px; border:1px solid ${color}; border-radius:10px; position:relative;">
+                    <h4 style="color:${color}; margin:0; font-size:14px; padding-right:50px;">${t.status === 'completed' || t.status === 'done' ? '✅' : '⏳'} ${escapeHtml(t.title)}</h4>
+                    <div style="color:#88a7b7; font-size:11px; margin-top:4px;">Domaine: ${t.domain || '-'} | Date: ${t.dueDate || '-'} | Priorité: ${t.priority || '-'}</div>
+                    <div style="position:absolute; top:15px; right:15px; display:flex; gap:5px;">
+                        <button class="btn-edit-item" data-id="${t.id}" data-type="task" style="background:transparent; border:none; color:#ffb74d; cursor:pointer;">✏️</button>
+                        <button class="btn-delete-item" data-id="${t.id}" data-type="task" style="background:transparent; border:none; color:#f44336; cursor:pointer;">🗑️</button>
+                    </div>
                 </div>`;
             });
         }
@@ -312,6 +317,70 @@ export class PortfolioView {
                 </h3>
                 ${projectsHtml}
             </div>
+
+            <!-- MODAL EDITION ITEM -->
+            <div id="item-editor-modal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.7); z-index:9999; justify-content:center; align-items:center;">
+                <div style="background:#152b36; border:1px solid #00f2fe; border-radius:12px; padding:25px; width:400px; max-width:90%;">
+                    <h3 id="modal-item-header" style="color:#00f2fe; margin-top:0;">Éditer l'élément</h3>
+                    
+                    <input type="hidden" id="modal-item-id">
+                    
+                    <div style="margin-bottom:12px;">
+                        <label style="color:#88a7b7; font-size:12px;">Type</label>
+                        <select id="modal-item-type-select" style="width:100%; padding:8px; border-radius:5px; background:#0f2027; color:#e0e0e0; border:1px solid #2a5268;">
+                            <option value="project">Projet</option>
+                            <option value="book">Livre</option>
+                            <option value="task">Tâche</option>
+                        </select>
+                    </div>
+
+                    <div style="margin-bottom:12px;">
+                        <label style="color:#88a7b7; font-size:12px;">Titre</label>
+                        <input type="text" id="modal-item-title" style="width:100%; padding:8px; border-radius:5px; background:#0f2027; color:#e0e0e0; border:1px solid #2a5268;">
+                    </div>
+
+                    <div style="margin-bottom:12px;">
+                        <label style="color:#88a7b7; font-size:12px;">Domaine</label>
+                        <select id="modal-item-domain" style="width:100%; padding:8px; border-radius:5px; background:#0f2027; color:#e0e0e0; border:1px solid #2a5268;">
+                            <option value="ecole">École</option>
+                            <option value="langue">Langues</option>
+                            <option value="fitness">Fitness / Bien-être</option>
+                            <option value="lecture">Lecture</option>
+                            <option value="projet">Projet</option>
+                            <option value="perso">Personnel</option>
+                        </select>
+                    </div>
+
+                    <div style="margin-bottom:12px;">
+                        <label style="color:#88a7b7; font-size:12px;">Échéance (Optionnel)</label>
+                        <input type="date" id="modal-item-dueDate" style="width:100%; padding:8px; border-radius:5px; background:#0f2027; color:#e0e0e0; border:1px solid #2a5268;">
+                    </div>
+
+                    <div style="margin-bottom:12px;">
+                        <label style="color:#88a7b7; font-size:12px;">Durée estimée (min)</label>
+                        <input type="number" id="modal-item-duration" style="width:100%; padding:8px; border-radius:5px; background:#0f2027; color:#e0e0e0; border:1px solid #2a5268;">
+                    </div>
+
+                    <div style="margin-bottom:12px;">
+                        <label style="color:#88a7b7; font-size:12px;">Importance</label>
+                        <select id="modal-item-priority" style="width:100%; padding:8px; border-radius:5px; background:#0f2027; color:#e0e0e0; border:1px solid #2a5268;">
+                            <option value="low">Basse</option>
+                            <option value="medium">Moyenne</option>
+                            <option value="high">Haute</option>
+                        </select>
+                    </div>
+
+                    <div style="margin-bottom:20px;">
+                        <label style="color:#88a7b7; font-size:12px;">Cible (ex: nbre total de pages)</label>
+                        <input type="number" id="modal-item-target" style="width:100%; padding:8px; border-radius:5px; background:#0f2027; color:#e0e0e0; border:1px solid #2a5268;">
+                    </div>
+
+                    <div style="display:flex; justify-content:flex-end; gap:10px;">
+                        <button type="button" id="btn-modal-cancel" style="background:transparent; color:#88a7b7; border:1px solid #2a5268; padding:8px 15px; border-radius:5px; cursor:pointer;">Annuler</button>
+                        <button type="button" id="btn-modal-save" style="background:#00f2fe; color:#0f2027; border:none; padding:8px 15px; border-radius:5px; cursor:pointer; font-weight:bold;">Sauvegarder</button>
+                    </div>
+                </div>
+            </div>
         `;
 
         this.attachPortfolioTabs();
@@ -323,25 +392,99 @@ export class PortfolioView {
         const secCheckins = document.getElementById('portfolio-section-checkins');
         const secProjects = document.getElementById('portfolio-section-projects');
         
-        const btnAdd = document.getElementById('btn-add-item');
-        if (btnAdd) {
-            btnAdd.addEventListener('click', async () => {
-                const type = document.getElementById('new-item-type').value;
-                const title = document.getElementById('new-item-title').value.trim();
-                if (!title) return;
+        // -- LOGIQUE DU MODAL --
+        const modal = document.getElementById('item-editor-modal');
+        const modalId = document.getElementById('modal-item-id');
+        const modalType = document.getElementById('modal-item-type-select');
+        const modalTitle = document.getElementById('modal-item-title');
+        const modalDomain = document.getElementById('modal-item-domain');
+        const modalDueDate = document.getElementById('modal-item-dueDate');
+        const modalDuration = document.getElementById('modal-item-duration');
+        const modalPriority = document.getElementById('modal-item-priority');
+        const modalTarget = document.getElementById('modal-item-target');
+        
+        const openModal = (data = {}) => {
+            modalId.value = data.id || '';
+            modalType.value = data.type || 'project';
+            modalType.disabled = !!data.id; // Impossible de changer le type d'un élément existant
+            modalTitle.value = data.title || '';
+            modalDomain.value = data.domain || 'perso';
+            modalDueDate.value = data.dueDate || data.targetDate || '';
+            modalDuration.value = data.duration || data.estimatedMinutes || '';
+            modalPriority.value = data.priority || 'medium';
+            modalTarget.value = data.target || data.totalPages || '';
+            modal.style.display = 'flex';
+        };
 
-                if (this.app.projectEngine) {
-                    if (type === 'project') {
-                        await this.app.projectEngine.saveProject({ title, status: 'active', progress: 0, subtasks: [] });
-                    } else if (type === 'book') {
-                        await this.app.projectEngine.saveBook({ title, status: 'reading', progressPages: 0, progressChapters: 0 });
-                    } else if (type === 'task') {
-                        await this.app.projectEngine.savePersonalTask({ title, status: 'pending', category: 'other' });
-                    }
+        const closeModal = () => { modal.style.display = 'none'; };
+
+        document.querySelectorAll('.btn-open-modal').forEach(btn => {
+            btn.addEventListener('click', () => openModal());
+        });
+        
+        document.getElementById('btn-modal-cancel')?.addEventListener('click', closeModal);
+
+        document.querySelectorAll('.btn-edit-item').forEach(btn => {
+            btn.addEventListener('click', async (e) => {
+                const id = e.currentTarget.getAttribute('data-id');
+                const type = e.currentTarget.getAttribute('data-type');
+                let item = null;
+                if (type === 'project') item = (await this.app.projectEngine.getProjects()).find(i => i.id === id);
+                if (type === 'book') item = (await this.app.projectEngine.getBooks()).find(i => i.id === id);
+                if (type === 'task') item = (await this.app.projectEngine.getPersonalTasks()).find(i => i.id === id);
+                if (item) openModal({ ...item, type });
+            });
+        });
+
+        document.querySelectorAll('.btn-delete-item').forEach(btn => {
+            btn.addEventListener('click', async (e) => {
+                const id = e.currentTarget.getAttribute('data-id');
+                const type = e.currentTarget.getAttribute('data-type');
+                if (confirm('Êtes-vous sûr de vouloir supprimer cet élément ?')) {
+                    if (type === 'project') await this.app.projectEngine.deleteProject(id);
+                    if (type === 'book') await this.app.projectEngine.deleteBook(id);
+                    if (type === 'task') await this.app.projectEngine.deletePersonalTask(id);
                     this.app.renderView('portfolio');
                 }
             });
-        }
+        });
+
+        document.getElementById('btn-modal-save')?.addEventListener('click', async () => {
+            const id = modalId.value;
+            const type = modalType.value;
+            const title = modalTitle.value.trim();
+            if (!title) return alert("Le titre est requis");
+            
+            const baseData = {
+                title,
+                domain: modalDomain.value,
+                priority: modalPriority.value,
+            };
+
+            if (type === 'project') {
+                const existing = id ? (await this.app.projectEngine.getProjects()).find(i => i.id === id) : {};
+                await this.app.projectEngine.saveProject({
+                    ...existing, ...baseData, id: id || undefined,
+                    targetDate: modalDueDate.value || null,
+                });
+            } else if (type === 'book') {
+                const existing = id ? (await this.app.projectEngine.getBooks()).find(i => i.id === id) : {};
+                await this.app.projectEngine.saveBook({
+                    ...existing, ...baseData, id: id || undefined,
+                    totalPages: modalTarget.value ? parseInt(modalTarget.value, 10) : 0,
+                    targetDate: modalDueDate.value || null,
+                });
+            } else if (type === 'task') {
+                const existing = id ? (await this.app.projectEngine.getPersonalTasks()).find(i => i.id === id) : {};
+                await this.app.projectEngine.savePersonalTask({
+                    ...existing, ...baseData, id: id || undefined,
+                    dueDate: modalDueDate.value || null,
+                    estimatedMinutes: modalDuration.value ? parseInt(modalDuration.value, 10) : 30
+                });
+            }
+            closeModal();
+            this.app.renderView('portfolio');
+        });
 
         buttons.forEach(btn => {
             btn.addEventListener('click', (e) => {

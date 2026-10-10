@@ -21,7 +21,7 @@ import { TimetableImportEngine, DEFAULT_GROUP } from '../engines/TimetableImport
 import { CourseProgressEngine } from '../engines/CourseProgressEngine.js';
 import { SubjectMatcher } from '../engines/SubjectMatcher.js';
 import { ExamRevisionPlanner } from '../ai/ExamRevisionPlanner.js';
-import { parseExamAnnouncement, parseGradeAnswer, parseGradeStatement, isNotYetAnswer, parseBookProgress, parsePersonalTaskCreation, parseTaskCompletion } from '../ai/ChatIntentParser.js';
+import { parseExamAnnouncement, parseGradeAnswer, parseGradeStatement, isNotYetAnswer, parseBookProgress, parsePersonalTaskCreation, parseTaskCompletion, parseItemUpdate, parseItemDeletion } from '../ai/ChatIntentParser.js';
 
 // Disponibilités par défaut tant qu'aucune n'a été saisie (seulement après un premier import d'emploi du temps)
 export const DEFAULT_STUDY_WINDOW = { startTime: '08:00', endTime: '21:00' };
@@ -616,8 +616,36 @@ export class App {
                 }
                 return true;
             }
+            
+            if (lastCoach && lastCoach.metadata && lastCoach.metadata.pendingItemUpdate) {
+                const t = text.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+                const data = lastCoach.metadata.pendingItemUpdate;
+                if (/(oui|ouais|ok|d accord|daccord|dac|ca marche|parfait)/.test(t)) {
+                    if (data.type === 'project') await this.projectEngine.saveProject({ ...data.item, targetDate: data.newDate });
+                    else if (data.type === 'book') await this.projectEngine.saveBook({ ...data.item, targetDate: data.newDate });
+                    else if (data.type === 'task') await this.projectEngine.savePersonalTask({ ...data.item, dueDate: data.newDate });
+                    await this._sayCoach(`C'est fait ! L'échéance de "${data.item.title}" a été mise à jour.`, { intent: null });
+                } else {
+                    await this._sayCoach(`D'accord, je n'ai rien modifié.`, { intent: null });
+                }
+                return true;
+            }
+
+            if (lastCoach && lastCoach.metadata && lastCoach.metadata.pendingItemDeletion) {
+                const t = text.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+                const data = lastCoach.metadata.pendingItemDeletion;
+                if (/(oui|ouais|ok|d accord|daccord|dac|ca marche|parfait|supprime|efface)/.test(t)) {
+                    if (data.type === 'project') await this.projectEngine.deleteProject(data.item.id);
+                    else if (data.type === 'book') await this.projectEngine.deleteBook(data.item.id);
+                    else if (data.type === 'task') await this.projectEngine.deletePersonalTask(data.item.id);
+                    await this._sayCoach(`C'est fait ! "${data.item.title}" a été supprimé.`, { intent: null });
+                } else {
+                    await this._sayCoach(`D'accord, la suppression est annulée.`, { intent: null });
+                }
+                return true;
+            }
         }
-        // --- FIN INTERCEPTION CHECK-IN ---
+        // --- FIN INTERCEPTION CHECK-IN ET CONFIRMATIONS ---
 
         const pending = await this._findPendingGradeRequests();
         const answer = parseGradeAnswer(text);
@@ -692,6 +720,52 @@ export class App {
                 activeProj.progress = Math.min(100, activeProj.progress + 20); // increment progress implicitly
                 await this.projectEngine.saveProject(activeProj);
                 await this._sayCoach(`Génial ! J'ai mis à jour l'avancement du projet "${activeProj.title}".`, { intent: null });
+                return true;
+            }
+        }
+
+        const itemUpdate = parseItemUpdate(text, this.clock());
+        if (itemUpdate && this.projectEngine) {
+            const titleMatch = itemUpdate.titlePhrase.toLowerCase();
+            const projects = await this.projectEngine.getProjects();
+            const books = await this.projectEngine.getBooks();
+            const tasks = await this.projectEngine.getPersonalTasks();
+            let found = null;
+            let type = null;
+
+            found = projects.find(p => p.title.toLowerCase().includes(titleMatch));
+            if (found) type = 'project';
+            if (!found) { found = books.find(b => b.title.toLowerCase().includes(titleMatch)); if (found) type = 'book'; }
+            if (!found) { found = tasks.find(t => t.title.toLowerCase().includes(titleMatch)); if (found) type = 'task'; }
+
+            if (found) {
+                await this._sayCoach(`Veux-tu vraiment changer l'échéance de "${found.title}" au ${itemUpdate.newDate} ? (oui/non)`, { 
+                    intent: null, 
+                    pendingItemUpdate: { item: found, type, newDate: itemUpdate.newDate } 
+                });
+                return true;
+            }
+        }
+
+        const itemDeletion = parseItemDeletion(text);
+        if (itemDeletion && this.projectEngine) {
+            const titleMatch = itemDeletion.titlePhrase.toLowerCase();
+            const projects = await this.projectEngine.getProjects();
+            const books = await this.projectEngine.getBooks();
+            const tasks = await this.projectEngine.getPersonalTasks();
+            let found = null;
+            let type = null;
+
+            found = projects.find(p => p.title.toLowerCase().includes(titleMatch));
+            if (found) type = 'project';
+            if (!found) { found = books.find(b => b.title.toLowerCase().includes(titleMatch)); if (found) type = 'book'; }
+            if (!found) { found = tasks.find(t => t.title.toLowerCase().includes(titleMatch)); if (found) type = 'task'; }
+
+            if (found) {
+                await this._sayCoach(`Veux-tu vraiment supprimer l'élément "${found.title}" ? Cette action est irréversible. (oui/non)`, { 
+                    intent: null, 
+                    pendingItemDeletion: { item: found, type } 
+                });
                 return true;
             }
         }

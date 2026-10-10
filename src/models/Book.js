@@ -2,6 +2,7 @@ export class Book {
     constructor(config = {}) {
         this.id = config.id || `book_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
         this.title = config.title || '';
+        this.domain = config.domain || 'lecture'; // ecole, langue, fitness, lecture, projet, perso
         this.author = config.author || '';
         this.totalPages = config.totalPages || 0;
         this.pagesRead = config.pagesRead || 0;

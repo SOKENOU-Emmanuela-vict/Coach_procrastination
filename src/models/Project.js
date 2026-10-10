@@ -4,6 +4,7 @@ export class Project {
             const config = idOrConfig;
             this.id = config.id;
             this.title = config.title || '';
+            this.domain = config.domain || 'projet'; // ecole, langue, fitness, lecture, projet, perso
             this.description = config.description || '';
             this.status = config.status || 'active'; // active, paused, completed
             this.targetDate = config.targetDate || null;
@@ -14,6 +15,7 @@ export class Project {
             // Legacy constructor compat: new Project(id, title)
             this.id = idOrConfig;
             this.title = title || '';
+            this.domain = 'projet';
             this.description = '';
             this.status = 'active'; 
             this.targetDate = null;
