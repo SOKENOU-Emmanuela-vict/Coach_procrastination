@@ -1131,6 +1131,41 @@ export class App {
         }
 
 
+        // --- NUDGE TENDANCE DE TRAVAIL (Request 3) ---
+        if (this.snapshotEngine && typeof this.snapshotEngine.getTrends === 'function') {
+            try {
+                const trends = await this.snapshotEngine.getTrends(today);
+                let currentTrendState = 'insufficient_data';
+                if (!trends.insufficientData) {
+                    if (trends.trends.risk === 'down') currentTrendState = 'improving';
+                    else if (trends.trends.risk === 'up') currentTrendState = 'worsening';
+                    else currentTrendState = 'stable';
+                }
+
+                const trendKey = 'trend_state';
+                const lastTrendState = nudges[trendKey]?.lastState || null;
+
+                // Ne déclencher qu'une seule fois par changement net de tendance
+                if (currentTrendState !== lastTrendState) {
+                    nudges[trendKey] = {
+                        ...(nudges[trendKey] || {}),
+                        lastState: currentTrendState,
+                        lastAsked: today
+                    };
+                    posted.push(trendKey);
+
+                    await this._sayCoach(`📊 ${trends.sentence}`, {
+                        intent: null,
+                        proactive: 'trend',
+                        trendState: currentTrendState,
+                        insufficientData: trends.insufficientData
+                    });
+                }
+            } catch (e) {
+                AppLogger.warn('Nudge tendance: ' + (e && e.message));
+            }
+        }
+
         // --- NUDGE TACHES DU JOUR ---
         if (now.getHours() >= 18) {
             const todayEvents = await this.planningEngine.getEventsForDate(today);

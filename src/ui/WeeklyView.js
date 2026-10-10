@@ -88,9 +88,20 @@ export class WeeklyView {
             });
         }
 
+        const trendSentence = summary.trendSentence || trends?.trendSentence || trends?.snapshotTrends?.sentence || "Données insuffisantes pour établir une tendance fiable : il faut au moins 21 jours de recul.";
+
         this.container.innerHTML = `
             <h2>📊 Weekly Review</h2>
             <p style="color:#88a7b7; margin-top:0; font-size:14px;">${periodStr}</p>
+
+            <!-- Bloc Tendance de Fond -->
+            <div id="weekly-trend-banner" style="background: linear-gradient(135deg, #162c38 0%, #0f2027 100%); border: 1px solid #00f2fe; border-radius: 10px; padding: 15px 20px; margin-bottom: 20px; display: flex; align-items: center; gap: 15px; box-shadow: 0 4px 10px rgba(0,0,0,0.3);">
+                <div style="font-size: 26px;">📈</div>
+                <div style="flex: 1;">
+                    <strong style="color: #00f2fe; font-size: 13px; text-transform: uppercase; letter-spacing: 0.5px; display: block; margin-bottom: 4px;">Tendance de Fond (7j vs 14j baseline)</strong>
+                    <div id="weekly-trend-sentence" style="color: #e0e0e0; font-size: 14px; line-height: 1.4;">${escapeHtml(trendSentence)}</div>
+                </div>
+            </div>
             
             <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap:15px; margin-bottom:20px;">
                 <!-- Bloc Temps -->

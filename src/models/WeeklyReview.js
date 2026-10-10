@@ -19,5 +19,6 @@ export class WeeklyReview {
         this.followUps = config.followUps || []; // [ { id, title, sourceDate } ]
         this.dailySummaries = config.dailySummaries || []; // array of 7 items
         this.trends = config.trends || {};
+        this.trendSentence = config.trendSentence || (this.trends && this.trends.trendSentence) || null;
     }
 }

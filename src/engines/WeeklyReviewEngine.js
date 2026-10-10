@@ -140,12 +140,25 @@ export class WeeklyReviewEngine {
         const { RiskEngine } = await import('./RiskEngine.js');
         const riskEngine = new RiskEngine(this.storage);
 
+        let snapshotTrends = null;
+        let trendSentence = "Données insuffisantes pour établir une tendance fiable : il faut au moins 21 jours de recul (14 jours de référence et 7 jours récents).";
+        try {
+            const { DailySnapshotEngine } = await import('./DailySnapshotEngine.js');
+            const snapshotEngine = new DailySnapshotEngine(this.storage);
+            snapshotTrends = await snapshotEngine.getTrends(endDateStr);
+            if (snapshotTrends && snapshotTrends.sentence) {
+                trendSentence = snapshotTrends.sentence;
+            }
+        } catch (_) {}
+
         const trends = {
             lowEnergyDays: lowestEnergyDays,
             averageSleep: daysWithCheckin > 0 ? Math.round(totalSleep / daysWithCheckin) : 0,
             procrastination: await riskEngine.getProcrastinationTrends(endDateStr),
             tasksDoneThisWeek,
-            pagesReadThisWeek
+            pagesReadThisWeek,
+            snapshotTrends,
+            trendSentence
         };
 
         return new WeeklyReview({
@@ -156,7 +169,8 @@ export class WeeklyReviewEngine {
             adHocSessions,
             followUps,
             dailySummaries,
-            trends
+            trends,
+            trendSentence
         });
     }
 }
