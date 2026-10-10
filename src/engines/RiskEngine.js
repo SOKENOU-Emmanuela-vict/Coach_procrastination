@@ -127,7 +127,24 @@ export class RiskEngine {
             riskFactors.push({ type: 'engagement', description: 'Check-in quotidien non réalisé.', weight: 10 });
         }
 
-        // 5. Normalisation du score
+        // 5. Analyse de la Présence (Engagement dans l'app)
+        if (context.analytics && context.analytics.presenceStats) {
+            const ps = context.analytics.presenceStats;
+            if (ps.daysWithoutOpening >= 3) {
+                riskScore += 25;
+                riskFactors.push({ type: 'engagement', description: `Absence prolongée (${ps.daysWithoutOpening} jours sans ouvrir l'appli sur les 7 derniers).`, weight: 25 });
+            } else if (ps.daysWithoutOpening === 0) {
+                protectiveFactors.push({ type: 'engagement', description: 'Ouvre l\'application tous les jours.', weight: -10 });
+                riskScore -= 10;
+            }
+
+            if (ps.openingsWithoutAction >= 3) {
+                riskScore += 15;
+                riskFactors.push({ type: 'engagement', description: `Ouverture de l'application sans action à ${ps.openingsWithoutAction} reprises (procrastination passive).`, weight: 15 });
+            }
+        }
+
+        // 6. Normalisation du score
         riskScore = Math.max(0, Math.min(100, riskScore));
 
         let riskLevel = 'LOW';

@@ -129,6 +129,27 @@ export class CoachReasoning {
             });
         }
 
+        // 4.5. Suivi des Projets (Check-in)
+        if (context.projects && context.projects.length > 0) {
+            context.projects.forEach(p => {
+                if (p.status === 'active' && p.progress < 100) {
+                    const isPlanned = planning && planning.events && planning.events.some(ev => ev.projectId === p.id && new Date(ev.date) >= now);
+                    if (!isPlanned) {
+                        decisions.push({
+                            signal: { type: "PROJECT_STAGNATING", projectId: p.id, evidence: ["no_future_events"] },
+                            decision: {
+                                type: "ASK_PROJECT_STATUS",
+                                severity: "info",
+                                priority: "low",
+                                rationale: `Le projet '${p.title}' est actif mais aucune session n'est planifiée. Où en es-tu ?`,
+                                payload: { project: p }
+                            }
+                        });
+                    }
+                }
+            });
+        }
+
         // 5. Conflits d'agenda (SCHEDULE_CONFLICT)
         if (planning && planning.conflicts) {
             planning.conflicts.forEach(conflict => {

@@ -134,7 +134,8 @@ export class WeeklyReviewEngine {
 
         const trends = {
             lowEnergyDays: lowestEnergyDays,
-            averageSleep: daysWithCheckin > 0 ? Math.round(totalSleep / daysWithCheckin) : 0
+            averageSleep: daysWithCheckin > 0 ? Math.round(totalSleep / daysWithCheckin) : 0,
+            procrastination: await this.getProcrastinationTrends(endDateStr)
         };
 
         return new WeeklyReview({
@@ -147,5 +148,50 @@ export class WeeklyReviewEngine {
             dailySummaries,
             trends
         });
+    }
+
+    /**
+     * Calcule l'évolution de la procrastination (retards, reports, annulations)
+     * sur les 7 derniers jours comparés aux 23 jours précédents (total 30j).
+     */
+    async getProcrastinationTrends(endDateStr) {
+        const allHistory = await this.studyRecordEngine.getFullHistory() || [];
+        
+        const end = new Date(endDateStr + 'T12:00:00Z');
+        
+        const d7 = new Date(end); d7.setDate(d7.getDate() - 7);
+        const d30 = new Date(end); d30.setDate(d30.getDate() - 30);
+        
+        const d7Str = d7.toISOString().split('T')[0];
+        const d30Str = d30.toISOString().split('T')[0];
+        
+        let last7 = { delayMinutes: 0, postponed: 0, missed: 0, count: 0 };
+        let prev23 = { delayMinutes: 0, postponed: 0, missed: 0, count: 0 };
+        
+        for (const r of allHistory) {
+            if (r.date > endDateStr || r.date < d30Str) continue;
+            
+            const isLast7 = r.date > d7Str;
+            const target = isLast7 ? last7 : prev23;
+            
+            target.count++;
+            if (r.status === 'missed') target.missed++;
+            if (r.delayMinutes) target.delayMinutes += r.delayMinutes;
+            if (r.postponedCount) target.postponed += r.postponedCount;
+        }
+
+        // Moyennes par session
+        const last7Delay = last7.count > 0 ? (last7.delayMinutes / last7.count) : 0;
+        const prev23Delay = prev23.count > 0 ? (prev23.delayMinutes / prev23.count) : 0;
+
+        let evolution = 'stable';
+        if (last7Delay > prev23Delay * 1.2) evolution = 'worse';
+        else if (last7Delay < prev23Delay * 0.8) evolution = 'better';
+
+        return {
+            last7Days: last7,
+            previous23Days: prev23,
+            evolutionDelay: evolution
+        };
     }
 }

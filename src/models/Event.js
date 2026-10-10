@@ -26,6 +26,8 @@ export class Event {
             this.academicYearId = config.academicYearId || null;
             this.projectId = config.projectId || null;
             this.taskId = config.taskId || null;
+            this.bookId = config.bookId || null;
+            this.personalTaskId = config.personalTaskId || null;
             this.source = config.source || 'system';
             this.postponedCount = typeof config.postponedCount === 'number' ? config.postponedCount : 0;
             

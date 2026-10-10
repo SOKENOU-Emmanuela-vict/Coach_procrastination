@@ -6,12 +6,13 @@ import { App } from './App.js?v=20';
 import { AppLogger } from '../utils/AppLogger.js';
 import { WeeklyReviewEngine } from '../engines/WeeklyReviewEngine.js';
 import { ChatHistoryEngine } from '../engines/ChatHistoryEngine.js';
+import { AppPresenceEngine } from '../engines/AppPresenceEngine.js';
 
 export class Bootstrap {
     static async init() {
         AppLogger.info("Démarrage du Bootstrap du Learning OS...");
         
-        let storage, scheduler, studyRecordEngine, checkInEngine, weeklyReviewEngine, chatHistoryEngine;
+        let storage, scheduler, studyRecordEngine, checkInEngine, weeklyReviewEngine, chatHistoryEngine, presenceEngine;
         
         try {
             storage = new IndexedDBProvider();
@@ -107,15 +108,24 @@ export class Bootstrap {
             chatHistoryEngine = new ChatHistoryEngine(storage);
         } catch (e) { AppLogger.error("Erreur ChatHistory: " + e.message); }
         
+        try {
+            presenceEngine = new AppPresenceEngine(storage);
+        } catch (e) { AppLogger.error("Erreur PresenceEngine: " + e.message); }
+        
         if (!storage || !scheduler || !studyRecordEngine || !checkInEngine || !chatHistoryEngine) {
             console.error("Erreur critique: Moteurs non initialisés.");
             return;
         }
 
         // Le seed académique est fait une seule fois, dans App.start() (avec l'AcademicEngine de l'App).
-        const app = new App(storage, scheduler, studyRecordEngine, checkInEngine, null, weeklyReviewEngine, chatHistoryEngine);
+        const app = new App(storage, scheduler, studyRecordEngine, checkInEngine, null, weeklyReviewEngine, chatHistoryEngine, presenceEngine);
         try {
             await app.start();
+            window.addEventListener('beforeunload', () => {
+                if (presenceEngine) {
+                    presenceEngine.flushCurrentSession();
+                }
+            });
         } catch (err) {
             AppLogger.error("Erreur dans app.start(): " + err.message);
             const root = document.getElementById('app-root');

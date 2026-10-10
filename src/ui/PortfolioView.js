@@ -18,6 +18,53 @@ export class PortfolioView {
             proofsGenerated: 0
         };
 
+        // Section Projets & Tâches
+        let projectsHtml = `
+        <div style="background:#12242f; padding:15px; border:1px solid #2a5268; border-radius:10px; margin-bottom:15px;">
+            <h4 style="color:#00f2fe; margin:0 0 10px 0;">➕ Nouvel Élément</h4>
+            <div style="display:flex; gap:10px;">
+                <select id="new-item-type" style="padding:8px; border-radius:5px; background:#0f2027; color:#e0e0e0; border:1px solid #2a5268;">
+                    <option value="project">Projet</option>
+                    <option value="book">Livre</option>
+                    <option value="task">Tâche</option>
+                </select>
+                <input type="text" id="new-item-title" placeholder="Titre..." style="flex:1; padding:8px; border-radius:5px; background:#0f2027; color:#e0e0e0; border:1px solid #2a5268;">
+                <button type="button" id="btn-add-item" style="background:#00f2fe; color:#0f2027; border:none; padding:8px 15px; border-radius:5px; cursor:pointer; font-weight:bold;">Ajouter</button>
+            </div>
+        </div>
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 15px;">`;
+        if (state.projects) {
+            state.projects.forEach(p => {
+                projectsHtml += `<div style="background:#12242f; padding:15px; border:1px solid #2a5268; border-radius:10px;">
+                    <h4 style="color:#00f2fe; margin:0 0 5px 0;">🎯 ${escapeHtml(p.title)}</h4>
+                    <div style="color:#88a7b7; font-size:12px;">Progression : ${p.progress}%</div>
+                    <div style="background:#071015; border-radius:10px; height:6px; overflow:hidden; margin-top:5px;">
+                        <div style="width:${p.progress}%; background:#00f2fe; height:100%;"></div>
+                    </div>
+                </div>`;
+            });
+        }
+        if (state.books) {
+            state.books.forEach(b => {
+                projectsHtml += `<div style="background:#12242f; padding:15px; border:1px solid #ffb74d; border-radius:10px;">
+                    <h4 style="color:#ffb74d; margin:0 0 5px 0;">📖 ${escapeHtml(b.title)}</h4>
+                    <div style="color:#88a7b7; font-size:12px;">Avancement : ${b.progressPages} pages / ${b.progressChapters} chap.</div>
+                </div>`;
+            });
+        }
+        if (state.personalTasks) {
+            state.personalTasks.forEach(t => {
+                const color = t.status === 'completed' ? '#4CAF50' : '#e0e0e0';
+                projectsHtml += `<div style="background:#12242f; padding:15px; border:1px solid ${color}; border-radius:10px;">
+                    <h4 style="color:${color}; margin:0; font-size:14px;">${t.status === 'completed' ? '✅' : '⏳'} ${escapeHtml(t.title)}</h4>
+                </div>`;
+            });
+        }
+        projectsHtml += `</div>`;
+        if ((!state.projects || !state.projects.length) && (!state.books || !state.books.length) && (!state.personalTasks || !state.personalTasks.length)) {
+            projectsHtml = `<div style="background: #0f2027; border: 1px dashed #2a5268; border-radius: 10px; padding: 25px; text-align: center; color: #88a7b7;">Aucun projet, livre ou tâche pour le moment. Vous pouvez en créer via le chat avec le Coach !</div>`;
+        }
+
         // Collecter les stats par domaine
         let domainsHtml = "";
         if (state.learningGraph && state.learningGraph.nodes) {
@@ -228,14 +275,17 @@ export class PortfolioView {
 
             <!-- ONGLES DE NAVIGATION DU PORTFOLIO -->
             <div style="display:flex; gap:10px; margin-bottom:20px; border-bottom:1px solid #2a5268; padding-bottom:10px; flex-wrap:wrap;">
-                <button type="button" class="tab-btn-portfolio" data-tab="all" style="background:#00f2fe; color:#0f2027; font-weight:bold; border:none; padding:8px 16px; border-radius:20px; cursor:pointer; font-size:13px;">
+                <button type="button" class="tab-btn-portfolio active" data-tab="all" style="background:#00f2fe; color:#0f2027; font-weight:bold; border:none; padding:8px 16px; border-radius:20px; cursor:pointer; font-size:13px;">
                     ⭐ Vue Complète
                 </button>
                 <button type="button" class="tab-btn-portfolio" data-tab="proofs" style="background:#152b36; color:#e0e0e0; border:1px solid #2a5268; padding:8px 16px; border-radius:20px; cursor:pointer; font-size:13px;">
-                    📸 Galerie des Preuves (${totalProofsCount})
+                    📸 Captures (${totalProofsCount})
                 </button>
                 <button type="button" class="tab-btn-portfolio" data-tab="checkins" style="background:#152b36; color:#e0e0e0; border:1px solid #2a5268; padding:8px 16px; border-radius:20px; cursor:pointer; font-size:13px;">
-                    📖 Historique des Bilans (${totalCheckinsCount})
+                    📖 Bilans (${totalCheckinsCount})
+                </button>
+                <button type="button" class="tab-btn-portfolio" data-tab="projects" style="background:#152b36; color:#e0e0e0; border:1px solid #2a5268; padding:8px 16px; border-radius:20px; cursor:pointer; font-size:13px;">
+                    🎯 Projets & Tâches
                 </button>
             </div>
 
@@ -254,6 +304,14 @@ export class PortfolioView {
                 </h3>
                 ${checkinsHtml}
             </div>
+
+            <!-- SECTION DES PROJETS & TACHES -->
+            <div id="portfolio-section-projects" style="display:none; margin-bottom: 35px;">
+                <h3 style="color: #00f2fe; border-left: 4px solid #00f2fe; padding-left: 10px; margin-bottom: 15px; font-size: 18px;">
+                    🎯 Mes Projets, Livres & Tâches
+                </h3>
+                ${projectsHtml}
+            </div>
         `;
 
         this.attachPortfolioTabs();
@@ -263,7 +321,27 @@ export class PortfolioView {
         const buttons = document.querySelectorAll('.tab-btn-portfolio');
         const secProofs = document.getElementById('portfolio-section-proofs');
         const secCheckins = document.getElementById('portfolio-section-checkins');
-        const secSettings = document.getElementById('portfolio-section-settings');
+        const secProjects = document.getElementById('portfolio-section-projects');
+        
+        const btnAdd = document.getElementById('btn-add-item');
+        if (btnAdd) {
+            btnAdd.addEventListener('click', async () => {
+                const type = document.getElementById('new-item-type').value;
+                const title = document.getElementById('new-item-title').value.trim();
+                if (!title) return;
+
+                if (this.app.projectEngine) {
+                    if (type === 'project') {
+                        await this.app.projectEngine.saveProject({ title, status: 'active', progress: 0, subtasks: [] });
+                    } else if (type === 'book') {
+                        await this.app.projectEngine.saveBook({ title, status: 'reading', progressPages: 0, progressChapters: 0 });
+                    } else if (type === 'task') {
+                        await this.app.projectEngine.savePersonalTask({ title, status: 'pending', category: 'other' });
+                    }
+                    this.app.renderView('portfolio');
+                }
+            });
+        }
 
         buttons.forEach(btn => {
             btn.addEventListener('click', (e) => {
@@ -283,15 +361,20 @@ export class PortfolioView {
                 e.currentTarget.style.border = 'none';
 
                 // Mettre à jour l'affichage
+                secProofs.style.display = 'none';
+                secCheckins.style.display = 'none';
+                secProjects.style.display = 'none';
+
                 if (tab === 'all') {
                     secProofs.style.display = 'block';
                     secCheckins.style.display = 'block';
+                    secProjects.style.display = 'block';
                 } else if (tab === 'proofs') {
                     secProofs.style.display = 'block';
-                    secCheckins.style.display = 'none';
                 } else if (tab === 'checkins') {
-                    secProofs.style.display = 'none';
                     secCheckins.style.display = 'block';
+                } else if (tab === 'projects') {
+                    secProjects.style.display = 'block';
                 }
             });
         });

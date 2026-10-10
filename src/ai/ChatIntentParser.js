@@ -149,3 +149,37 @@ export function isNotYetAnswer(text) {
     if (!t || t.length > 80) return false;
     return /\b(pas encore|pas de notes?|pas eu de notes?|aucune note|pas recu|pas les notes|toujours pas|non)\b/.test(t);
 }
+
+/** « j'ai lu 20 pages du livre Dune », « j'ai lu 5 pages » */
+export function parseBookProgress(text) {
+    const t = norm(text);
+    const m = t.match(/\b(lu|avancer? de)\s+(\d+)\s+(pages?|chapitres?)(?:\s+(?:de|du|dans|sur)\s+(.+))?/);
+    if (!m) return null;
+    return {
+        amount: parseInt(m[2], 10),
+        unit: m[3].startsWith('page') ? 'pages' : 'chapters',
+        titlePhrase: m[4] ? m[4].replace(/\s+(ce|le|la|les|livre)\s*$/, '').trim() : null
+    };
+}
+
+/** « ajoute faire les courses », « rappelle moi de faire le ménage », « il faut que je fasse les vitres » */
+export function parsePersonalTaskCreation(text) {
+    const t = norm(text);
+    const m = t.match(/\b(ajoute|rappelle moi de|il faut que je|je dois|penser a)\s+(.+)\b/);
+    if (!m) return null;
+    const isTaskContext = t.includes('tache') || t.includes('taches') || m[1].includes('rappelle') || m[1].includes('faut que') || m[1].includes('dois') || m[1].includes('penser a');
+    if (!isTaskContext) return null;
+    let title = m[2].replace(/\b(a mes taches|dans mes taches|une tache)\b/g, '').trim();
+    if (!title || title.length < 2) return null;
+    return { title };
+}
+
+/** « j'ai fini la tâche X », « j'ai terminé de faire les courses » */
+export function parseTaskCompletion(text) {
+    const t = norm(text);
+    const m = t.match(/\b(fini|termine|acheve)(?:e|s|es)?\s*(?:de|la tache|le projet)?\s+(.+)\b/);
+    if (!m) return null;
+    let title = m[2].trim();
+    if (!title || title.length < 2) return null;
+    return { title };
+}

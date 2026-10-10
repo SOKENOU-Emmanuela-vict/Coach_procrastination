@@ -65,6 +65,12 @@ export class CoachLocalReply {
             .sort((a, b) => a.daysRemaining - b.daysRemaining);
         const undated = (academic.upcomingAssessments || []).filter(a => a && !a.targetDate);
         const slots = (planning.availableSlots || []).filter(s => (s.durationMinutes || 0) >= 45);
+        
+        const stagnatingProjects = (context.projects || []).filter(p => {
+            if (p.status !== 'active' || p.progress >= 100) return false;
+            const isPlanned = planning && planning.events && planning.events.some(ev => ev.projectId === p.id && new Date(ev.date) >= new Date(today));
+            return !isPlanned;
+        });
 
         const lines = {};
         // Cours (emploi du temps importé)
@@ -105,6 +111,8 @@ export class CoachLocalReply {
             question = `Quelle est la date de « ${undated[0].title} » ? Dis-le-moi (ex. « examen de ${CoachLocalReply._short(undated[0].subjectName && undated[0].subjectName !== 'Unknown Subject' ? undated[0].subjectName : 'la matière', 30)} le 15/10 »).`;
         } else if (exams.length === 0) {
             question = "As-tu un examen ou un devoir bientôt ? Dis-le-moi, par exemple : « examen de Structures algébriques le 15/10 ».";
+        } else if (stagnatingProjects.length > 0) {
+            question = `Où en es-tu sur le projet « ${CoachLocalReply._short(stagnatingProjects[0].title, 30)} » ? Aucune session n'est planifiée.`;
         } else if (slots.length > 0) {
             question = `Tu veux que je te propose une séance de révision pour ${exams[0].subjectName && exams[0].subjectName !== 'Unknown Subject' ? exams[0].subjectName : exams[0].title} ?`;
         }

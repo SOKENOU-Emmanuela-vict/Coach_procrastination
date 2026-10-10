@@ -18,7 +18,7 @@ export class CoachContextBuilder {
      *     gradeRequests: [...] } (absent = fonctionnalité non branchée, aucune règle « cours » n'est appliquée)
      * @returns {Object} Le snapshot de contexte
      */
-    static build({ userProfile, academicSummary, temporalEvents, availableSlots, availabilityDates, conflicts, analytics, projects, currentDate, knowledge, chatHistory, options, courses }) {
+    static build({ userProfile, academicSummary, temporalEvents, availableSlots, availabilityDates, conflicts, analytics, projects, books, personalTasks, currentDate, knowledge, chatHistory, options, courses }) {
         const resolvedDate = currentDate || new Date().toLocaleDateString('fr-CA');
         const context = {
             schemaVersion: 1,
@@ -26,6 +26,8 @@ export class CoachContextBuilder {
             user: userProfile || null,
             academic: academicSummary || { upcomingAssessments: [], pastDueAssessments: [], alerts: [], cectStatus: null },
             projects: projects || [],
+            books: books || [],
+            personalTasks: personalTasks || [],
             planning: {
                 events: temporalEvents || [],
                 availableSlots: availableSlots || [],

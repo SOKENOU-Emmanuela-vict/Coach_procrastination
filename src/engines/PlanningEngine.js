@@ -457,6 +457,8 @@ export class PlanningEngine {
         const subjects = await this.storage.loadData('acad_subjects') || [];
         const assessments = await this.storage.loadData('acad_assessments') || [];
         const projects = await this.storage.loadData('projects') || [];
+        const books = await this.storage.loadData('books') || [];
+        const personalTasks = await this.storage.loadData('personal_tasks') || [];
         
         const conflicts = [];
 
@@ -491,6 +493,14 @@ export class PlanningEngine {
                         conflicts.push({ type: 'DATA_CONFLICT', event: ev, message: `Le taskId ${ev.taskId} est introuvable dans le projet` });
                     }
                 }
+            }
+
+            // DATA_CONFLICT (Books & PersonalTasks)
+            if (ev.bookId && !books.find(b => b.id === ev.bookId)) {
+                conflicts.push({ type: 'DATA_CONFLICT', event: ev, message: `Le bookId ${ev.bookId} est introuvable` });
+            }
+            if (ev.personalTaskId && !personalTasks.find(t => t.id === ev.personalTaskId)) {
+                conflicts.push({ type: 'DATA_CONFLICT', event: ev, message: `Le personalTaskId ${ev.personalTaskId} est introuvable` });
             }
         }
 

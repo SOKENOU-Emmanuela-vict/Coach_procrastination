@@ -4,6 +4,7 @@ import { LearningGraphEngine } from '../engines/LearningGraphEngine.js?v=2';
 import { ReflectionEngine } from '../engines/ReflectionEngine.js';
 import { AcademicEngine } from '../engines/AcademicEngine.js';
 import { PlanningEngine } from '../engines/PlanningEngine.js';
+import { ProjectEngine } from '../engines/ProjectEngine.js';
 import { PlanningIntelligence } from '../engines/PlanningIntelligence.js';
 import { CoachOrchestrator } from '../ai/CoachOrchestrator.js';
 import { KnowledgeEngine } from '../engines/KnowledgeEngine.js';
@@ -20,25 +21,27 @@ import { TimetableImportEngine, DEFAULT_GROUP } from '../engines/TimetableImport
 import { CourseProgressEngine } from '../engines/CourseProgressEngine.js';
 import { SubjectMatcher } from '../engines/SubjectMatcher.js';
 import { ExamRevisionPlanner } from '../ai/ExamRevisionPlanner.js';
-import { parseExamAnnouncement, parseGradeAnswer, parseGradeStatement, isNotYetAnswer } from '../ai/ChatIntentParser.js';
+import { parseExamAnnouncement, parseGradeAnswer, parseGradeStatement, isNotYetAnswer, parseBookProgress, parsePersonalTaskCreation, parseTaskCompletion } from '../ai/ChatIntentParser.js';
 
 // Disponibilités par défaut tant qu'aucune n'a été saisie (seulement après un premier import d'emploi du temps)
 export const DEFAULT_STUDY_WINDOW = { startTime: '08:00', endTime: '21:00' };
 const GRADE_REASK_DAYS = 3;
 
 export class App {
-    constructor(storage, scheduler, studyRecordEngine, checkInEngine, aiEngine, weeklyReviewEngine, chatHistoryEngine) {
+    constructor(storage, scheduler, studyRecordEngine, checkInEngine, aiEngine, weeklyReviewEngine, chatHistoryEngine, presenceEngine) {
         this.storage = storage;
         this.scheduler = scheduler;
         this.studyRecordEngine = studyRecordEngine;
         this.checkInEngine = checkInEngine;
         this.weeklyReviewEngine = weeklyReviewEngine;
         this.chatHistoryEngine = chatHistoryEngine;
+        this.presenceEngine = presenceEngine;
         this.aiEngine = aiEngine;
         this.learningGraphEngine = new LearningGraphEngine(storage);
         this.reflectionEngine = new ReflectionEngine(storage);
         this.academicEngine = new AcademicEngine(storage);
         this.planningEngine = new PlanningEngine(storage);
+        this.projectEngine = new ProjectEngine(storage);
         this.riskEngine = new RiskEngine(storage);
         if (this.checkInEngine) this.checkInEngine.planningEngine = this.planningEngine;
         if (this.weeklyReviewEngine) this.weeklyReviewEngine.planningEngine = this.planningEngine;
@@ -144,6 +147,8 @@ export class App {
         const dToday = new Date();
         const localDate = this.getPedagogicalDate(dToday);
         const nowMinutes = dToday.getHours() * 60 + dToday.getMinutes();
+        
+        const presenceStats = this.presenceEngine ? await this.presenceEngine.getPresenceStats(7) : null;
 
         // Construction du contexte temporel pour le Coach (J à J+5)
         const temporalEvents = [];
@@ -182,12 +187,14 @@ export class App {
         return {
             userProfile: this.state.userProfile,
             academicSummary: this.state.academicSummary,
-            projects: await this.storage.loadData('projects') || [],
+            projects: await this.projectEngine.getProjects(),
+            books: await this.projectEngine.getBooks(),
+            personalTasks: await this.projectEngine.getPersonalTasks(),
             temporalEvents: temporalEvents,
             availableSlots: availableSlots,
             availabilityDates: availabilityDates,
             conflicts: conflicts,
-            analytics: this.state.analytics,
+            analytics: { ...this.state.analytics, presenceStats },
             currentDate: localDate,
             chatHistory: chatHistory,
             options: { useLLM },
@@ -643,6 +650,52 @@ export class App {
             return true;
         }
 
+        const bookProgress = parseBookProgress(text);
+        if (bookProgress && this.projectEngine) {
+            const books = await this.projectEngine.getBooks();
+            const titleMatch = bookProgress.titlePhrase ? bookProgress.titlePhrase.toLowerCase() : '';
+            const book = books.find(b => b.status === 'reading' && (titleMatch ? b.title.toLowerCase().includes(titleMatch) : true));
+            
+            if (book) {
+                if (bookProgress.unit === 'pages') book.progressPages += bookProgress.amount;
+                else book.progressChapters += bookProgress.amount;
+                await this.projectEngine.saveBook(book);
+                await this._sayCoach(`Super ! J'ai mis à jour ton avancée sur "${book.title}".`, { intent: null });
+                return true;
+            }
+        }
+
+        const pTaskCreation = parsePersonalTaskCreation(text);
+        if (pTaskCreation && this.projectEngine) {
+            const task = { title: pTaskCreation.title, category: 'other' };
+            await this.projectEngine.savePersonalTask(task);
+            await this._sayCoach(`C'est noté, j'ai ajouté "${task.title}" à tes tâches personnelles.`, { intent: null });
+            return true;
+        }
+
+        const taskCompletion = parseTaskCompletion(text);
+        if (taskCompletion && this.projectEngine) {
+            const tasks = await this.projectEngine.getPersonalTasks();
+            const projects = await this.projectEngine.getProjects();
+            
+            const titleLower = taskCompletion.title.toLowerCase();
+            const pTask = tasks.find(t => t.status !== 'completed' && t.title.toLowerCase().includes(titleLower));
+            if (pTask) {
+                pTask.status = 'completed';
+                await this.projectEngine.savePersonalTask(pTask);
+                await this._sayCoach(`Parfait ! La tâche "${pTask.title}" est terminée.`, { intent: null });
+                return true;
+            }
+            
+            const activeProj = projects.find(p => p.status === 'active' && p.title.toLowerCase().includes(titleLower));
+            if (activeProj) {
+                activeProj.progress = Math.min(100, activeProj.progress + 20); // increment progress implicitly
+                await this.projectEngine.saveProject(activeProj);
+                await this._sayCoach(`Génial ! J'ai mis à jour l'avancement du projet "${activeProj.title}".`, { intent: null });
+                return true;
+            }
+        }
+
         if (statement) {
             const m = this._subjectMatcher(subjects).match(statement.subjectPhrase, { short: true });
             if (m.subjectId && !m.ambiguous) {
@@ -785,6 +838,12 @@ export class App {
         const dTodayLocal = parseLocalDate(localDate);
         this.state.monthlyReport = await this.studyRecordEngine.getMonthlyStats(dTodayLocal.getFullYear(), dTodayLocal.getMonth());
         this.state.allCheckins = await this.storage.loadData('daily_checkins') || {};
+
+        if (this.projectEngine) {
+            this.state.projects = await this.projectEngine.getProjects();
+            this.state.books = await this.projectEngine.getBooks();
+            this.state.personalTasks = await this.projectEngine.getPersonalTasks();
+        }
         
         // Données pour le Bureau (Desktop) et Espace Académique
         const semesterId = this.state.userProfile.currentSemesterId || null;
@@ -1033,6 +1092,10 @@ export class App {
      * @param {Object} options - { refresh: false } pour un simple réaffichage (ex: chat pendant l'envoi)
      */
     async renderView(viewName, options = {}) {
+        if (this.presenceEngine) {
+            await this.presenceEngine.logScreenView(viewName);
+        }
+
         if (options.refresh !== false) {
             await this.refreshUserStats();
         }
