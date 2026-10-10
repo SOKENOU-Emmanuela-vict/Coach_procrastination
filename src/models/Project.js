@@ -13,6 +13,8 @@ export class Project {
             this.tasks = config.tasks || [];
             this.coachAssessments = config.coachAssessments || [];
             this.determination = config.determination || null;
+            this.sessionsPlanned = config.sessionsPlanned ?? null;
+            this.sessionsDone = config.sessionsDone ?? null;
         } else {
             // Legacy constructor compat: new Project(id, title)
             this.id = idOrConfig;
