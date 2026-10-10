@@ -260,7 +260,62 @@ export class CoachReasoning {
             }
         }
 
-        // 6. Diagnostic de Procrastination (Risk Engine)
+        // 7.1. Suivi des tâches personnelles (PersonalTasks)
+        if (context.personalTasks) {
+            context.personalTasks.forEach(pt => {
+                if (pt.status !== 'faite') {
+                    if (pt.reportsCount >= 3) {
+                        decisions.push({
+                            signal: { type: "TASK_POSTPONED_TOO_MUCH", taskId: pt.id, evidence: ["reportsCount >= 3"] },
+                            decision: {
+                                type: "ADDRESS_TASK_POSTPONEMENT",
+                                severity: "warning",
+                                priority: "medium",
+                                rationale: `La tâche personnelle '${pt.title}' a été reportée ${pt.reportsCount} fois. Planifie-la ou abandonne-la !`,
+                                payload: { task: pt }
+                            }
+                        });
+                    }
+                    if (pt.dueDate && new Date(pt.dueDate) < new Date(context.currentDate)) {
+                        decisions.push({
+                            signal: { type: "TASK_OVERDUE", taskId: pt.id, evidence: ["dueDate_passed"] },
+                            decision: {
+                                type: "ADDRESS_OVERDUE_TASK",
+                                severity: "high",
+                                priority: "medium",
+                                rationale: `La tâche personnelle '${pt.title}' est en retard (échéance le ${pt.dueDate}).`,
+                                payload: { task: pt }
+                            }
+                        });
+                    }
+                }
+            });
+        }
+
+        // 7.2. Suivi des livres (Books)
+        if (context.books) {
+            context.books.forEach(b => {
+                if (b.status !== 'finished') {
+                    if (b.lastProgressDate) {
+                        const daysSinceLastRead = Math.floor((new Date(context.currentDate) - new Date(b.lastProgressDate)) / (1000 * 60 * 60 * 24));
+                        if (daysSinceLastRead >= 5) {
+                            decisions.push({
+                                signal: { type: "BOOK_NEGLECTED", bookId: b.id, evidence: [`daysSinceLastRead=${daysSinceLastRead}`] },
+                                decision: {
+                                    type: "RECOMMEND_READING_RESUME",
+                                    severity: "info",
+                                    priority: "low",
+                                    rationale: `Aucune page lue pour le livre '${b.title}' depuis ${daysSinceLastRead} jours. Reprends ta lecture !`,
+                                    payload: { book: b }
+                                }
+                            });
+                        }
+                    }
+                }
+            });
+        }
+
+        // 8. Diagnostic de Procrastination (Risk Engine)
         if (riskProfile && riskProfile.level !== 'LOW') {
             decisions.push({
                 signal: {

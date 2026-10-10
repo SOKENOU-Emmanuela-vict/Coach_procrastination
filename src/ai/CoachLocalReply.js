@@ -42,6 +42,8 @@ export class CoachLocalReply {
         if (/exam|evaluation|devoir|partiel|interro|\bcc\b|controle/.test(q)) return 'exams';
         if (/cours|emploi du temps|edt|seance|avancement/.test(q)) return 'courses';
         if (/libre|creneau|disponib|temps pour|quand/.test(q)) return 'slots';
+        if (/\btache|faire|\bto(-|\s)?do\b/.test(q)) return 'tasks';
+        if (/\blire|livre|lecture|page/.test(q)) return 'books';
         return 'general';
     }
 
@@ -71,6 +73,12 @@ export class CoachLocalReply {
             const isPlanned = planning && planning.events && planning.events.some(ev => ev.projectId === p.id && new Date(ev.date) >= new Date(today));
             return !isPlanned;
         });
+        const tasks = context.personalTasks || [];
+        const books = context.books || [];
+
+        const overdueTasks = tasks.filter(pt => pt.status !== 'faite' && pt.dueDate && new Date(pt.dueDate) < new Date(today));
+        const postponedTasks = tasks.filter(pt => pt.status !== 'faite' && pt.reportsCount >= 3);
+        const neglectedBooks = books.filter(b => b.status !== 'finished' && b.lastProgressDate && Math.floor((new Date(today) - new Date(b.lastProgressDate)) / (1000 * 60 * 60 * 24)) >= 5);
 
         const lines = {};
         // Cours (emploi du temps importé)
@@ -99,6 +107,15 @@ export class CoachLocalReply {
             const s = slots[0];
             lines.slots = `Prochain créneau libre : ${s.date === today ? "aujourd'hui" : CoachLocalReply._frDay(s.date)} à ${s.startTime} (${s.durationMinutes} min).`;
         }
+        // Livres et Tâches
+        if (overdueTasks.length > 0) {
+            lines.tasks = `Tâches en retard : ${overdueTasks.map(t => CoachLocalReply._short(t.title)).join(', ')}.`;
+        } else if (postponedTasks.length > 0) {
+            lines.tasks = `Tâches reportées 3 fois : ${postponedTasks.map(t => CoachLocalReply._short(t.title)).join(', ')}.`;
+        }
+        if (neglectedBooks.length > 0) {
+            lines.books = `Livres délaissés depuis 5+ jours : ${neglectedBooks.map(b => CoachLocalReply._short(b.title)).join(', ')}.`;
+        }
 
         // Question : ce dont le coach a le plus besoin, dans l'ordre
         let question = null;
@@ -109,20 +126,26 @@ export class CoachLocalReply {
             question = "Peux-tu importer ton emploi du temps de la semaine ? Je pourrai alors suivre tes cours et te rappeler tes examens.";
         } else if (undated.length > 0) {
             question = `Quelle est la date de « ${undated[0].title} » ? Dis-le-moi (ex. « examen de ${CoachLocalReply._short(undated[0].subjectName && undated[0].subjectName !== 'Unknown Subject' ? undated[0].subjectName : 'la matière', 30)} le 15/10 »).`;
-        } else if (exams.length === 0) {
-            question = "As-tu un examen ou un devoir bientôt ? Dis-le-moi, par exemple : « examen de Structures algébriques le 15/10 ».";
+        } else if (neglectedBooks.length > 0) {
+            question = `Tu n'as lu aucune page de « ${CoachLocalReply._short(neglectedBooks[0].title, 30)} » depuis 5 jours. On s'y remet ?`;
+        } else if (postponedTasks.length > 0) {
+            question = `La tâche « ${CoachLocalReply._short(postponedTasks[0].title, 30)} » a été reportée plusieurs fois. Veux-tu la faire aujourd'hui ou l'abandonner ?`;
         } else if (stagnatingProjects.length > 0) {
             question = `Où en es-tu sur le projet « ${CoachLocalReply._short(stagnatingProjects[0].title, 30)} » ? Aucune session n'est planifiée.`;
+        } else if (exams.length === 0) {
+            question = "As-tu un examen ou un devoir bientôt ? Dis-le-moi, par exemple : « examen de Structures algébriques le 15/10 ».";
         } else if (slots.length > 0) {
-            question = `Tu veux que je te propose une séance de révision pour ${exams[0].subjectName && exams[0].subjectName !== 'Unknown Subject' ? exams[0].subjectName : exams[0].title} ?`;
+            question = `Tu veux que je te propose une séance de révision pour ${exams[0]?.subjectName && exams[0]?.subjectName !== 'Unknown Subject' ? exams[0].subjectName : (exams[0]?.title || 'ton prochain examen')} ?`;
         }
 
         const orderByTopic = {
-            grades: ['exams', 'progress', 'courses', 'timetable', 'slots'],
-            exams: ['exams', 'progress', 'courses', 'timetable', 'slots'],
-            courses: ['courses', 'progress', 'timetable', 'exams', 'slots'],
-            slots: ['slots', 'courses', 'exams', 'timetable', 'progress'],
-            general: ['courses', 'exams', 'timetable', 'progress', 'slots']
+            grades: ['exams', 'progress', 'courses', 'timetable', 'slots', 'tasks', 'books'],
+            exams: ['exams', 'progress', 'courses', 'timetable', 'slots', 'tasks', 'books'],
+            courses: ['courses', 'progress', 'timetable', 'exams', 'slots', 'tasks', 'books'],
+            slots: ['slots', 'courses', 'exams', 'timetable', 'progress', 'tasks', 'books'],
+            tasks: ['tasks', 'books', 'courses', 'exams', 'slots', 'progress', 'timetable'],
+            books: ['books', 'tasks', 'courses', 'exams', 'slots', 'progress', 'timetable'],
+            general: ['courses', 'exams', 'timetable', 'progress', 'slots', 'tasks', 'books']
         };
         const topic = CoachLocalReply.topicOf(query);
         const body = orderByTopic[topic].map(k => lines[k]).filter(Boolean);
