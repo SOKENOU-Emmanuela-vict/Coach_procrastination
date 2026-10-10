@@ -1,5 +1,6 @@
 import { AppLogger } from '../utils/AppLogger.js';
 import { Event } from '../models/Event.js';
+import { parseLocalDate } from '../utils/dateUtils.js';
 
 export class PlanningEngine {
     constructor(storageProvider) {
@@ -29,7 +30,24 @@ export class PlanningEngine {
     }
 
     // --- Intent Execution ---
-    async executeIntent(intent) {
+    /**
+     * Exécute un intent de création d'événement.
+     * Règle de chevauchement :
+     *  - un événement VERROUILLÉ (cours, examen…) bloque toujours ;
+     *  - un événement FLEXIBLE (révision, sortie, sport…) n'est jamais écrasé en silence : sans confirmation
+     *    explicite, le moteur refuse avec `needsConfirmation: true` et la liste des événements concernés,
+     *    pour que le coach demande à l'utilisateur ce qu'il préfère.
+     * @param {PlanningIntent} intent
+     * @param {Object} [options]
+     * @param {boolean} [options.allowFlexibleOverlap] - équivaut à flexibleResolution 'keep'
+     * @param {'keep'|'move'|'replace'} [options.flexibleResolution] - décision de l'utilisateur :
+     *    garder les deux, déplacer l'événement flexible, ou le supprimer
+     * @param {Array<string>} [options.confirmedFlexibleIds] - événements flexibles sur lesquels porte la confirmation
+     *    (si un autre événement flexible est apparu entre-temps, il faut redemander). Absent = tous.
+     * @param {Date} [options.now] - pour 'move' : le nouvel horaire ne peut pas être dans le passé
+     * @param {number} [options.moveSearchDays] - pour 'move' : nombre de jours explorés (défaut 7)
+     */
+    async executeIntent(intent, options = {}) {
         if (!intent || typeof intent.validateStructure !== 'function') return { success: false, reason: "Invalid Intent Object" };
         
         const structureCheck = intent.validateStructure();
@@ -85,18 +103,168 @@ export class PlanningEngine {
             source: intent.payload.source || 'system'
         };
 
-        // Validation complète via detectConflicts
+        // Validation complète via detectConflicts (seuls les conflits impliquant le nouvel événement comptent)
         if (evConfig.date) {
             const conflicts = await this.detectConflicts(evConfig.date, evConfig);
-            const blockingConflicts = conflicts.filter(c => c.type === 'CRITICAL_CONFLICT' || c.type === 'TIME_CONFLICT' || c.type === 'DATA_CONFLICT');
+            const blockingConflicts = conflicts
+                .filter(c => this._involves(c, evConfig))
+                .filter(c => c.type === 'CRITICAL_CONFLICT' || c.type === 'TIME_CONFLICT' || c.type === 'DATA_CONFLICT');
             
             if (blockingConflicts.length > 0) {
                 return { success: false, reason: `${blockingConflicts[0].type}: ${blockingConflicts[0].message}` };
+            }
+
+            // Chevauchements : un événement verrouillé bloque toujours ; un événement flexible exige
+            // une décision explicite de l'utilisateur (garder les deux / déplacer / remplacer).
+            if (evConfig.startTime && evConfig.endTime) {
+                const { locked, flexible } = await this.findOverlaps(evConfig.date, evConfig.startTime, evConfig.endTime);
+                if (locked.length > 0) {
+                    const l = locked[0];
+                    return { success: false, reason: `CRITICAL_CONFLICT: Le créneau empiète sur l'événement verrouillé '${this._label(l)}' (${l.startTime}-${l.endTime})` };
+                }
+                if (flexible.length > 0) {
+                    // Double acceptation de la même proposition : jamais de doublon, même confirmé
+                    const duplicate = flexible.find(e => evConfig.assessmentId && e.assessmentId === evConfig.assessmentId && e.type === evConfig.type);
+                    const resolution = options.flexibleResolution || (options.allowFlexibleOverlap ? 'keep' : null);
+                    if (duplicate && resolution !== 'replace') {
+                        return { success: false, reason: `OVERLAP_CONFLICT: '${this._label(duplicate)}' est déjà planifié sur ce créneau (${duplicate.startTime}-${duplicate.endTime})`, duplicate: true };
+                    }
+                    const confirmedIds = Array.isArray(options.confirmedFlexibleIds) ? options.confirmedFlexibleIds : null;
+                    const unconfirmed = !resolution ? flexible
+                        : (confirmedIds ? flexible.filter(e => !confirmedIds.includes(e.id)) : []);
+                    if (unconfirmed.length > 0) {
+                        const f = unconfirmed[0];
+                        return {
+                            success: false,
+                            reason: `OVERLAP_CONFLICT: Le créneau chevauche l'événement flexible '${this._label(f)}' (${f.startTime}-${f.endTime}) : confirmation requise`,
+                            needsConfirmation: true,
+                            overlappingFlexible: flexible.map(e => this._summary(e)),
+                            unconfirmedFlexible: unconfirmed.map(e => this._summary(e))
+                        };
+                    }
+                    return await this._applyWithFlexibleResolution(evConfig, flexible, resolution, options);
+                }
             }
         }
 
         await this.saveEvent(evConfig);
         return { success: true, eventId: evConfig.id };
+    }
+
+    _label(ev) {
+        return (ev && (ev.title || ev.type || ev.id)) || '';
+    }
+
+    _summary(ev) {
+        return { id: ev.id, title: this._label(ev), type: ev.type || null, date: ev.date, startTime: ev.startTime, endTime: ev.endTime, lockStatus: ev.lockStatus || 'flexible' };
+    }
+
+    /**
+     * Événements qui chevauchent [startTime, endTime] le jour `date`, séparés en verrouillés / flexibles.
+     * Tout événement non verrouillé est considéré comme flexible.
+     * @param {Object} [opts] - { excludeIds: [], baseEvents: Array }
+     */
+    async findOverlaps(date, startTime, endTime, opts = {}) {
+        const excludeIds = opts.excludeIds || [];
+        const dayEvents = opts.baseEvents ? opts.baseEvents.filter(e => e.date === date) : await this.getEventsForDate(date);
+        const overlaps = dayEvents.filter(e => !excludeIds.includes(e.id) && e.startTime && e.endTime
+            && this._doTimesOverlap(e.startTime, e.endTime, startTime, endTime));
+        return {
+            locked: overlaps.filter(e => e.lockStatus === 'locked'),
+            flexible: overlaps.filter(e => e.lockStatus !== 'locked')
+        };
+    }
+
+    /**
+     * Applique la décision de l'utilisateur sur les événements flexibles chevauchés, puis enregistre
+     * le nouvel événement. Écriture unique (tout ou rien).
+     */
+    async _applyWithFlexibleResolution(evConfig, flexible, resolution, options = {}) {
+        let items = await this.getEvents();
+        const result = { success: true, eventId: evConfig.id, resolution, moved: [], removed: [], kept: [] };
+
+        if (resolution === 'replace') {
+            const ids = flexible.map(e => e.id);
+            result.removed = flexible.map(e => this._summary(e));
+            items = items.filter(e => !ids.includes(e.id));
+        } else if (resolution === 'move') {
+            const occupied = [evConfig]; // le nouvel événement + les événements déjà déplacés
+            const failed = [];
+            const updates = [];
+            for (const ev of flexible) {
+                const target = await this._findSlotForMove(ev, items, occupied, options);
+                if (!target) { failed.push(this._summary(ev)); continue; }
+                const movedEv = { ...ev, date: target.date, startTime: target.startTime, endTime: target.endTime };
+                occupied.push(movedEv);
+                updates.push(movedEv);
+                result.moved.push({ ...this._summary(ev), from: { date: ev.date, startTime: ev.startTime, endTime: ev.endTime }, to: target });
+            }
+            if (failed.length > 0) {
+                return {
+                    success: false,
+                    reason: `MOVE_FAILED: Aucun créneau libre trouvé pour déplacer '${failed.map(f => f.title).join("', '")}'`,
+                    needsConfirmation: true,
+                    moveFailed: failed,
+                    overlappingFlexible: flexible.map(e => this._summary(e))
+                };
+            }
+            for (const u of updates) {
+                const idx = items.findIndex(e => e.id === u.id);
+                if (idx >= 0) items[idx] = new Event(u);
+            }
+        } else {
+            result.kept = flexible.map(e => this._summary(e));
+        }
+
+        items.push(new Event(evConfig));
+        await this.storage.saveData('events', items);
+        return result;
+    }
+
+    /**
+     * Cherche un nouvel horaire libre (fenêtres de disponibilité, sans aucun autre événement) pour un
+     * événement flexible, à partir de son jour d'origine et sur `moveSearchDays` jours, jamais dans le passé.
+     */
+    async _findSlotForMove(ev, allEvents, occupied, options = {}) {
+        const duration = this._timeToMinutes(ev.endTime) - this._timeToMinutes(ev.startTime);
+        if (!(duration > 0)) return null;
+        const now = options.now instanceof Date ? options.now : null;
+        const todayStr = now ? now.toLocaleDateString('fr-CA') : null;
+        const nowMinutes = now ? now.getHours() * 60 + now.getMinutes() : 0;
+        const days = options.moveSearchDays || 7;
+        const start = parseLocalDate(ev.date);
+        for (let i = 0; i < days; i++) {
+            const d = new Date(start);
+            d.setDate(start.getDate() + i);
+            const dateStr = d.toLocaleDateString('fr-CA');
+            if (todayStr && dateStr < todayStr) continue;
+            const blocks = allEvents.filter(e => e.id !== ev.id && e.date === dateStr)
+                .concat(occupied.filter(o => o.date === dateStr))
+                .filter(e => e.startTime && e.endTime);
+            const free = this._computeFreeSlots(await this._windowsForDate(dateStr), blocks);
+            for (const slot of free) {
+                let s = this._timeToMinutes(slot.startTime);
+                if (todayStr && dateStr === todayStr) s = Math.max(s, Math.ceil(nowMinutes / 15) * 15);
+                if (this._timeToMinutes(slot.endTime) - s >= duration) {
+                    return { date: dateStr, startTime: this._minutesToTime(s), endTime: this._minutesToTime(s + duration) };
+                }
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Fenêtres de disponibilité d'un jour. Tant que l'étudiante n'a saisi AUCUNE disponibilité, et seulement si
+     * `defaultStudyWindow` est réglé (l'App le fait une fois un emploi du temps importé), une fenêtre par défaut
+     * est utilisée (ex. 08:00-21:00) : les cours et autres événements en sont ensuite retirés comme d'habitude.
+     */
+    async _windowsForDate(date) {
+        const all = await this.getAvailabilityWindows();
+        const own = all.filter(w => w.date === date);
+        if (own.length > 0 || all.length > 0 || !this.defaultStudyWindow) return own;
+        const w = this.defaultStudyWindow;
+        if (!w.startTime || !w.endTime) return own;
+        return [{ id: `default_${date}`, date, startTime: w.startTime, endTime: w.endTime, isDefault: true }];
     }
 
     // --- CRUD Availability Windows ---
@@ -151,7 +319,15 @@ export class PlanningEngine {
         // Validation atomique de tout l'import sur 4 semaines (28 jours)
         const events = await this.getEvents();
         const newEvents = [];
-        const start = new Date(startDateStr);
+        const start = parseLocalDate(startDateStr);
+        const endDate = new Date(start);
+        endDate.setDate(start.getDate() + 27);
+        const endStr = endDate.toLocaleDateString('fr-CA');
+
+        // Les événements d'un import précédent sur la même période vont être remplacés :
+        // ils ne doivent pas entrer en conflit avec le nouvel import (réimport idempotent).
+        const isReplaced = (e) => e.source === 'school_schedule' && e.date >= startDateStr && e.date <= endStr;
+        const keptEvents = events.filter(e => !isReplaced(e));
         const dayMap = { 'sunday': 0, 'monday': 1, 'tuesday': 2, 'wednesday': 3, 'thursday': 4, 'friday': 5, 'saturday': 6 };
 
         // Generate events for 28 days
@@ -178,9 +354,11 @@ export class PlanningEngine {
                         source: entry.source
                     };
                     
-                    // Conflit validation
-                    const conflicts = await this.detectConflicts(dateStr, evConfig);
-                    const blocking = conflicts.filter(c => c.type === 'CRITICAL_CONFLICT' || c.type === 'TIME_CONFLICT' || c.type === 'DATA_CONFLICT');
+                    // Conflit validation : contre les événements conservés + ceux déjà générés par ce même import
+                    const conflicts = await this.detectConflicts(dateStr, evConfig, keptEvents.concat(newEvents));
+                    const blocking = conflicts
+                        .filter(c => this._involves(c, evConfig))
+                        .filter(c => c.type === 'CRITICAL_CONFLICT' || c.type === 'TIME_CONFLICT' || c.type === 'DATA_CONFLICT');
                     if (blocking.length > 0) {
                         return { 
                             success: false, 
@@ -197,14 +375,7 @@ export class PlanningEngine {
         
         // Pour éviter de dupliquer à l'infini si on réapplique, on supprime d'abord les événements 
         // school_schedule sur cette période (approche de synchronisation simple).
-        const endDate = new Date(start);
-        endDate.setDate(start.getDate() + 27);
-        const endStr = endDate.toLocaleDateString('fr-CA');
-
-        const filteredEvents = events.filter(e => {
-            if (e.source === 'school_schedule' && e.date >= startDateStr && e.date <= endStr) return false;
-            return true;
-        });
+        const filteredEvents = keptEvents.slice();
 
         for (const ne of newEvents) {
             filteredEvents.push(new Event(ne));
@@ -212,6 +383,46 @@ export class PlanningEngine {
 
         await this.storage.saveData('events', filteredEvents);
         return { success: true, count: newEvents.length };
+    }
+
+    /**
+     * Emploi du temps hebdomadaire importé (PDF/photo validé par l'étudiante) : écriture unique.
+     *  - remplace les cours importés (source 'school_schedule') de la semaine [weekStart, weekEnd] : réimport idempotent ;
+     *  - refuse tout conflit bloquant (horaire inversé, matière inconnue, deux cours importés qui se chevauchent) ;
+     *  - un cours officiel est obligatoire : s'il chevauche un autre événement déjà présent, il est quand même
+     *    enregistré et le chevauchement est renvoyé dans `overlaps` (le coach le signale ensuite comme conflit d'agenda).
+     * @param {Array} newEvents - événements 'course' verrouillés
+     * @param {Object} range - { weekStart, weekEnd } (YYYY-MM-DD)
+     * @returns {Promise<Object>} { success, count, replaced, overlaps } ou { success: false, reason }
+     */
+    async applyWeeklyTimetable(newEvents, { weekStart, weekEnd } = {}) {
+        if (!weekStart || !weekEnd || !Array.isArray(newEvents)) return { success: false, reason: 'Semaine ou séances manquantes' };
+        const events = await this.getEvents();
+        const isReplaced = (e) => e.source === 'school_schedule' && e.date >= weekStart && e.date <= weekEnd;
+        const kept = events.filter(e => !isReplaced(e));
+        const replaced = events.length - kept.length;
+        const accepted = [];
+        const overlaps = [];
+        for (const raw of newEvents) {
+            if (!raw.date || raw.date < weekStart || raw.date > weekEnd) {
+                return { success: false, reason: `Séance hors de la semaine importée : ${raw.title} (${raw.date})` };
+            }
+            const ev = new Event(raw);
+            const conflicts = await this.detectConflicts(ev.date, ev, kept.concat(accepted));
+            const blocking = conflicts.filter(c => this._involves(c, ev)).filter(c =>
+                c.type === 'TIME_CONFLICT' || c.type === 'DATA_CONFLICT'
+                || (c.type === 'CRITICAL_CONFLICT' && c.events.some(o => o !== ev && accepted.includes(o))));
+            if (blocking.length > 0) {
+                return { success: false, reason: `Conflit pour ${ev.title} le ${ev.date} : ${blocking[0].message}` };
+            }
+            if (ev.startTime && ev.endTime) {
+                const { locked, flexible } = await this.findOverlaps(ev.date, ev.startTime, ev.endTime, { baseEvents: kept });
+                locked.concat(flexible).forEach(o => overlaps.push({ course: this._summary(ev), other: this._summary(o) }));
+            }
+            accepted.push(ev);
+        }
+        await this.storage.saveData('events', kept.concat(accepted));
+        return { success: true, count: accepted.length, replaced, overlaps };
     }
 
     // --- Validation et Conflits ---
@@ -232,8 +443,14 @@ export class PlanningEngine {
         return (s1 < e2 && s2 < e1);
     }
 
-    async detectConflicts(date, additionalEvent = null) {
-        const events = await this.getEventsForDate(date);
+    _involves(conflict, ev) {
+        if (!conflict || !ev) return false;
+        if (conflict.event === ev) return true;
+        return Array.isArray(conflict.events) && conflict.events.includes(ev);
+    }
+
+    async detectConflicts(date, additionalEvent = null, baseEvents = null) {
+        const events = baseEvents ? baseEvents.filter(e => e.date === date) : await this.getEventsForDate(date);
         if (additionalEvent) {
             events.push(additionalEvent);
         }
@@ -308,13 +525,26 @@ export class PlanningEngine {
         return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`;
     }
 
-    async getAvailableSlots(date) {
-        const allWindows = (await this.getAvailabilityWindows()).filter(w => w.date === date);
+    /**
+     * @param {string} date
+     * @param {Object} options
+     * @param {boolean} options.subtractFlexible - si true, les événements flexibles occupent aussi le créneau
+     *   (utilisé par le coach : aucun déplacement automatique n'existe, proposer un créneau occupé créerait un doublon).
+     *   Par défaut (false) : seuls les événements verrouillés sont soustraits (règle historique du moteur).
+     */
+    async getAvailableSlots(date, options = {}) {
+        const allWindows = await this._windowsForDate(date);
         const events = await this.getEventsForDate(date);
         
-        // On ne soustrait QUE les events locked
-        const lockedEvents = events.filter(e => e.lockStatus === 'locked' && e.startTime && e.endTime);
-        
+        // Par défaut on ne soustrait QUE les events locked
+        const lockedEvents = events.filter(e => (options.subtractFlexible || e.lockStatus === 'locked') && e.startTime && e.endTime);
+        return this._computeFreeSlots(allWindows, lockedEvents);
+    }
+
+    /**
+     * Fenêtres de disponibilité moins les blocs occupés, en créneaux HH:MM triés.
+     */
+    _computeFreeSlots(allWindows, lockedEvents) {
         // Convert to minutes for easier math
         const freeIntervals = [];
 
@@ -375,5 +605,65 @@ export class PlanningEngine {
         finalSlots.sort((a, b) => this._timeToMinutes(a.startTime) - this._timeToMinutes(b.startTime));
 
         return finalSlots;
+    }
+
+    /**
+     * Allège le plan du jour en réduisant ou supprimant des événements flexibles.
+     * Respecte les événements verrouillés et les révisions d'évaluations proches (<= 5 jours).
+     */
+    async lightenDailyPlan(date) {
+        const allEvents = await this.getEvents();
+        const dayEvents = allEvents.filter(e => e.date === date && e.lockStatus === 'flexible' && e.startTime && e.endTime);
+        const assessments = await this.storage.loadData('acad_assessments') || [];
+        
+        const removedIds = new Set();
+        const shortenedEvents = []; 
+        
+        const todayTime = parseLocalDate(date).getTime();
+
+        for (const ev of dayEvents) {
+            let safeToModify = true;
+            if (ev.assessmentId) {
+                const ass = assessments.find(a => a.id === ev.assessmentId);
+                if (ass && ass.targetDate) {
+                    const daysRemaining = Math.round((parseLocalDate(ass.targetDate).getTime() - todayTime) / (1000 * 60 * 60 * 24));
+                    if (daysRemaining >= 0 && daysRemaining <= 5) {
+                        safeToModify = false;
+                    }
+                }
+            }
+            if (!safeToModify) continue;
+
+            const startMinutes = this._timeToMinutes(ev.startTime);
+            const endMinutes = this._timeToMinutes(ev.endTime);
+            const duration = endMinutes - startMinutes;
+            
+            if (duration <= 45) {
+                removedIds.add(ev.id);
+            } else {
+                const newDuration = Math.max(30, Math.round((duration / 2) / 15) * 15);
+                const updatedEv = new Event(ev);
+                updatedEv.endTime = this._minutesToTime(startMinutes + newDuration);
+                shortenedEvents.push(updatedEv);
+            }
+        }
+        
+        let newAllEvents = [];
+        for (const e of allEvents) {
+            if (removedIds.has(e.id)) continue;
+            const shortened = shortenedEvents.find(s => s.id === e.id);
+            if (shortened) {
+                newAllEvents.push(shortened);
+            } else {
+                newAllEvents.push(e);
+            }
+        }
+        
+        await this.storage.saveData('events', newAllEvents);
+        
+        return {
+            removedCount: removedIds.size,
+            shortenedCount: shortenedEvents.length
+        };
     }
 }

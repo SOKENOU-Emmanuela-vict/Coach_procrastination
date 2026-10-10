@@ -4,6 +4,6 @@ export class Semester {
         this.yearId = yearId;
         this.name = name;
         this.status = status; // active, completed, upcoming
-        this.metadata = metadata; // Ex: { officialCectTotal: 30, calculatedDetailedCectTotal: 26, cectDiscrepancy: 4, cectStatus: "to_confirm" }
+        this.metadata = metadata; // Ex: { officialCectTotal: 30, calculatedDetailedCectTotal: 30, cectDiscrepancy: 0, cectStatus: "verified" } (sinon "to_confirm")
     }
 }

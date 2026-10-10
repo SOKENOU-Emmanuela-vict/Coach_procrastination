@@ -1,3 +1,4 @@
+import { escapeHtml } from '../utils/html.js';
 export class AcademicView {
     constructor(containerId, app) {
         this.container = document.getElementById(containerId);
@@ -11,8 +12,8 @@ export class AcademicView {
         }
 
         const blocks = [
-            { id: 0, title: "L2 IA 2026-2027", icon: "🎓", img: "https://images.unsplash.com/photo-1551288049-bebda4e38f71?w=400&q=80" },
-            { id: 1, title: "Projets & Stages", icon: "💼", img: "https://images.unsplash.com/photo-1461749280684-dccba630e2f6?w=400&q=80" }
+            { id: 0, title: "L2 IA 2026-2027", icon: '<i class="bi bi-mortarboard"></i>', img: "https://images.unsplash.com/photo-1551288049-bebda4e38f71?w=400&q=80" },
+            { id: 1, title: "Projets & Stages", icon: '<i class="bi bi-briefcase"></i>', img: "https://images.unsplash.com/photo-1461749280684-dccba630e2f6?w=400&q=80" }
         ];
 
         // Fetch subjects from state
@@ -25,7 +26,7 @@ export class AcademicView {
         const renderSubjectCard = (sub) => `
             <div class="bureau-card" style="background:var(--bg-card); border-radius:12px; border:1px solid var(--border-color); padding:20px; position:relative; margin-bottom:15px; display:flex; flex-direction:column; gap:15px;">
                 <!-- Edit button -->
-                <button style="position:absolute; top:15px; right:15px; background:transparent; border:none; color:var(--text-muted); cursor:pointer;">
+                <button class="btn-action-subject" data-action="edit" data-id="${sub.id}" style="position:absolute; top:15px; right:15px; background:transparent; border:none; color:var(--text-muted); cursor:pointer;">
                     <i class="bi bi-pencil-square" style="font-size:16px;"></i>
                 </button>
                 
@@ -38,7 +39,7 @@ export class AcademicView {
                 <div style="display:flex; justify-content:center; align-items:center; padding:15px 0;">
                     ${sub.grade ? 
                         `<div style="font-size:24px; font-weight:bold; color:var(--accent-primary);">${sub.grade} <span style="font-size:14px; color:var(--text-muted);">/ 20</span></div>` :
-                        `<button class="btn-add-grade" style="background:var(--accent-primary); color:white; border:none; padding:10px 20px; border-radius:8px; font-weight:bold; cursor:pointer; display:flex; align-items:center; gap:8px;">
+                        `<button class="btn-add-grade" data-id="${sub.id}" style="background:var(--accent-primary); color:white; border:none; padding:10px 20px; border-radius:8px; font-weight:bold; cursor:pointer; display:flex; align-items:center; gap:8px;">
                             <i class="bi bi-plus-circle"></i> ADD NOTE
                         </button>`
                     }
@@ -46,15 +47,15 @@ export class AcademicView {
                 
                 <!-- Action Buttons Grid -->
                 <div style="display:grid; grid-template-columns: 1fr 1fr 1fr; gap:10px;">
-                    <button style="background:var(--bg-main); border:1px solid var(--border-color); padding:10px; border-radius:8px; cursor:pointer; display:flex; flex-direction:column; align-items:center; gap:5px; color:var(--text-main);">
+                    <button class="btn-action-subject" data-action="ressources" data-id="${sub.id}" style="background:var(--bg-main); border:1px solid var(--border-color); padding:10px; border-radius:8px; cursor:pointer; display:flex; flex-direction:column; align-items:center; gap:5px; color:var(--text-main);">
                         <i class="bi bi-folder2-open" style="font-size:18px; color:#eab308;"></i>
                         <span style="font-size:11px; font-weight:bold;">Ressources</span>
                     </button>
-                    <button style="background:var(--bg-main); border:1px solid var(--border-color); padding:10px; border-radius:8px; cursor:pointer; display:flex; flex-direction:column; align-items:center; gap:5px; color:var(--text-main);">
+                    <button class="btn-action-subject" data-action="notebook" data-id="${sub.id}" style="background:var(--bg-main); border:1px solid var(--border-color); padding:10px; border-radius:8px; cursor:pointer; display:flex; flex-direction:column; align-items:center; gap:5px; color:var(--text-main);">
                         <i class="bi bi-robot" style="font-size:18px; color:#0ea5e9;"></i>
                         <span style="font-size:11px; font-weight:bold;">Notebook LM</span>
                     </button>
-                    <button style="background:var(--bg-main); border:1px solid var(--border-color); padding:10px; border-radius:8px; cursor:pointer; display:flex; flex-direction:column; align-items:center; gap:5px; color:var(--text-main);">
+                    <button class="btn-action-subject" data-action="epreuves" data-id="${sub.id}" style="background:var(--bg-main); border:1px solid var(--border-color); padding:10px; border-radius:8px; cursor:pointer; display:flex; flex-direction:column; align-items:center; gap:5px; color:var(--text-main);">
                         <i class="bi bi-ui-checks" style="font-size:18px; color:#10b981;"></i>
                         <span style="font-size:11px; font-weight:bold;">Épreuves</span>
                     </button>
@@ -141,6 +142,18 @@ export class AcademicView {
         </div>
     </div>
 </div>
+        <!-- MODAL OVERLAY -->
+        <div id="academic-modal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.6); z-index:9999; align-items:center; justify-content:center;">
+            <div style="background:var(--bg-main); width:90%; max-width:600px; max-height:80vh; border-radius:12px; border:1px solid var(--border-color); display:flex; flex-direction:column; overflow:hidden; box-shadow:0 10px 30px rgba(0,0,0,0.5);">
+                <div style="padding:15px 20px; border-bottom:1px solid var(--border-color); display:flex; justify-content:space-between; align-items:center; background:var(--bg-card);">
+                    <h3 id="academic-modal-title" style="margin:0; font-size:18px; color:var(--text-main);">Titre</h3>
+                    <button id="academic-modal-close" style="background:transparent; border:none; color:var(--text-muted); font-size:20px; cursor:pointer;">&times;</button>
+                </div>
+                <div id="academic-modal-content" style="padding:20px; overflow-y:auto; flex-grow:1; color:var(--text-main);">
+                    <!-- Contenu dynamique -->
+                </div>
+            </div>
+        </div>
         `;
         
         this.container.innerHTML = html;
@@ -151,8 +164,8 @@ export class AcademicView {
         this.container.querySelectorAll('.bureau-nav-item').forEach(btn => {
             btn.addEventListener('click', (e) => {
                 const viewName = e.currentTarget.getAttribute('data-view');
-                if (viewName && this.app.router) {
-                    this.app.router.render(viewName, this.app.state);
+                if (viewName) {
+                    this.app.renderView(viewName);
                 }
             });
         });
@@ -171,9 +184,125 @@ export class AcademicView {
                 if (this.app.renderView) {
                     this.app.renderView('portfolio');
                 } else if (this.app.router) {
-                    this.app.router.render('portfolio', this.app.state);
+                    this.app.renderView('portfolio');
                 }
             });
         }
+
+        // Modal elements
+        const modal = this.container.querySelector('#academic-modal');
+        const modalTitle = this.container.querySelector('#academic-modal-title');
+        const modalContent = this.container.querySelector('#academic-modal-content');
+        const btnClose = this.container.querySelector('#academic-modal-close');
+
+        if (btnClose) {
+            btnClose.addEventListener('click', () => {
+                modal.style.display = 'none';
+            });
+        }
+        
+        if (modal) {
+            modal.addEventListener('click', (e) => {
+                if(e.target === modal) modal.style.display = 'none';
+            });
+        }
+
+        // Action Buttons
+        this.container.querySelectorAll('.btn-action-subject, .btn-add-grade').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                let actionName = e.currentTarget.getAttribute('data-action') || 'add_grade';
+                let subjectId = e.currentTarget.getAttribute('data-id');
+                const allSubjects = this.app.state.academicSubjects || [];
+                const found = allSubjects.find(s => s.id === subjectId) || { name: 'Matière inconnue' };
+                // Valeurs échappées avant insertion dans innerHTML
+                const sub = { ...found, name: escapeHtml(found.name), code: escapeHtml(found.code || ''), cect: Number(found.cect) || 0 };
+                
+                modal.style.display = 'flex';
+                
+                if (actionName === 'edit') {
+                    modalTitle.innerHTML = `<i class="bi bi-pencil-square"></i> Éditer : ${sub.name}`;
+                    modalContent.innerHTML = `
+                        <div style="display:flex; flex-direction:column; gap:15px;">
+                            <label>Nom de la matière : <input type="text" value="${sub.name}" class="form-input" style="width:100%; padding:10px; background:var(--bg-card); color:var(--text-main); border:1px solid var(--border-color); border-radius:8px; margin-top:5px;"></label>
+                            <label>Code (ex: IA202) : <input type="text" value="${sub.code || ''}" class="form-input" style="width:100%; padding:10px; background:var(--bg-card); color:var(--text-main); border:1px solid var(--border-color); border-radius:8px; margin-top:5px;"></label>
+                            <label>Crédits ECTS : <input type="number" value="${sub.cect || 0}" class="form-input" style="width:100%; padding:10px; background:var(--bg-card); color:var(--text-main); border:1px solid var(--border-color); border-radius:8px; margin-top:5px;"></label>
+                            <button style="background:var(--accent-primary); color:white; border:none; padding:10px; border-radius:8px; font-weight:bold; cursor:pointer; margin-top:10px;">Sauvegarder</button>
+                        </div>
+                    `;
+                    // Bouton « Sauvegarder » existant branché sur App.updateSubject (nom, code, crédits)
+                    const saveBtn = modalContent.querySelector('button');
+                    const [nameInput, codeInput, cectInput] = modalContent.querySelectorAll('input');
+                    if (saveBtn && nameInput && found.id) {
+                        saveBtn.addEventListener('click', async () => {
+                            const name = nameInput.value.trim();
+                            const cect = Number(cectInput ? cectInput.value : found.cect);
+                            if (!name || !Number.isFinite(cect) || cect < 0) {
+                                alert('Nom obligatoire et crédits positifs.');
+                                return;
+                            }
+                            try {
+                                modal.style.display = 'none';
+                                await this.app.updateSubject(found.id, { name, code: codeInput ? codeInput.value.trim() : found.code, cect });
+                            } catch (err) {
+                                alert('Erreur lors de la sauvegarde : ' + err.message);
+                            }
+                        });
+                    }
+                } else if (actionName === 'ressources') {
+                    modalTitle.innerHTML = `<i class="bi bi-folder2-open" style="color:#eab308;"></i> Ressources pour ${sub.name}`;
+                    modalContent.innerHTML = `
+                        <div style="text-align:center; padding:20px; color:var(--text-muted);">
+                            <i class="bi bi-cloud-arrow-up" style="font-size:40px; color:var(--accent-primary); margin-bottom:10px; display:block;"></i>
+                            <p>Aucune ressource disponible pour l'instant.</p>
+                            <button style="background:var(--bg-card); color:var(--text-main); border:1px dashed var(--border-color); padding:10px 20px; border-radius:8px; cursor:pointer; margin-top:10px;">
+                                <i class="bi bi-plus-lg"></i> Ajouter un fichier ou lien
+                            </button>
+                        </div>
+                    `;
+                } else if (actionName === 'notebook') {
+                    modalTitle.innerHTML = `<i class="bi bi-robot" style="color:#0ea5e9;"></i> Notebook LM : ${sub.name}`;
+                    modalContent.innerHTML = `
+                        <div style="display:flex; flex-direction:column; height:300px;">
+                            <div style="flex-grow:1; background:var(--bg-card); border-radius:8px; padding:15px; overflow-y:auto; margin-bottom:10px; border:1px solid var(--border-color);">
+                                <div style="color:var(--text-muted); font-size:12px; text-align:center;">L'IA est prête à répondre à vos questions sur <strong>${sub.name}</strong> en se basant sur vos ressources.</div>
+                            </div>
+                            <div style="display:flex; gap:10px;">
+                                <input type="text" placeholder="Posez une question sur le cours..." style="flex-grow:1; padding:10px; background:var(--bg-card); color:var(--text-main); border:1px solid var(--border-color); border-radius:8px;">
+                                <button style="background:#0ea5e9; color:white; border:none; padding:10px 20px; border-radius:8px; cursor:pointer;"><i class="bi bi-send"></i></button>
+                            </div>
+                        </div>
+                    `;
+                } else if (actionName === 'epreuves') {
+                    modalTitle.innerHTML = `<i class="bi bi-ui-checks" style="color:#10b981;"></i> Épreuves de ${sub.name}`;
+                    modalContent.innerHTML = `
+                        <div style="display:flex; flex-direction:column; gap:10px;">
+                            <div style="background:var(--bg-card); padding:15px; border-radius:8px; border:1px solid var(--border-color); display:flex; justify-content:space-between; align-items:center;">
+                                <div>
+                                    <h4 style="margin:0 0 5px 0;">Partiel Mi-Semestre</h4>
+                                    <span style="font-size:12px; color:var(--text-muted);">Coeff 1.0</span>
+                                </div>
+                                <span style="font-weight:bold; color:var(--accent-primary);">À venir</span>
+                            </div>
+                            <button style="background:transparent; color:var(--accent-primary); border:1px dashed var(--accent-primary); padding:10px; border-radius:8px; font-weight:bold; cursor:pointer; margin-top:10px;">
+                                + Nouvelle épreuve
+                            </button>
+                        </div>
+                    `;
+                } else if (actionName === 'add_grade') {
+                    modalTitle.innerHTML = `<i class="bi bi-award" style="color:var(--accent-primary);"></i> Ajouter une note`;
+                    modalContent.innerHTML = `
+                        <div style="display:flex; flex-direction:column; gap:15px; align-items:center;">
+                            <p style="text-align:center; color:var(--text-muted); margin:0;">Note globale pour ${sub.name}</p>
+                            <div style="display:flex; align-items:center; gap:10px; font-size:24px;">
+                                <input type="number" step="0.5" min="0" max="20" placeholder="15" style="width:80px; padding:10px; font-size:20px; text-align:center; background:var(--bg-card); color:var(--text-main); border:1px solid var(--border-color); border-radius:8px;">
+                                <span style="color:var(--text-muted);">/ 20</span>
+                            </div>
+                            <button style="background:var(--accent-primary); color:white; border:none; padding:10px 30px; border-radius:8px; font-weight:bold; cursor:pointer;">Valider</button>
+                        </div>
+                    `;
+                }
+            });
+        });
     }
 }

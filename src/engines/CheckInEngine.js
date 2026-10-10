@@ -1,4 +1,5 @@
 import { DailyCheckIn } from '../models/DailyCheckIn.js';
+import { Event } from '../models/Event.js';
 
 export class CheckInEngine {
     constructor(storageProvider, planningEngine, schedulerEngine, studyRecordEngine) {
@@ -64,7 +65,7 @@ export class CheckInEngine {
                     id: e.id,
                     title: e.title,
                     type: e.type || 'event',
-                    plannedDuration: e.duration || e.targetDuration || 0,
+                    plannedDuration: e.duration || Event.computeDuration(e) || e.targetDuration || 0,
                     source: 'event',
                     subjectId: e.subjectId,
                     projectId: e.projectId,

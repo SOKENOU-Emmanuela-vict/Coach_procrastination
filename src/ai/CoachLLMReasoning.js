@@ -40,7 +40,11 @@ export class CoachLLMReasoning {
         try {
             responseText = await this.llmProvider.generate(prompt);
         } catch (e) {
-            throw new Error(`Erreur du LLM Provider: ${e.message}`);
+            const err = new Error(`Erreur du LLM Provider: ${e.message}`);
+            // status HTTP / code court conservés pour un message honnête dans le chat (ex. 503 = Gemini saturé)
+            err.status = e.status !== undefined ? e.status : null;
+            err.code = e.code || 'LLM_ERROR';
+            throw err;
         }
 
         // 4. Parsing et Validation
@@ -48,7 +52,9 @@ export class CoachLLMReasoning {
         try {
             decision = JSON.parse(responseText);
         } catch (e) {
-            throw new Error("Réponse LLM invalide: JSON malformé.");
+            const err = new Error("Réponse LLM invalide: JSON malformé.");
+            err.code = 'INVALID_JSON';
+            throw err;
         }
 
         // Valide la structure de la décision selon le contrat strict

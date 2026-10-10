@@ -1,3 +1,5 @@
+import { escapeHtml } from '../utils/html.js';
+
 export class BilanView {
     constructor(containerId, app) {
         this.container = document.getElementById(containerId);
@@ -10,7 +12,12 @@ export class BilanView {
         const completedTasksCount = (stats && stats.completedTasksCount) ? stats.completedTasksCount : 0;
         const focusTime = (stats && !isNaN(stats.focusTime)) ? stats.focusTime : 0;
         
-        const completionRate = summary ? summary.completionRate : 0;
+        // Structure de CheckInEngine.buildDailySummary : { execution, planned, actual, ... }
+        const execution = (summary && summary.execution) || {};
+        const completionRate = execution.completionRate || 0;
+        const completedSessions = summary ? (execution.completed || 0) : completedTasksCount;
+        const actualMinutes = summary ? ((summary.actual && summary.actual.minutes) || 0) : focusTime;
+        const plannedItems = (summary && summary.planned && summary.planned.items) || [];
         
         const isReadonly = checkIn !== null && checkIn !== undefined;
 
@@ -20,9 +27,9 @@ export class BilanView {
                 <p style="font-size: 14px; color: #88a7b7; margin-top: 0;">Étape 1/2 - Le résumé automatique de tes efforts</p>
                 
                 <h3 style="color: #00f2fe; margin-bottom: 15px;">Résumé Chiffré</h3>
-                <p style="font-size: 16px;">✔ <strong style="color: #fff;">${summary ? summary.completedSessions : completedTasksCount}</strong> sessions terminées</p>
+                <p style="font-size: 16px;">✔ <strong style="color: #fff;">${completedSessions}</strong> sessions terminées</p>
                 <div class="timer" style="font-size: 42px; font-weight: bold; color: #4caf50; margin: 15px 0; text-shadow: 0 0 10px rgba(76,175,80,0.3);">${completionRate}% Complétion</div>
-                <p style="font-size: 16px;">⏱ Temps d'étude actif : <strong style="color: #fff;">${summary ? summary.totalActualMinutes : focusTime} min</strong></p>
+                <p style="font-size: 16px;">⏱ Temps d'étude actif : <strong style="color: #fff;">${actualMinutes} min</strong></p>
             </div>
         `;
 
@@ -30,20 +37,20 @@ export class BilanView {
             html += `
                 <div style="background: #11222c; border: 1px solid #4caf50; padding: 20px; border-radius: 10px; margin-top: 20px; text-align: center;">
                     <h3 style="color: #4caf50;">✅ Check-in déjà validé !</h3>
-                    <p style="color: #e0e0e0;">Énergie: ${checkIn.energy}, Sommeil: ${checkIn.sleep.durationMinutes}min</p>
+                    <p style="color: #e0e0e0;">Énergie: ${escapeHtml(checkIn.energy)}, Sommeil: ${(checkIn.sleep && checkIn.sleep.durationMinutes) || 0}min</p>
                 </div>
             `;
         } else {
             // Formulaire interactif Daily Check-in
             let followupOptions = "";
-            if (summary && summary.plannedItems) {
-                const missedItems = summary.plannedItems.filter(i => i.status === 'missed' || i.status === 'partial');
+            if (plannedItems.length > 0) {
+                const missedItems = plannedItems.filter(i => i.status === 'missed' || i.status === 'partial');
                 if (missedItems.length > 0) {
                     followupOptions = `<div style="margin-top:15px;">
                         <label style="display:block; color:#00f2fe; font-weight:bold; margin-bottom:8px;">🔄 Sessions à reprendre demain (needsFollowUp) :</label>
                         ${missedItems.map(i => `
                             <label style="display:block; color:#e0e0e0; margin-bottom:5px;">
-                                <input type="checkbox" name="needsFollowUp" value="${i.id}"> ${i.title} (${i.status})
+                                <input type="checkbox" name="needsFollowUp" value="${escapeHtml(i.id)}"> ${escapeHtml(i.title)} (${escapeHtml(i.status)})
                             </label>
                         `).join('')}
                     </div>`;

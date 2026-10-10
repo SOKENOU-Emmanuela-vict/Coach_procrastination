@@ -1,3 +1,4 @@
+import { escapeHtml } from '../utils/html.js';
 export class CalendarView {
     constructor(containerId, app) {
         this.container = document.getElementById(containerId);
@@ -23,7 +24,7 @@ export class CalendarView {
         const events = state.calendarData?.events || [];
         const projects = state.calendarData?.projects || [];
         const assessments = state.calendarData?.assessments || [];
-        const subjects = state.calendarData?.subjects || await this.app.storage.loadData('acad_subjects') || [];
+        const subjects = state.calendarData?.subjects || []; // fourni par App.refreshCalendarData
         
         const monthNames = ["Janvier", "Février", "Mars", "Avril", "Mai", "Juin", "Juillet", "Août", "Septembre", "Octobre", "Novembre", "Décembre"];
         const monthName = monthNames[this.currentMonth];
@@ -173,7 +174,7 @@ export class CalendarView {
                             if (isLife(e) && !this.filters.life) return false;
                             if (isSchool(e) && !this.filters.school) return false;
                             return true;
-                        }).sort((a,b) => a.startTime.localeCompare(b.startTime));
+                        }).sort((a,b) => (a.startTime || '').localeCompare(b.startTime || ''));
                         
                         let content = '';
                         
@@ -187,7 +188,7 @@ export class CalendarView {
                             if (color === langColor) bgColor = 'rgba(255, 152, 0, 0.2)';
                             if (color === lifeColor) bgColor = 'rgba(240, 147, 251, 0.2)';
                             
-                            content += `<div style="background:${bgColor}; border-left:3px solid ${color}; color:#fff; font-size:10px; padding:4px 6px; border-radius:4px; margin-bottom:4px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;" title="${e.title} (${e.startTime}-${e.endTime})">${e.startTime} ${e.title}</div>`;
+                            content += `<div style="background:${bgColor}; border-left:3px solid ${color}; color:#fff; font-size:10px; padding:4px 6px; border-radius:4px; margin-bottom:4px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;" title="${escapeHtml(e.title)} (${escapeHtml(e.startTime)}-${escapeHtml(e.endTime)})">${escapeHtml(e.startTime)} ${escapeHtml(e.title)}</div>`;
                         });
                         if (dayEvents.length > 4) {
                             content += `<div style="color:rgba(255,255,255,0.5); font-size:10px; text-align:center;">+${dayEvents.length - 4} autres</div>`;
@@ -214,16 +215,18 @@ export class CalendarView {
                     </div>
                     <div style="display:flex; flex-direction:column; gap:12px;">`;
                     
-        const futureAssessments = assessments.filter(a => a.date >= todayStr).sort((a,b) => a.date.localeCompare(b.date)).slice(0, 4);
+        // Le modèle Assessment expose targetDate (ancien champ : date)
+        const assessmentDate = (a) => a.targetDate || a.date || '';
+        const futureAssessments = assessments.filter(a => assessmentDate(a) >= todayStr).sort((a,b) => assessmentDate(a).localeCompare(assessmentDate(b))).slice(0, 4);
         if (futureAssessments.length > 0) {
             futureAssessments.forEach(a => {
-                const day = a.date.split('-')[2];
+                const day = assessmentDate(a).split('-')[2];
                 html += `
                         <div style="display:flex; gap:15px; align-items:center;">
                             <div style="width:36px; height:36px; border-radius:50%; background:rgba(0, 242, 254, 0.1); border:1px solid ${schoolColor}; display:flex; align-items:center; justify-content:center; font-weight:bold; color:${schoolColor}; font-size:14px;">${day}</div>
                             <div style="overflow:hidden;">
-                                <strong style="display:block; color:#fff; font-size:13px; margin-bottom:2px; white-space:nowrap; text-overflow:ellipsis; overflow:hidden;">${a.title}</strong>
-                                <span style="font-size:11px; color:rgba(255,255,255,0.4);">Coef ${a.coefficient || 1}</span>
+                                <strong style="display:block; color:#fff; font-size:13px; margin-bottom:2px; white-space:nowrap; text-overflow:ellipsis; overflow:hidden;">${escapeHtml(a.title)}</strong>
+                                <span style="font-size:11px; color:rgba(255,255,255,0.4);">Coef ${escapeHtml(a.coefficient || a.weight || 1)}</span>
                             </div>
                         </div>`;
             });
@@ -262,8 +265,8 @@ export class CalendarView {
                         <div style="display:flex; gap:15px; align-items:center;">
                             <div style="width:36px; height:36px; border-radius:50%; background:rgba(240, 147, 251, 0.1); border:1px solid ${lifeColor}; display:flex; align-items:center; justify-content:center; font-weight:bold; color:${lifeColor}; font-size:14px;"><i class="bi bi-star-fill"></i></div>
                             <div style="overflow:hidden;">
-                                <strong style="display:block; color:#fff; font-size:13px; margin-bottom:2px; white-space:nowrap; text-overflow:ellipsis; overflow:hidden;">${t.task}</strong>
-                                <span style="font-size:11px; color:rgba(255,255,255,0.4);">${t.project}</span>
+                                <strong style="display:block; color:#fff; font-size:13px; margin-bottom:2px; white-space:nowrap; text-overflow:ellipsis; overflow:hidden;">${escapeHtml(t.task)}</strong>
+                                <span style="font-size:11px; color:rgba(255,255,255,0.4);">${escapeHtml(t.project)}</span>
                             </div>
                         </div>`;
             });
@@ -285,7 +288,7 @@ export class CalendarView {
                     `;
                     
         const futureLangEvents = events.filter(e => e.date >= todayStr && isLang(e)).sort((a,b) => {
-            if(a.date === b.date) return a.startTime.localeCompare(b.startTime);
+            if(a.date === b.date) return (a.startTime || '').localeCompare(b.startTime || '');
             return a.date.localeCompare(b.date);
         }).slice(0, 4);
         
@@ -296,8 +299,8 @@ export class CalendarView {
                         <div style="display:flex; gap:15px; align-items:center;">
                             <div style="width:36px; height:36px; border-radius:50%; background:rgba(255, 152, 0, 0.1); border:1px solid ${langColor}; display:flex; align-items:center; justify-content:center; font-weight:bold; color:${langColor}; font-size:14px;">${day}</div>
                             <div style="overflow:hidden;">
-                                <strong style="display:block; color:#fff; font-size:13px; margin-bottom:2px; white-space:nowrap; text-overflow:ellipsis; overflow:hidden;">${e.title}</strong>
-                                <span style="font-size:11px; color:rgba(255,255,255,0.4);">${e.startTime} - ${e.endTime}</span>
+                                <strong style="display:block; color:#fff; font-size:13px; margin-bottom:2px; white-space:nowrap; text-overflow:ellipsis; overflow:hidden;">${escapeHtml(e.title)}</strong>
+                                <span style="font-size:11px; color:rgba(255,255,255,0.4);">${escapeHtml(e.startTime || '')} - ${escapeHtml(e.endTime || '')}</span>
                             </div>
                         </div>`;
             });
@@ -321,15 +324,15 @@ export class CalendarView {
         const btnBack = this.container.querySelector('#btn-back-desktop');
         if(btnBack) {
             btnBack.addEventListener('click', () => {
-                if(this.app.router) this.app.router.render('desktop', this.app.state);
+                this.app.renderView('desktop');
             });
         }
 
         this.container.querySelectorAll('.bureau-nav-item').forEach(btn => {
             btn.addEventListener('click', (ev) => {
                 const viewName = ev.currentTarget.getAttribute('data-view');
-                if (viewName && this.app.router) {
-                    this.app.router.render(viewName, this.app.state);
+                if (viewName) {
+                    this.app.renderView(viewName);
                 }
             });
         });

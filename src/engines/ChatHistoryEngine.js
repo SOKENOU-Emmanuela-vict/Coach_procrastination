@@ -21,6 +21,13 @@ export class ChatHistoryEngine {
     async saveMessage(messageData) {
         const message = new Message(messageData);
         let messages = await this.storage.loadData('chat_history') || [];
+        // Une erreur identique à la dernière erreur affichée n'est pas réenregistrée (pas de pollution répétée)
+        if (message.role === 'assistant' && message.metadata && message.metadata.error) {
+            const lastAssistant = messages.slice().reverse().find(m => m && m.role === 'assistant' && m.conversationId === message.conversationId);
+            if (lastAssistant && lastAssistant.metadata && lastAssistant.metadata.error && lastAssistant.content === message.content) {
+                return new Message(lastAssistant);
+            }
+        }
         messages.push(message);
         await this.storage.saveData('chat_history', messages);
         return message;
@@ -57,5 +64,25 @@ export class ChatHistoryEngine {
         if (messages.length !== initialLength) {
             await this.storage.saveData('chat_history', messages);
         }
+    }
+
+    /**
+     * Retire de l'historique les messages d'erreur technique du coach (anciennes versions : « Erreur lors de l'analyse : … »,
+     * « Erreur critique… », erreurs Gemini brutes) et ne garde que le DERNIER message marqué metadata.error.
+     * @returns {Promise<number>} nombre de messages retirés
+     */
+    async purgeTechnicalErrors() {
+        const messages = await this.storage.loadData('chat_history') || [];
+        const legacy = /^(Erreur lors de l'analyse|Erreur lors de la planification|Erreur :|Erreur critique)|Erreur du LLM Provider|Erreur API Gemini/i;
+        let lastErrorIdx = -1;
+        messages.forEach((m, i) => { if (m && m.role === 'assistant' && m.metadata && m.metadata.error) lastErrorIdx = i; });
+        const kept = messages.filter((m, i) => {
+            if (!m || m.role !== 'assistant') return true;
+            if (legacy.test(String(m.content || ''))) return false;
+            if (m.metadata && m.metadata.error && i !== lastErrorIdx) return false;
+            return true;
+        });
+        if (kept.length !== messages.length) await this.storage.saveData('chat_history', kept);
+        return messages.length - kept.length;
     }
 }

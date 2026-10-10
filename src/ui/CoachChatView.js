@@ -1,3 +1,4 @@
+import { escapeHtml } from '../utils/html.js';
 import { PlanningIntent } from '../models/PlanningIntent.js';
 
 export class CoachChatView {
@@ -11,6 +12,23 @@ export class CoachChatView {
             document.body.className = 'theme-cyber';
         }
         messages = messages || [];
+
+        // Contexte réel lu dans l'état de l'App (mêmes libellés que la maquette)
+        const st = (this.app && this.app.state) || {};
+        const exec = (st.dailySummary && st.dailySummary.execution) || {};
+        const plannedCount = (st.dailySummary && st.dailySummary.planned)
+            ? (st.dailySummary.planned.totalSessions || 0)
+            : ((st.dailyPlan && st.dailyPlan.sessions) ? st.dailyPlan.sessions.length : 0);
+        const energyLabels = { low: 'Basse', medium: 'Moyenne', high: 'Haute' };
+        const energyLabel = st.todayCheckIn
+            ? (energyLabels[st.todayCheckIn.energy] || String(st.todayCheckIn.energy || '—'))
+            : '--';
+        const upcomingWeek = ((st.academicSummary && st.academicSummary.upcomingAssessments) || [])
+            .filter(a => typeof a.daysRemaining === 'number' && a.daysRemaining >= 0 && a.daysRemaining <= 7).length;
+        const todayLabel = new Date().toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' });
+        const suggestions = (Array.isArray(st.coachInsights) ? st.coachInsights : [])
+            .filter(i => i && i.title !== 'Créneau de disponibilité')
+            .slice(0, 2);
         
         let html = `
 <div class="bureau" style="display:flex; height:100vh; overflow:hidden;">
@@ -101,7 +119,7 @@ export class CoachChatView {
                 
                 html += `
                     <div style="max-width: 80%; ${align} ${bg} ${radius} padding: 15px 20px; font-size: 14px; line-height: 1.5; box-shadow: 0 4px 15px rgba(0,0,0,0.1);">
-                        ${msg.content.replace(/\n/g, '<br>')}
+                        ${escapeHtml(msg.content).replace(/\n/g, '<br>')}
                 `;
 
                 if (!isUser && msg.metadata && msg.metadata.intent) {
@@ -145,20 +163,20 @@ export class CoachChatView {
                 <!-- Contexte Actuel -->
                 <div class="bureau-card" style="background: var(--bg-card); border-radius: 12px; border: 1px solid var(--border-color); padding:20px;">
                     <div style="font-size:12px; font-weight:bold; color:var(--text-muted); text-transform:uppercase; letter-spacing:1px; margin-bottom:15px;">Contexte Actuel</div>
-                    <strong style="display:block; font-size:16px; margin-bottom:15px;">Ta journée (18 Sept.)</strong>
+                    <strong style="display:block; font-size:16px; margin-bottom:15px;">Ta journée (${escapeHtml(todayLabel)})</strong>
                     
                     <div style="display:flex; flex-direction:column; gap:12px; font-size:14px;">
                         <div style="display:flex; align-items:center; gap:10px;">
                             <i class="bi bi-check2-circle" style="color:#10b981; font-size:18px;"></i>
-                            <span><strong>3/5</strong> sessions complétées</span>
+                            <span><strong>${exec.completed || 0}/${plannedCount}</strong> sessions complétées</span>
                         </div>
                         <div style="display:flex; align-items:center; gap:10px;">
                             <i class="bi bi-battery-charging" style="color:#3b82f6; font-size:18px;"></i>
-                            <span>Énergie : <strong>Bonne</strong></span>
+                            <span>Énergie : <strong>${escapeHtml(energyLabel)}</strong></span>
                         </div>
                         <div style="display:flex; align-items:center; gap:10px;">
                             <i class="bi bi-exclamation-triangle" style="color:#f59e0b; font-size:18px;"></i>
-                            <span>2 CC à venir cette semaine</span>
+                            <span>${upcomingWeek} CC à venir cette semaine</span>
                         </div>
                     </div>
                 </div>
@@ -172,7 +190,7 @@ export class CoachChatView {
                             ? this.app.state.academicSubjects.slice(0, 3).map(sub => `
                                 <div>
                                     <div style="display:flex; justify-content:space-between; font-size:14px; margin-bottom:8px;">
-                                        <strong>${sub.name.substring(0, 20)}${sub.name.length > 20 ? '...' : ''}</strong>
+                                        <strong>${escapeHtml(sub.name.substring(0, 20))}${sub.name.length > 20 ? '...' : ''}</strong>
                                         <span>${sub.cect} CECT</span>
                                     </div>
                                     <div style="height:6px; background:rgba(255,255,255,0.1); border-radius:3px;">
@@ -193,11 +211,11 @@ export class CoachChatView {
                     <div style="display:flex; flex-direction:column; gap:10px; font-size:14px;">
                         <div style="display:flex; align-items:center; gap:10px; background:rgba(0,0,0,0.2); padding:10px 15px; border-radius:8px; cursor:pointer;">
                             <i class="bi bi-laptop" style="color:var(--accent-primary);"></i>
-                            Avancer ton projet d'informatique
+                            ${suggestions[0] ? escapeHtml(suggestions[0].message || suggestions[0].title) : "Avancer ton projet d'informatique"}
                         </div>
                         <div style="display:flex; align-items:center; gap:10px; background:rgba(0,0,0,0.2); padding:10px 15px; border-radius:8px; cursor:pointer;">
                             <i class="bi bi-activity" style="color:#10b981;"></i>
-                            Faire une séance de sport (30min)
+                            ${suggestions[1] ? escapeHtml(suggestions[1].message || suggestions[1].title) : 'Faire une séance de sport (30min)'}
                         </div>
                     </div>
                 </div>
@@ -221,8 +239,8 @@ export class CoachChatView {
         this.container.querySelectorAll('.bureau-nav-item').forEach(btn => {
             btn.addEventListener('click', (e) => {
                 const viewName = e.currentTarget.getAttribute('data-view');
-                if (viewName && this.app.router) {
-                    this.app.router.render(viewName, this.app.state);
+                if (viewName) {
+                    this.app.renderView(viewName);
                 }
             });
         });
@@ -285,7 +303,7 @@ export class CoachChatView {
                         actionsDiv.innerHTML = `<div style="text-align: center; color: #10b981; font-weight: bold; width: 100%;">${confirmMsg}</div>`;
                         
                     } catch(err) {
-                        // Si le PlanningEngine refuse à cause d'un conflit
+                        // Si le PlanningEngine refuse à cause d'un conflit (acceptCoachSuggestion lève désormais l'erreur)
                         if (err.message && err.message.includes('CONFLICT')) {
                             const actionsDiv = e.target.closest('.intent-actions');
                             actionsDiv.innerHTML = `<div style="text-align: center; color: #ef4444; font-size: 13px; width: 100%;">⚠️ Conflit détecté. Demande un autre créneau au Coach.</div>`;

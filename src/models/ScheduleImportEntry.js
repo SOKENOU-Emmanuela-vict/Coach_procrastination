@@ -11,6 +11,18 @@ export class ScheduleImportEntry {
         this.lockStatus = config.lockStatus || 'locked';
         this.status = config.status || 'proposed'; // 'proposed', 'applied', 'invalid', 'ambiguous'
         this.originalText = config.originalText || null;
+
+        // Emploi du temps hebdomadaire (import PDF/photo) : séance datée + avancement du cours.
+        // Champs facultatifs, absents des imports texte historiques.
+        if (config.date !== undefined) this.date = config.date || null; // YYYY-MM-DD
+        if (config.group !== undefined) this.group = config.group || null; // 'Groupe 2'
+        if (config.hoursDone !== undefined) this.hoursDone = Number.isFinite(config.hoursDone) ? config.hoursDone : null; // heures faites APRÈS la séance
+        if (config.hoursTotal !== undefined) this.hoursTotal = Number.isFinite(config.hoursTotal) ? config.hoursTotal : null; // volume total prévu
+        if (config.teacher !== undefined) this.teacher = config.teacher || null;
+        if (config.room !== undefined) this.room = config.room || null;
+        if (config.componentCode !== undefined) this.componentCode = config.componentCode || null; // ECUE (ex. 1INF1322)
+        if (config.matchConfidence !== undefined) this.matchConfidence = config.matchConfidence;
+        if (config.flags !== undefined) this.flags = Array.isArray(config.flags) ? config.flags : [];
     }
 
     getIdentityKey() {

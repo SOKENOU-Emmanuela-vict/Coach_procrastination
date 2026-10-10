@@ -106,8 +106,8 @@ export class LanguageView {
         this.container.querySelectorAll('.bureau-nav-item').forEach(btn => {
             btn.addEventListener('click', (e) => {
                 const viewName = e.currentTarget.getAttribute('data-view');
-                if (viewName && this.app.router) {
-                    this.app.router.render(viewName, this.app.state);
+                if (viewName) {
+                    this.app.renderView(viewName);
                 }
             });
         });
@@ -118,7 +118,7 @@ export class LanguageView {
                 if (this.app.renderView) {
                     this.app.renderView('portfolio');
                 } else if (this.app.router) {
-                    this.app.router.render('portfolio', this.app.state);
+                    this.app.renderView('portfolio');
                 }
             });
         }

@@ -1,3 +1,5 @@
+import { escapeHtml } from '../utils/html.js';
+
 export class WeeklyView {
     constructor(containerId, app) {
         this.container = document.getElementById(containerId);
@@ -31,7 +33,7 @@ export class WeeklyView {
             for (const [subjectId, metrics] of Object.entries(subjectBreakdown)) {
                 breakdownHtml += `
                     <div style="background:#0b1a20; padding:10px; border-radius:6px; margin-bottom:10px; border-left:3px solid #00f2fe;">
-                        <strong style="color:#ffffff;">${subjectId}</strong>
+                        <strong style="color:#ffffff;">${escapeHtml(subjectId)}</strong>
                         <div style="font-size:12px; color:#88a7b7; display:flex; gap:15px; margin-top:5px;">
                             <span>Planifié : <strong style="color:#fff;">${metrics.planned || 0}</strong></span>
                             <span>Complété : <strong style="color:#4caf50;">${metrics.completed || 0}</strong></span>
@@ -49,7 +51,7 @@ export class WeeklyView {
         if (followUps && followUps.length > 0) {
             followUps.forEach(f => {
                 followUpsHtml += `<div style="background:#1a1005; border:1px solid #ff9800; padding:8px; border-radius:4px; margin-bottom:5px; font-size:13px;">
-                    <strong style="color:#ff9800;">⚠️ À reprendre :</strong> ${f.title} (${f.type})
+                    <strong style="color:#ff9800;">⚠️ À reprendre :</strong> ${escapeHtml(f.title)} (${escapeHtml(f.type)})
                 </div>`;
             });
         } else {
@@ -61,7 +63,7 @@ export class WeeklyView {
         if (adHocSessions && adHocSessions.length > 0) {
             adHocSessions.forEach(a => {
                 adhocHtml += `<div style="background:#051a15; border:1px solid #4caf50; padding:8px; border-radius:4px; margin-bottom:5px; font-size:13px;">
-                    <strong style="color:#4caf50;">➕ Hors planning :</strong> ${a.title} (${a.actualDuration || 0} min)
+                    <strong style="color:#4caf50;">➕ Hors planning :</strong> ${escapeHtml(a.title)} (${a.actualDuration || 0} min)
                 </div>`;
             });
         } else {
@@ -76,7 +78,7 @@ export class WeeklyView {
                     <div style="background:#11222c; border:1px solid #2a5268; padding:10px; border-radius:6px; margin-bottom:8px; display:flex; justify-content:space-between; align-items:center;">
                         <div>
                             <strong style="color:#00f2fe; display:block; font-size:14px;">📅 ${d.date}</strong>
-                            <span style="font-size:11px; color:#88a7b7;">Score : ${d.completionRate}% | Énergie : ${d.energy || 'N/A'}</span>
+                            <span style="font-size:11px; color:#88a7b7;">Score : ${d.execution?.completionRate ?? d.completionRate ?? 0}% | Énergie : ${escapeHtml(d.energy || d.declarative?.energy || 'N/A')}</span>
                         </div>
                         <div style="text-align:right; font-size:12px; color:#e0e0e0;">
                             ✅ ${d.execution?.completed || d.completedSessions || 0} | ❌ ${d.execution?.missed || d.missedSessions || 0}

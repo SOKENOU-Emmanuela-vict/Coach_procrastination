@@ -9,11 +9,19 @@ export class DailyCheckIn {
         if (config.energy && !['low', 'medium', 'high'].includes(config.energy)) {
             throw new Error("Niveau d'énergie invalide.");
         }
+        if (config.mood && !['low', 'medium', 'high'].includes(config.mood)) {
+            throw new Error("Niveau d'humeur invalide.");
+        }
+        if (config.motivation && !['low', 'medium', 'high'].includes(config.motivation)) {
+            throw new Error("Niveau de motivation invalide.");
+        }
 
         this.id = config.id || `chk_${Date.now()}_${Math.floor(Math.random() * 1000)}`;
         this.date = config.date; 
         
         this.energy = config.energy || 'medium'; 
+        this.mood = config.mood || 'medium';
+        this.motivation = config.motivation || 'medium';
         this.sleep = config.sleep || { durationMinutes: 0, quality: 'fair' };
         
         this.blockers = Array.isArray(config.blockers) ? config.blockers : [];

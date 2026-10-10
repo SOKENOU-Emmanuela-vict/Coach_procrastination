@@ -2,10 +2,7 @@ import { IndexedDBProvider } from '../services/IndexedDBProvider.js';
 import { SchedulerEngine } from '../engines/SchedulerEngine.js?v=11';
 import { StudyRecordEngine } from '../engines/StudyRecordEngine.js';
 import { CheckInEngine } from '../engines/CheckInEngine.js';
-import { CoachOrchestrator } from '../ai/CoachOrchestrator.js';
-import { AcademicEngine } from '../engines/AcademicEngine.js';
-import { AcademicSeeder } from '../data/AcademicSeeder.js';
-import { App } from './App.js?v=19';
+import { App } from './App.js?v=20';
 import { AppLogger } from '../utils/AppLogger.js';
 import { WeeklyReviewEngine } from '../engines/WeeklyReviewEngine.js';
 import { ChatHistoryEngine } from '../engines/ChatHistoryEngine.js';
@@ -84,7 +81,7 @@ export class Bootstrap {
                 if (migrated) {
                     await storage.saveData('daily_checkins', checkins);
                 }
-                await storage.deleteData('daily_journals');
+                await storage.clearData('daily_journals');
                 AppLogger.info("Migration journaux terminée et clé daily_journals supprimée.");
             }
         } catch (e) { AppLogger.error("Erreur Storage: " + e.message); }
@@ -115,15 +112,7 @@ export class Bootstrap {
             return;
         }
 
-        // On vérifie s'il y a un utilisateur
-        const user = await storage.loadData('user_profile');
-        
-        try {
-            const academicEngine = new AcademicEngine(storage);
-            const seeder = new AcademicSeeder(academicEngine);
-            await seeder.seed();
-        } catch (e) { AppLogger.error("Erreur Seeder: " + e.message); }
-        
+        // Le seed académique est fait une seule fois, dans App.start() (avec l'AcademicEngine de l'App).
         const app = new App(storage, scheduler, studyRecordEngine, checkInEngine, null, weeklyReviewEngine, chatHistoryEngine);
         try {
             await app.start();
@@ -138,7 +127,9 @@ export class Bootstrap {
                     </button>
                 </div>`;
             }
-            throw err;
+            // Pas de relance : index.html remplacerait ce message détaillé par « Erreur critique au démarrage. »
+            console.error(err);
+            return null;
         }
         
         AppLogger.info("Bootstrap terminé. Application prête.");

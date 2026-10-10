@@ -1,4 +1,5 @@
 import { AppLogger } from '../utils/AppLogger.js';
+import { parseLocalDate } from '../utils/dateUtils.js';
 
 export class RiskEngine {
     constructor(storageProvider) {
@@ -15,10 +16,10 @@ export class RiskEngine {
         let riskFactors = [];
         let protectiveFactors = [];
 
-        const todayStr = new Date().toLocaleDateString('fr-CA');
+        const todayStr = context.currentDate || new Date().toLocaleDateString('fr-CA');
 
         // 1. Analyse des Streaks (Historique)
-        const userProfile = await this.storage.loadData('user_profile') || {};
+        const userProfile = context.user || await this.storage.loadData('user_profile') || {};
         const streak = userProfile.streak || 0;
         
         if (streak === 0) {
@@ -36,10 +37,11 @@ export class RiskEngine {
         const history = await this.storage.loadData('study_history') || [];
         
         // Calcul du taux de complétion récent (sur les 3 derniers jours)
-        const threeDaysAgo = new Date();
+        const threeDaysAgo = parseLocalDate(todayStr);
         threeDaysAgo.setDate(threeDaysAgo.getDate() - 3);
+        const threeDaysAgoStr = threeDaysAgo.toLocaleDateString('fr-CA');
         
-        const recentSessions = history.filter(r => new Date(r.date) >= threeDaysAgo);
+        const recentSessions = history.filter(r => r.date && r.date >= threeDaysAgoStr);
         if (recentSessions.length > 0) {
             const completed = recentSessions.filter(r => r.status === 'completed' || r.actualDuration > 0);
             const completionRate = completed.length / recentSessions.length;
@@ -57,15 +59,22 @@ export class RiskEngine {
         }
 
         // 3. Analyse des deadlines (Académique)
-        if (context.academic && context.academic.assessments) {
-            const upcoming = context.academic.assessments.filter(a => {
-                const days = (new Date(a.date) - new Date()) / (1000 * 60 * 60 * 24);
+        // Le résumé académique expose upcomingAssessments[].targetDate (ancien format : assessments[].date)
+        const academicList = context.academic ? (context.academic.upcomingAssessments || context.academic.assessments || []) : [];
+        if (academicList.length > 0) {
+            const todayTime = parseLocalDate(todayStr).getTime();
+            const upcoming = academicList.filter(a => {
+                const target = a.targetDate || a.date;
+                if (!target) return false;
+                const days = typeof a.daysRemaining === 'number'
+                    ? a.daysRemaining
+                    : Math.round((parseLocalDate(target).getTime() - todayTime) / (1000 * 60 * 60 * 24));
                 return days >= 0 && days <= 7;
             });
 
             if (upcoming.length > 0) {
-                // Y a-t-il des révisions prévues pour ces matières ?
-                const plannedRevisions = (context.planning?.events || []).filter(e => e.type === 'revision' && upcoming.some(a => a.subjectId === e.subjectId));
+                // Y a-t-il des révisions prévues pour ces évaluations / matières ?
+                const plannedRevisions = (context.planning?.events || []).filter(e => e.type === 'revision' && upcoming.some(a => (e.assessmentId && e.assessmentId === a.id) || (a.subjectId && a.subjectId === e.subjectId)));
                 
                 if (plannedRevisions.length === 0) {
                     riskScore += 40;
@@ -82,17 +91,36 @@ export class RiskEngine {
         const todayCheckin = checkins[todayStr];
         
         if (todayCheckin) {
-            if (todayCheckin.energy < 3) {
+            // DailyCheckIn.energy vaut 'low' | 'medium' | 'high' (ancien format numérique 1-5 toléré)
+            const energy = todayCheckin.energy;
+            if (energy === 'low' || (typeof energy === 'number' && energy < 3)) {
                 riskScore += 20;
                 riskFactors.push({ type: 'wellness', description: 'Niveau d\'énergie faible déclaré au check-in.', weight: 20 });
             }
-            if (todayCheckin.stress > 3) {
+            if (todayCheckin.mood === 'low') {
+                riskScore += 15;
+                riskFactors.push({ type: 'wellness', description: 'Humeur basse déclarée au check-in.', weight: 15 });
+            }
+            if (todayCheckin.motivation === 'low') {
+                riskScore += 15;
+                riskFactors.push({ type: 'wellness', description: 'Motivation faible déclarée au check-in.', weight: 15 });
+            }
+            if (typeof todayCheckin.stress === 'number' && todayCheckin.stress > 3) {
                 riskScore += 20;
                 riskFactors.push({ type: 'wellness', description: 'Niveau de stress élevé déclaré au check-in.', weight: 20 });
             }
-            if (todayCheckin.obstacles && todayCheckin.obstacles.includes('Procrastination')) {
+            const blockers = Array.isArray(todayCheckin.blockers) ? todayCheckin.blockers : (Array.isArray(todayCheckin.obstacles) ? todayCheckin.obstacles : []);
+            const procrastination = blockers.some(b => String(b).toLowerCase().includes('procrastin'));
+            if (procrastination) {
                 riskScore += 25;
                 riskFactors.push({ type: 'behavioral', description: 'Lutte active contre la procrastination avouée.', weight: 25 });
+            } else if (blockers.length > 0) {
+                riskScore += 10;
+                riskFactors.push({ type: 'wellness', description: `Blocage(s) déclaré(s) au check-in : ${blockers.join(', ')}.`, weight: 10 });
+            }
+            if (todayCheckin.dayAssessment === 'missed') {
+                riskScore += 15;
+                riskFactors.push({ type: 'execution', description: 'Journée déclarée comme manquée au check-in.', weight: 15 });
             }
         } else {
             riskScore += 10;

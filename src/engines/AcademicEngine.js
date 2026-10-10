@@ -113,22 +113,25 @@ export class AcademicEngine {
         return { isValid: errors.length === 0, errors, warnings };
     }
 
-    // 2. Calcul Moyenne d'une Matière
+    // 2. Calcul de la note d'une Matière à partir des notes de ses évaluations
+    /**
+     * Note de la matière = moyenne des notes finales de ses évaluations, ramenées sur 20 :
+     *  - pondérée par le poids (weight / coefficient) des évaluations si toutes les évaluations notées en ont un ;
+     *  - sinon moyenne simple (method 'simple_mean', weightsIncomplete=true si seules certaines ont un poids).
+     * status :
+     *  - 'complete'  : toutes les évaluations de la matière sont notées → note définitive de la matière ;
+     *  - 'partial'   : une partie seulement est notée → average = moyenne provisoire ;
+     *  - 'no_grades' : aucune note ; 'no_assessments' : aucune évaluation définie.
+     */
     async getSubjectAverage(subjectId) {
         const assessments = (await this.getAssessments()).filter(a => a.subjectId === subjectId);
         const grades = await this.getGrades();
+        const hasWeight = (a) => typeof a.weight === 'number' && Number.isFinite(a.weight) && a.weight > 0;
 
-        let totalWeight = 0;
-        let totalScore = 0;
-        let hasIncompleteWeights = false;
-        let assessmentsUsed = [];
+        const assessmentsUsed = [];
+        let ambiguous = 0;
 
         for (const assessment of assessments) {
-            if (assessment.weight === null || assessment.weight === undefined || assessment.weight <= 0) {
-                hasIncompleteWeights = true;
-                continue;
-            }
-
             const assessmentGrades = grades.filter(g => g.assessmentId === assessment.id);
             if (assessmentGrades.length === 0) continue; // Pas encore de note
 
@@ -141,49 +144,51 @@ export class AcademicEngine {
                     finalGrade = finalGrades[0];
                 } else {
                     // Ambiguïté des tentatives traitée par la validation, ignorée ici
-                    continue; 
+                    ambiguous++;
+                    continue;
                 }
             }
 
-            if (finalGrade) {
-                const normalizedScore = (finalGrade.score / assessment.maxScore) * 20;
-                totalScore += normalizedScore * assessment.weight;
-                totalWeight += assessment.weight;
-                assessmentsUsed.push({
-                    assessmentId: assessment.id,
-                    gradeId: finalGrade.id,
-                    score: finalGrade.score,
-                    normalizedScore: parseFloat(normalizedScore.toFixed(2)),
-                    weight: assessment.weight
-                });
-            }
+            const maxScore = Number(assessment.maxScore) > 0 ? Number(assessment.maxScore) : 20;
+            const normalizedScore = (Number(finalGrade.score) / maxScore) * 20;
+            if (!Number.isFinite(normalizedScore)) continue;
+            assessmentsUsed.push({
+                assessmentId: assessment.id,
+                gradeId: finalGrade.id,
+                score: finalGrade.score,
+                normalizedScore: parseFloat(normalizedScore.toFixed(2)),
+                weight: hasWeight(assessment) ? assessment.weight : null
+            });
         }
 
-        if (hasIncompleteWeights) {
-            return {
-                subjectId,
-                average: null,
-                status: "incomplete_weights",
-                assessmentsUsed,
-                totalWeight
-            };
+        const base = {
+            subjectId,
+            assessmentsUsed,
+            assessmentCount: assessments.length,
+            gradedCount: assessmentsUsed.length
+        };
+
+        if (assessmentsUsed.length === 0) {
+            return { ...base, average: null, status: assessments.length === 0 ? "no_assessments" : "no_grades", method: null, totalWeight: 0 };
         }
 
-        if (totalWeight === 0) {
-            return {
-                subjectId,
-                average: null,
-                status: "no_grades",
-                assessmentsUsed,
-                totalWeight
-            };
+        const allWeighted = assessmentsUsed.every(u => u.weight !== null);
+        let average;
+        let totalWeight;
+        if (allWeighted) {
+            totalWeight = assessmentsUsed.reduce((acc, u) => acc + u.weight, 0);
+            average = assessmentsUsed.reduce((acc, u) => acc + u.normalizedScore * u.weight, 0) / totalWeight;
+        } else {
+            totalWeight = assessmentsUsed.length;
+            average = assessmentsUsed.reduce((acc, u) => acc + u.normalizedScore, 0) / assessmentsUsed.length;
         }
 
         return {
-            subjectId,
-            average: parseFloat((totalScore / totalWeight).toFixed(2)),
-            status: "complete",
-            assessmentsUsed,
+            ...base,
+            average: parseFloat(average.toFixed(2)),
+            status: (assessmentsUsed.length === assessments.length && ambiguous === 0) ? "complete" : "partial",
+            method: allWeighted ? "weighted" : "simple_mean",
+            weightsIncomplete: !allWeighted && assessmentsUsed.some(u => u.weight !== null),
             totalWeight
         };
     }
@@ -368,6 +373,10 @@ export class AcademicEngine {
         const refTime = new Date(dateRef).getTime();
 
         for (const assessment of semesterAssessments) {
+            // Exclusion: évaluation déjà notée (note finale saisie)
+            const assessmentGrades = grades.filter(g => g.assessmentId === assessment.id);
+            if (assessmentGrades.some(g => g.isFinal)) continue;
+
             // Exclusion: sans date
             if (!assessment.targetDate) continue;
             
@@ -411,12 +420,12 @@ export class AcademicEngine {
         // 1. Alertes moyennes critiques
         const avgResult = await this.getSemesterAverage(semesterId);
         for (const subj of avgResult.subjects) {
-            if (subj.status === "complete" && subj.average < alertThresholdAverage) {
+            if ((subj.status === "complete" || subj.status === "partial") && subj.average < alertThresholdAverage) {
                 const subjectName = (await this.getSubjects()).find(s => s.id === subj.subjectId)?.name || subj.subjectId;
                 alerts.push({
                     type: "ACADEMIC_STATE",
                     code: "LOW_AVERAGE",
-                    message: `Moyenne actuelle (${subj.average}) sous le seuil configuré (${alertThresholdAverage}) en ${subjectName}`
+                    message: `Moyenne ${subj.status === "partial" ? "provisoire" : "actuelle"} (${subj.average}) sous le seuil configuré (${alertThresholdAverage}) en ${subjectName}`
                 });
             }
         }

@@ -43,7 +43,7 @@ export class KnowledgeRetriever {
             
             for (const kw of keywords) {
                 // Compter les occurrences non-chevauchantes
-                const regex = new RegExp(kw, 'g');
+                const regex = new RegExp(kw.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g');
                 const matches = text.match(regex);
                 if (matches) {
                     score += matches.length;

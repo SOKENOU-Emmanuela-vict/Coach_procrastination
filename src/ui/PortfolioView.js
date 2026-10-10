@@ -1,3 +1,5 @@
+import { escapeHtml } from '../utils/html.js';
+
 export class PortfolioView {
     constructor(containerId, app) {
         this.container = document.getElementById(containerId);
@@ -108,40 +110,43 @@ export class PortfolioView {
                 const moodEmojis = ["", "😭", "😟", "😐", "🙂", "🤩"];
                 const moodLabel = moodEmojis[j.mood] || "🙂";
                 const hasVoice = j.voiceNote ? true : false;
+                // Le bilan quotidien (CheckInEngine) stocke energy = 'low' | 'medium' | 'high' et blockers = [] ; mood est optionnel
+                const energyScore = typeof j.energy === 'number' ? j.energy : ({ low: 2, medium: 3, high: 4 }[j.energy] || 3);
+                const blockersText = Array.isArray(j.blockers) ? j.blockers.filter(Boolean).join(', ') : (j.blockers || '');
                 
                 checkinsHtml += `
                 <div style="background: linear-gradient(135deg, #12242f 0%, #0c1921 100%); border: 1px solid #2a5268; border-radius: 12px; padding: 16px; margin-bottom: 15px; box-shadow: 0 4px 12px rgba(0,0,0,0.3);">
                     <div style="display:flex; justify-content:space-between; align-items:center; border-bottom: 1px solid #1e3f52; padding-bottom: 10px; margin-bottom: 12px; flex-wrap:wrap; gap:10px;">
                         <span style="color: #00f2fe; font-weight: bold; font-size: 16px;">📅 Bilan du ${date}</span>
                         <div style="display:flex; gap:12px; align-items:center;">
-                            <span style="background:#1a3848; color:#fff; padding:4px 10px; border-radius:15px; font-size:12px;">Humeur : ${moodLabel} (${j.mood}/5)</span>
-                            <span style="background:#1a3848; color:#fff; padding:4px 10px; border-radius:15px; font-size:12px;">⚡ Énergie : ${j.energy || 3}/5</span>
+                            <span style="background:#1a3848; color:#fff; padding:4px 10px; border-radius:15px; font-size:12px;">Humeur : ${moodLabel} (${j.mood ?? '-'}/5)</span>
+                            <span style="background:#1a3848; color:#fff; padding:4px 10px; border-radius:15px; font-size:12px;">⚡ Énergie : ${energyScore}/5</span>
                         </div>
                     </div>
 
                     ${hasVoice ? `
                     <div style="background: #162c38; border: 1px solid #00f2fe; border-radius: 8px; padding: 10px; margin-bottom: 12px;">
                         <span style="color: #00f2fe; font-size: 12px; font-weight: bold; display: block; margin-bottom: 5px;">🎧 Note Audio Vocale enregistrée :</span>
-                        <audio controls src="${j.voiceNote}" style="width: 100%; max-height: 38px;"></audio>
+                        <audio controls src="${escapeHtml(j.voiceNote)}" style="width: 100%; max-height: 38px;"></audio>
                     </div>` : ''}
 
                     <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 10px;">
                         ${j.learned ? `
                         <div style="background:#0a161c; padding:10px; border-radius:8px; border-left:3px solid #00f2fe;">
                             <strong style="color:#00f2fe; font-size:12px; display:block; margin-bottom:4px;">💡 J'ai appris :</strong>
-                            <span style="color:#e0e0e0; font-size:13px; line-height:1.4;">${j.learned}</span>
+                            <span style="color:#e0e0e0; font-size:13px; line-height:1.4;">${escapeHtml(j.learned)}</span>
                         </div>` : ''}
 
-                        ${j.blockers ? `
+                        ${blockersText ? `
                         <div style="background:#0a161c; padding:10px; border-radius:8px; border-left:3px solid #ff9800;">
                             <strong style="color:#ff9800; font-size:12px; display:block; margin-bottom:4px;">🚧 Bloqué par :</strong>
-                            <span style="color:#e0e0e0; font-size:13px; line-height:1.4;">${j.blockers}</span>
+                            <span style="color:#e0e0e0; font-size:13px; line-height:1.4;">${escapeHtml(blockersText)}</span>
                         </div>` : ''}
 
                         ${j.improve ? `
                         <div style="background:#0a161c; padding:10px; border-radius:8px; border-left:3px solid #4CAF50;">
                             <strong style="color:#4CAF50; font-size:12px; display:block; margin-bottom:4px;">🚀 À améliorer demain :</strong>
-                            <span style="color:#e0e0e0; font-size:13px; line-height:1.4;">${j.improve}</span>
+                            <span style="color:#e0e0e0; font-size:13px; line-height:1.4;">${escapeHtml(j.improve)}</span>
                         </div>` : ''}
                     </div>
                 </div>`;
@@ -296,18 +301,17 @@ export class PortfolioView {
         if (btnExport) {
             btnExport.addEventListener('click', async () => {
                 try {
-                    const dbKeys = ['study_history', 'user_profile', 'daily_checkins'];
-                    const exportData = {};
-                    for (const key of dbKeys) {
-                        exportData[key] = await this.app.storage.loadData(key);
-                    }
-                    const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(exportData));
+                    // Sauvegarde COMPLÈTE : toutes les clés du stockage, fournie par l'App
+                    const exportData = await this.app.exportAllData();
+                    const blob = new Blob([JSON.stringify(exportData)], { type: 'application/json' });
+                    const url = URL.createObjectURL(blob);
                     const downloadAnchorNode = document.createElement('a');
-                    downloadAnchorNode.setAttribute("href", dataStr);
+                    downloadAnchorNode.setAttribute("href", url);
                     downloadAnchorNode.setAttribute("download", "backup_procrastination.json");
                     document.body.appendChild(downloadAnchorNode); // required for firefox
                     downloadAnchorNode.click();
                     downloadAnchorNode.remove();
+                    setTimeout(() => URL.revokeObjectURL(url), 1000);
                     alert("Sauvegarde téléchargée avec succès !");
                 } catch(e) {
                     alert("Erreur lors de l'export: " + e.message);
@@ -326,9 +330,8 @@ export class PortfolioView {
                     reader.onload = async (event) => {
                         try {
                             const importedData = JSON.parse(event.target.result);
-                            for (const key in importedData) {
-                                await this.app.storage.saveData(key, importedData[key]);
-                            }
+                            // Validation + écriture déléguées à l'App
+                            await this.app.importAllData(importedData);
                             alert("Données importées avec succès ! L'application va redémarrer.");
                             window.location.reload(true);
                         } catch(err) {

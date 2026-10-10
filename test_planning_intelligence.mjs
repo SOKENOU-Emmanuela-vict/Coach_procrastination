@@ -91,6 +91,17 @@ async function runTests() {
     res = await planningIntelligence.findCandidateSlots({ date: DATE, duration: 90 });
     wrapAssert(res.candidates.length === 1 && res.candidates[0].startTime === "14:00", "5. Un Event flexible ne supprime pas le créneau disponible.");
 
+    // Test 5b: côté coach (subtractFlexible), le flexible n'est jamais compté comme du temps libre
+    res = await planningIntelligence.findCandidateSlots({ date: DATE, duration: 90, subtractFlexible: true });
+    wrapAssert(res.candidates.length === 0 && res.reason === "NO_SLOT_LONG_ENOUGH", "5b. Pour le coach, un Event flexible n'est pas du temps libre (pas de proposition silencieuse dessus).");
+
+    // Test 5c: repli « on décide ensemble » : le créneau 14:00 est proposé AVEC le flexible signalé
+    res = await planningIntelligence.findSlotsOverlappingFlexible({ date: DATE, duration: 90 });
+    wrapAssert(res.candidates.length === 1 && res.candidates[0].startTime === "14:00"
+        && res.candidates[0].overlappingFlexible.length === 1 && res.candidates[0].overlappingFlexible[0].id === 'e2',
+        "5c. Le créneau qui chevauche un Event flexible est proposé avec l'événement concerné (question à poser).");
+    wrapAssert(storage.writeCount === initialWrites, "5d. La recherche de repli ne modifie pas le Storage.");
+
     // Test 7: Aucun créneau disponible retourne une réponse explicite
     // On efface les dispo
     await storage.saveData('availabilities', []);

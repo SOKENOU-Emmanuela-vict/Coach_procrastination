@@ -1,3 +1,4 @@
+// v1.1 - Force cache refresh
 self.addEventListener('install', (e) => {
   self.skipWaiting();
 });

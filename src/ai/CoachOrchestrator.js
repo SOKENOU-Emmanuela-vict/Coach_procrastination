@@ -20,6 +20,7 @@ export class CoachOrchestrator {
         }
 
         const llmProvider = apiKey ? new GeminiProvider(apiKey) : null;
+        this.llmProvider = llmProvider; // réutilisé pour la lecture de l'emploi du temps (même clé, aucune nouvelle source)
         this.coachAI = new CoachAI(llmProvider, knowledgeRetriever); 
         this.planningAI = new PlanningAI(planningIntelligence);
     }

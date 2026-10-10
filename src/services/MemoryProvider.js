@@ -14,6 +14,10 @@ export class MemoryProvider extends StorageProvider {
         this.store.set(key, JSON.stringify(data));
     }
     
+    async getAllKeys() {
+        return Array.from(this.store.keys());
+    }
+
     async clearData(key) {
         this.store.delete(key);
     }

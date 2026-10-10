@@ -9,7 +9,10 @@ global.document = {
 import { DesktopView } from './src/ui/DesktopView.js';
 
 let htmlResult = "";
-let view = new DesktopView('app-root', {});
+let view = new DesktopView('app-root', {
+    getPedagogicalDate: (d = new Date()) => d.toLocaleDateString('fr-CA'),
+    getPedagogicalDateObject: (d = new Date()) => new Date(d)
+});
 view.container = {
     innerHTML: '',
     querySelectorAll: () => [],

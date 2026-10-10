@@ -50,7 +50,10 @@ for file in test_files:
 
 print("=== RAPPORT ===")
 for line in report:
-    print(line)
+    try:
+        print(line)
+    except UnicodeEncodeError:
+        print(line.encode('ascii', 'ignore').decode())
 
 print("\nTOTAL TESTS")
 print(f"Assertions PASS : {total_pass}")

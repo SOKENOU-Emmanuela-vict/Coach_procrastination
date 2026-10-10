@@ -10,12 +10,17 @@ import { LLMDecision } from './src/models/LLMDecision.js';
 import { CoachLLMReasoning } from './src/ai/CoachLLMReasoning.js';
 import fs from 'fs';
 
+// Dates relatives : le coach ne propose plus de créneaux dans le passé
+const dayOffset = (n) => { const d = new Date(); d.setDate(d.getDate() + n); return d.toLocaleDateString('fr-CA'); };
+const D1 = dayOffset(1);
+const D2 = dayOffset(2);
+
 class MockStorage {
     constructor() {
         this.data = {
             'availabilities': [
-                { id: 'w1', date: '2026-09-18', startTime: '14:00', endTime: '18:00' },
-                { id: 'w2', date: '2026-09-19', startTime: '10:00', endTime: '12:00' }
+                { id: 'w1', date: D1, startTime: '14:00', endTime: '18:00' },
+                { id: 'w2', date: D2, startTime: '10:00', endTime: '12:00' }
             ],
             'events': [],
             'acad_subjects': [{ id: 'sub_maths', title: 'Maths' }, { id: 'sub_phys', title: 'Physique' }],
@@ -84,8 +89,8 @@ async function runTests() {
             academic: { currentSemesterId: 'sem_s4_27' } 
         },
         availableSlots: [
-            { id: 'w1', date: '2026-09-18', startTime: '14:00', endTime: '18:00' },
-            { id: 'w2', date: '2026-09-19', startTime: '10:00', endTime: '12:00' }
+            { id: 'w1', date: D1, startTime: '14:00', endTime: '18:00' },
+            { id: 'w2', date: D2, startTime: '10:00', endTime: '12:00' }
         ]
     };
     app.refreshCalendarData = async () => {};
@@ -111,7 +116,8 @@ async function runTests() {
         console.log(res ? "✅ Clic sur Accepter exécuté sans crash." : "❌ Echec acceptCoachSuggestion");
         
         const events = await planningEngine.getEvents();
-        if (events.length === 1 && events[0].title === "Révision Maths") {
+        // executeIntent renomme les révisions liées à une matière : "Révision — <matière>"
+        if (events.length === 1 && events[0].type === 'revision' && events[0].title.includes("Maths")) {
             console.log("✅ L'Event est apparu dans le storage.");
         } else {
             console.log("❌ L'Event n'est pas dans le storage.");
@@ -128,7 +134,7 @@ async function runTests() {
     storage.data['events'].push({
         id: "ev_conflict",
         title: "Piscine",
-        date: '2026-09-18',
+        date: D1,
         startTime: '14:00',
         endTime: '18:00', // Bloque toute la dispo
         lockStatus: 'locked'
@@ -141,7 +147,7 @@ async function runTests() {
     if (lastMsg2.metadata && lastMsg2.metadata.intent) {
         console.log("✅ Le système a trouvé le prochain créneau disponible, ignorant le créneau bloqué de 14:00.");
         console.log("-> Créneau suggéré :", lastMsg2.metadata.intent.constraints.date, lastMsg2.metadata.intent.constraints.startTime);
-        if (lastMsg2.metadata.intent.constraints.date === '2026-09-19' && lastMsg2.metadata.intent.constraints.startTime === '10:00') {
+        if (lastMsg2.metadata.intent.constraints.date === D2 && lastMsg2.metadata.intent.constraints.startTime === '10:00') {
             console.log("✅ (VÉRIFIÉ) Le créneau proposé est bien le suivant disponible.");
         } else {
             console.log("❌ Le créneau proposé est incorrect.");
@@ -203,7 +209,7 @@ async function runTests() {
         version: 1,
         action: 'update', // Action non autorisée pour le moment
         target: 'event',
-        constraints: { date: '2026-09-19', startTime: '10:00' },
+        constraints: { date: D2, startTime: '10:00' },
         payload: { title: "Modifié" }
     });
     

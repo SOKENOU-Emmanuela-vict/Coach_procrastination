@@ -1,3 +1,5 @@
+import { escapeHtml } from '../utils/html.js';
+import { parseLocalDate } from '../utils/dateUtils.js';
 export class PlanningView {
     constructor(containerId, app) {
         this.container = document.getElementById(containerId);
@@ -9,7 +11,7 @@ export class PlanningView {
             document.body.className = 'theme-light';
         }
 
-        const now = state.selectedDate ? new Date(state.selectedDate) : new Date();
+        const now = state.selectedDate ? parseLocalDate(state.selectedDate) : (this.app.getPedagogicalDateObject ? this.app.getPedagogicalDateObject() : new Date());
         const startOfWeek = new Date(now);
         startOfWeek.setDate(now.getDate() - now.getDay() + (now.getDay() === 0 ? -6 : 1)); // Lundi
 
@@ -27,12 +29,14 @@ export class PlanningView {
 
         const endOfWeek = new Date(startOfWeek);
         endOfWeek.setDate(startOfWeek.getDate() + 6);
+        // Comparaison sur des chaînes YYYY-MM-DD locales (new Date('YYYY-MM-DD') = minuit UTC, et startOfWeek garde l'heure courante)
+        const weekStartStr = startOfWeek.toLocaleDateString('fr-CA');
+        const weekEndStr = endOfWeek.toLocaleDateString('fr-CA');
         
         const rawEvents = state.calendarData?.events || [];
         const eventsHtml = rawEvents.filter(e => {
             if (!e.date || !e.startTime) return false;
-            const ed = new Date(e.date);
-            return ed >= startOfWeek && ed <= endOfWeek;
+            return e.date >= weekStartStr && e.date <= weekEndStr;
         }).map(e => {
             const dayIndex = weekDays.findIndex(d => d.toLocaleDateString('fr-CA') === e.date);
             if (dayIndex === -1) return '';
@@ -64,8 +68,8 @@ export class PlanningView {
 
             return `
             <div style="position: absolute; left: calc(60px + ${dayIndex} * ((100% - 60px) / 7) + 2px); width: calc(((100% - 60px) / 7) - 4px); top: ${top}px; height: ${height}px; background: ${bgColor}; color: white; border-radius: 6px; padding: 4px 8px; font-size: 11px; overflow: hidden; box-shadow: 0 2px 4px rgba(0,0,0,0.1); z-index: 10;">
-                <strong style="display:block; text-overflow:ellipsis; white-space:nowrap; overflow:hidden;">${e.title || e.type}</strong>
-                <span style="opacity:0.8;">${e.startTime} - ${e.endTime || ''}</span>
+                <strong style="display:block; text-overflow:ellipsis; white-space:nowrap; overflow:hidden;">${escapeHtml(e.title || e.type)}</strong>
+                <span style="opacity:0.8;">${escapeHtml(e.startTime)} - ${escapeHtml(e.endTime || '')}</span>
             </div>
             `;
         }).join('');
@@ -110,7 +114,7 @@ export class PlanningView {
         if (currentEvent) {
             currentSessionHtml = `
             <div style="background: rgba(14, 165, 233, 0.1); border: 1px solid var(--accent-primary); border-radius: 8px; padding: 15px;">
-                <strong style="display:block; color:var(--accent-primary); margin-bottom:5px;">${currentEvent.title || currentEvent.type}</strong>
+                <strong style="display:block; color:var(--accent-primary); margin-bottom:5px;">${escapeHtml(currentEvent.title || currentEvent.type)}</strong>
                 <div style="font-size:12px; color:var(--text-main);"><i class="bi bi-clock"></i> ${currentEvent.startTime} - ${currentEvent.endTimeStr}</div>
             </div>`;
         }
@@ -118,7 +122,7 @@ export class PlanningView {
         if (upcomingList.length > 0) {
             upcomingHtml = upcomingList.map(e => `
             <div style="display:flex; justify-content:space-between; padding: 10px 0; border-bottom: 1px solid var(--border-color);">
-                <div style="font-size:13px; font-weight:500; color:var(--text-main); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${e.title || e.type}</div>
+                <div style="font-size:13px; font-weight:500; color:var(--text-main); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${escapeHtml(e.title || e.type)}</div>
                 <div style="font-size:12px; color:var(--text-muted);">${e.startTime}</div>
             </div>
             `).join('');
@@ -126,20 +130,20 @@ export class PlanningView {
 
         const next14Days = new Date(now);
         next14Days.setDate(now.getDate() + 14);
+        const next14Str = next14Days.toLocaleDateString('fr-CA');
         const upcomingCCs = rawEvents.filter(e => {
             if (!e.date) return false;
-            const ed = new Date(e.date);
-            return ed > now && ed <= next14Days && (e.type === 'Examen' || e.type === 'CC' || e.assessmentId != null || (e.title && e.title.toLowerCase().includes('cc')));
+            return e.date > currentDateStr && e.date <= next14Str && (e.type === 'Examen' || e.type === 'CC' || e.assessmentId != null || (e.title && e.title.toLowerCase().includes('cc')));
         });
 
         if (upcomingCCs.length > 0) {
             upcomingCCs.sort((a, b) => a.date.localeCompare(b.date));
             aVenirHtml = upcomingCCs.slice(0, 4).map(e => {
-                const ed = new Date(e.date);
+                const ed = parseLocalDate(e.date);
                 const dateStr = ed.toLocaleDateString('fr-FR', { weekday: 'short', day: '2-digit', month: 'short' });
                 return `
                 <div style="display:flex; justify-content:space-between; padding: 10px 0; border-bottom: 1px solid var(--border-color);">
-                    <div style="font-size:13px; font-weight:500; color:#ef4444; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${e.title || e.type}</div>
+                    <div style="font-size:13px; font-weight:500; color:#ef4444; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${escapeHtml(e.title || e.type)}</div>
                     <div style="font-size:12px; color:var(--text-muted);">${dateStr}</div>
                 </div>
                 `;
@@ -189,8 +193,10 @@ export class PlanningView {
                 <p style="color: var(--text-muted); font-size:14px; margin:5px 0 0 0;">${semaineStr}</p>
             </div>
             <div class="bureau-topbar-actions" style="display:flex; gap:15px; align-items:center;">
+                <button id="btn-import-timetable" style="background:var(--accent-primary); color:white; border:none; padding:10px 16px; border-radius:8px; font-weight:bold; cursor:pointer; font-size:13px;"><i class="bi bi-file-earmark-arrow-up"></i> Importer l'emploi du temps (PDF)</button>
+                <input type="file" id="input-import-timetable" accept="application/pdf,image/*" style="display:none;">
                 <div style="text-align:right;">
-                    <strong style="display:block; font-size:14px; color:var(--text-main);">Étudiant</strong>
+                    <strong style="display:block; font-size:14px; color:var(--text-main);">${escapeHtml(state.userProfile?.name || 'Étudiant')}</strong>
                     <span style="color:var(--text-muted); font-size:12px; cursor:pointer;">Déconnexion</span>
                 </div>
                 <div class="bureau-profile-avatar" style="width:40px; height:40px; border-radius:12px; background:var(--accent-primary); display:flex; align-items:center; justify-content:center; font-weight:bold; color:white; font-size:18px;">
@@ -281,6 +287,16 @@ export class PlanningView {
         </div>
     </div>
 </div>
+        <!-- MODAL IMPORT EMPLOI DU TEMPS (même gabarit que la fenêtre de la vue Académique) -->
+        <div id="timetable-modal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.6); z-index:9999; align-items:center; justify-content:center;">
+            <div style="background:var(--bg-main); width:90%; max-width:760px; max-height:80vh; border-radius:12px; border:1px solid var(--border-color); display:flex; flex-direction:column; overflow:hidden; box-shadow:0 10px 30px rgba(0,0,0,0.5);">
+                <div style="padding:15px 20px; border-bottom:1px solid var(--border-color); display:flex; justify-content:space-between; align-items:center; background:var(--bg-card);">
+                    <h3 id="timetable-modal-title" style="margin:0; font-size:18px; color:var(--text-main);"><i class="bi bi-calendar-week"></i> Emploi du temps de la semaine</h3>
+                    <button id="timetable-modal-close" style="background:transparent; border:none; color:var(--text-muted); font-size:20px; cursor:pointer;">&times;</button>
+                </div>
+                <div id="timetable-modal-content" style="padding:20px; overflow-y:auto; flex-grow:1; color:var(--text-main);"></div>
+            </div>
+        </div>
 `;
 
         this.container.innerHTML = html;
@@ -289,10 +305,138 @@ export class PlanningView {
         this.container.querySelectorAll('.bureau-nav-item').forEach(btn => {
             btn.addEventListener('click', (e) => {
                 const viewName = e.currentTarget.getAttribute('data-view');
-                if (viewName && this.app.router) {
-                    this.app.router.render(viewName, this.app.state);
+                if (viewName) {
+                    this.app.renderView(viewName);
                 }
             });
+        });
+
+        this.attachTimetableImport();
+    }
+
+    /**
+     * Import de l'emploi du temps : fichier (PDF ou photo) → lecture par l'IA → aperçu à valider → enregistrement.
+     */
+    attachTimetableImport() {
+        const btn = this.container.querySelector('#btn-import-timetable');
+        const input = this.container.querySelector('#input-import-timetable');
+        const modal = this.container.querySelector('#timetable-modal');
+        const content = this.container.querySelector('#timetable-modal-content');
+        const btnClose = this.container.querySelector('#timetable-modal-close');
+        if (!btn || !input || !modal || !content) return;
+
+        let saved = false;
+        const close = () => {
+            modal.style.display = 'none';
+            if (saved) this.app.renderView('planning');
+        };
+        if (btnClose) btnClose.addEventListener('click', close);
+        modal.addEventListener('click', (e) => { if (e.target === modal) close(); });
+
+        const message = (html) => { content.innerHTML = html; modal.style.display = 'flex'; };
+        const btnStyle = 'background:var(--accent-primary); color:white; border:none; padding:10px 20px; border-radius:8px; font-weight:bold; cursor:pointer;';
+        const btnGhost = 'background:transparent; color:var(--text-muted); border:1px solid var(--border-color); padding:10px 20px; border-radius:8px; font-weight:bold; cursor:pointer;';
+
+        btn.addEventListener('click', () => { input.value = ''; input.click(); });
+
+        input.addEventListener('change', async () => {
+            const file = input.files && input.files[0];
+            if (!file) return;
+            saved = false;
+            message(`<div style="text-align:center; padding:20px; color:var(--text-muted);"><i class="bi bi-hourglass-split" style="font-size:32px; color:var(--accent-primary); display:block; margin-bottom:10px;"></i>Lecture de « ${escapeHtml(file.name)} » par l'IA… (quelques secondes)</div>`);
+            try {
+                const dataUrl = await new Promise((resolve, reject) => {
+                    const reader = new FileReader();
+                    reader.onload = () => resolve(reader.result);
+                    reader.onerror = () => reject(new Error('Fichier illisible.'));
+                    reader.readAsDataURL(file);
+                });
+                const base64 = String(dataUrl).split(',')[1] || '';
+                const mimeType = file.type || (/\.pdf$/i.test(file.name) ? 'application/pdf' : '');
+                const preview = await this.app.extractTimetable({ base64, mimeType, fileName: file.name, sizeBytes: file.size });
+                this.renderTimetablePreview(preview, content, { btnStyle, btnGhost, close, onSaved: () => { saved = true; } });
+            } catch (err) {
+                message(`<div style="padding:10px; color:#ef4444;">${escapeHtml(err.message)}</div>
+                    ${err.code === 'NO_LLM' ? `<p style="color:var(--text-muted); font-size:13px;">Ajoute ta clé Gemini dans les réglages de l'app, puis réessaie.</p>` : ''}
+                    <div style="text-align:right; margin-top:15px;"><button class="tt-close" style="${btnGhost}">Fermer</button></div>`);
+                const c = content.querySelector('.tt-close');
+                if (c) c.addEventListener('click', close);
+            }
+        });
+    }
+
+    renderTimetablePreview(preview, content, ui) {
+        const subjects = (this.app.state.academicSubjects || []).slice()
+            .sort((a, b) => (a.semesterId === preview.semesterId ? 0 : 1) - (b.semesterId === preview.semesterId ? 0 : 1) || String(a.name).localeCompare(String(b.name)));
+        const fmt = (d) => { if (!d) return '?'; const x = parseLocalDate(d); return x.toLocaleDateString('fr-FR', { weekday: 'short', day: '2-digit', month: '2-digit' }); };
+        const flagLabels = { unmapped: 'matière non reconnue', to_check: 'matière à vérifier', missing_hours: 'heures illisibles', hours_inconsistent: 'heures incohérentes',
+            date_mismatch: 'date incohérente', out_of_week: 'hors semaine', overlap_in_timetable: 'chevauchement', times_inverted: 'horaire invalide' };
+        const groups = [...new Set(['Groupe 1', 'Groupe 2'].concat(preview.groupsFound || []))];
+        const rowsHtml = preview.rows.map(r => {
+            const flags = (r.flags || []).filter(f => flagLabels[f]).map(f => flagLabels[f]);
+            const options = [`<option value="">— non reliée —</option>`].concat(subjects.map(s =>
+                `<option value="${escapeHtml(s.id)}" ${s.id === r.subjectId ? 'selected' : ''}>${escapeHtml(s.code ? s.code + ' · ' : '')}${escapeHtml(s.name)}</option>`)).join('');
+            return `
+                <tr data-row="${escapeHtml(r.id)}" style="border-bottom:1px solid var(--border-color); ${r.status === 'invalid' ? 'opacity:0.5;' : ''}">
+                    <td style="padding:8px 6px;"><input type="checkbox" class="tt-include" ${r.include ? 'checked' : ''} ${r.status === 'invalid' ? 'disabled' : ''}></td>
+                    <td style="padding:8px 6px; white-space:nowrap; font-size:12px;">${escapeHtml(fmt(r.date))}<br><span style="color:var(--text-muted);">${escapeHtml(r.startTime || '?')}–${escapeHtml(r.endTime || '?')}</span></td>
+                    <td style="padding:8px 6px; font-size:13px;"><strong>${escapeHtml(r.title || '?')}</strong>${r.teacher ? `<br><span style="font-size:11px; color:var(--text-muted);">${escapeHtml(r.teacher)}</span>` : ''}${flags.length ? `<br><span style="font-size:11px; color:#f59e0b;">⚠ ${escapeHtml(flags.join(', '))}</span>` : ''}</td>
+                    <td style="padding:8px 6px; white-space:nowrap; font-size:12px;">${r.hoursDone !== null && r.hoursDone !== undefined ? escapeHtml(r.hoursDone) : '?'} h / ${r.hoursTotal !== null && r.hoursTotal !== undefined ? escapeHtml(r.hoursTotal) : '?'} h</td>
+                    <td style="padding:8px 6px;"><select class="tt-subject" style="max-width:200px; padding:6px; background:var(--bg-card); color:var(--text-main); border:1px solid var(--border-color); border-radius:8px; font-size:12px;">${options}</select>${r.componentName ? `<br><span style="font-size:11px; color:var(--text-muted);">${escapeHtml(r.componentName)}</span>` : ''}</td>
+                </tr>`;
+        }).join('');
+
+        content.innerHTML = `
+            <div style="display:flex; justify-content:space-between; align-items:center; gap:10px; margin-bottom:12px; flex-wrap:wrap;">
+                <div style="font-size:14px;">${preview.weekStart ? `Semaine du <strong>${escapeHtml(fmt(preview.weekStart))}</strong> au <strong>${escapeHtml(fmt(preview.weekEnd))}</strong>` : 'Semaine non reconnue'}</div>
+                <label style="font-size:13px; color:var(--text-muted);">Groupe :
+                    <select class="tt-group" style="padding:6px; background:var(--bg-card); color:var(--text-main); border:1px solid var(--border-color); border-radius:8px;">
+                        ${groups.map(g => `<option value="${escapeHtml(g)}" ${g === preview.group ? 'selected' : ''}>${escapeHtml(g)}</option>`).join('')}
+                    </select>
+                </label>
+            </div>
+            ${preview.replacesExistingImport ? `<div style="font-size:12px; color:#f59e0b; margin-bottom:8px;">Cette semaine a déjà été importée : ses cours seront remplacés.</div>` : ''}
+            ${(preview.warnings || []).map(w => `<div style="font-size:12px; color:#f59e0b; margin-bottom:4px;">⚠ ${escapeHtml(w)}</div>`).join('')}
+            <p style="font-size:12px; color:var(--text-muted); margin:6px 0 10px 0;">Vérifie chaque ligne (lecture automatique), corrige la matière si besoin, puis valide. Les cours seront ajoutés au planning, verrouillés.</p>
+            <table style="width:100%; border-collapse:collapse;">
+                <thead><tr style="text-align:left; font-size:11px; color:var(--text-muted); text-transform:uppercase;"><th></th><th>Jour</th><th>Cours</th><th>Heures</th><th>Matière</th></tr></thead>
+                <tbody>${rowsHtml || `<tr><td colspan="5" style="padding:12px; color:var(--text-muted);">Aucune séance pour ce groupe.</td></tr>`}</tbody>
+            </table>
+            <div class="tt-error" style="color:#ef4444; font-size:13px; margin-top:10px;"></div>
+            <div style="display:flex; justify-content:flex-end; gap:10px; margin-top:15px;">
+                <button class="tt-cancel" style="${ui.btnGhost}">Annuler</button>
+                <button class="tt-validate" style="${ui.btnStyle}" ${preview.rows.length === 0 ? 'disabled' : ''}>Valider</button>
+            </div>`;
+
+        const groupSelect = content.querySelector('.tt-group');
+        if (groupSelect) groupSelect.addEventListener('change', async () => {
+            const updated = await this.app.changeTimetableGroup(preview, groupSelect.value);
+            this.renderTimetablePreview(updated, content, ui);
+        });
+        content.querySelector('.tt-cancel').addEventListener('click', ui.close);
+        content.querySelector('.tt-validate').addEventListener('click', async () => {
+            const rows = [...content.querySelectorAll('tr[data-row]')].map(tr => ({
+                id: tr.getAttribute('data-row'),
+                include: !!(tr.querySelector('.tt-include') && tr.querySelector('.tt-include').checked),
+                subjectId: tr.querySelector('.tt-subject') ? tr.querySelector('.tt-subject').value : undefined
+            }));
+            try {
+                const res = await this.app.applyTimetableImport(preview, { rows });
+                ui.onSaved();
+                const extra = [];
+                if (res.replaced) extra.push(`${res.replaced} ancien(s) cours de cette semaine remplacé(s).`);
+                if (res.unmapped && res.unmapped.length) extra.push(`Non relié(s) au cursus : ${res.unmapped.join(', ')}.`);
+                if (res.overlaps && res.overlaps.length) extra.push(`Chevauchement(s) avec ton agenda : ${res.overlaps.map(o => `${o.course.title} / ${o.other.title} (${o.course.date})`).join(' ; ')}.`);
+                content.innerHTML = `<div style="text-align:center; padding:15px;"><i class="bi bi-check-circle" style="font-size:36px; color:#10b981; display:block; margin-bottom:10px;"></i>
+                    <strong>${escapeHtml(res.count)} cours enregistré(s)</strong> pour la semaine du ${escapeHtml(fmt(res.weekStart))}.
+                    <p style="font-size:13px; color:var(--text-muted);">Le coach suit maintenant l'avancement de tes cours.</p>
+                    ${extra.map(x => `<p style="font-size:12px; color:#f59e0b;">${escapeHtml(x)}</p>`).join('')}
+                    <button class="tt-done" style="${ui.btnStyle}">Fermer</button></div>`;
+                content.querySelector('.tt-done').addEventListener('click', ui.close);
+            } catch (err) {
+                const box = content.querySelector('.tt-error');
+                if (box) box.textContent = err.message;
+            }
         });
     }
 }

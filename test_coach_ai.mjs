@@ -108,13 +108,14 @@ async function runTests() {
     const planningAI = new PlanningAI(mockPI);
     
     // Contexte avec créneau dispo
-    const planningCtxDispo = { availableSlots: [{ date: "2026-09-12" }] };
+    // currentDate fixé : PlanningAI ne propose plus de créneau dans le passé (fixture datée du 12/09/2026)
+    const planningCtxDispo = { availableSlots: [{ date: "2026-09-12" }], currentDate: "2026-09-12" };
     let plannedRecs = await planningAI.plan(recs, planningCtxDispo);
     wrapAssert(plannedRecs.length === 1 && plannedRecs[0].intent instanceof PlanningIntent, "17. PlanningAI trouve un créneau et crée un PlanningIntent (OÙ/QUAND)");
     wrapAssert(plannedRecs[0].intent.constraints.date === "2026-09-12", "18. L'Intent contient bien la date trouvée");
     
     // Contexte sans créneau dispo
-    const planningCtxNoDispo = { availableSlots: [{ date: "2026-09-30" }] }; // no slot match the mockPI logic
+    const planningCtxNoDispo = { availableSlots: [{ date: "2026-09-30" }], currentDate: "2026-09-12" }; // no slot match the mockPI logic
     let plannedRecsNoSlot = await planningAI.plan(recs, planningCtxNoDispo);
     wrapAssert(plannedRecsNoSlot.length === 1 && plannedRecsNoSlot[0].type === "CRITICAL" && !plannedRecsNoSlot[0].intent, "19. PlanningAI gère l'absence de créneau (Recommendation devient CRITICAL, sans intent)");
 
@@ -127,7 +128,8 @@ async function runTests() {
             ]
         },
         availableSlots: [{ date: "2026-09-12" }],
-        temporalEvents: []
+        temporalEvents: [],
+        currentDate: "2026-09-12"
     };
     
     let finalRecs = await orchestrator.getInsights(rawInput);

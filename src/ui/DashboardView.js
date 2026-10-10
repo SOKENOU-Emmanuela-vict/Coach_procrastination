@@ -1,4 +1,5 @@
 import { PlanningIntent } from '../models/PlanningIntent.js';
+import { escapeHtml } from '../utils/html.js';
 
 export class DashboardView {
     constructor(containerId, app) {
@@ -30,12 +31,12 @@ export class DashboardView {
                 insightsHtml += `
                     <div style="background:#0b1a20; border-left:4px solid ${color}; padding:12px; border-radius:6px; margin-bottom:10px;">
                         <div style="display:flex; justify-content:space-between; align-items:center;">
-                            <span style="font-size:14px; font-weight:bold; color:#fff;">${icon} ${insight.title || 'Recommandation'}</span>
+                            <span style="font-size:14px; font-weight:bold; color:#fff;">${icon} ${escapeHtml(insight.title || 'Recommandation')}</span>
                         </div>
-                        <div style="font-size:13px; color:#e0e0e0; margin-top:6px;">${insight.message || insight.text}</div>
+                        <div style="font-size:13px; color:#e0e0e0; margin-top:6px;">${escapeHtml(insight.message || insight.text)}</div>
                         ${insight.actionable ? `
                             <div style="margin-top:10px; display:flex; gap:10px;">
-                                <button data-action="accept-coach-event" data-intent='${insight.intent ? JSON.stringify(insight.intent) : "null"}' style="background:${color}; color:#0f2027; font-weight:bold; padding:8px 12px; border:none; border-radius:4px; cursor:pointer; font-size:12px;">
+                                <button data-action="accept-coach-event" data-intent="${insight.intent ? escapeHtml(JSON.stringify(insight.intent)) : 'null'}" style="background:${color}; color:#0f2027; font-weight:bold; padding:8px 12px; border:none; border-radius:4px; cursor:pointer; font-size:12px;">
                                     Accepter la proposition
                                 </button>
                                 <button data-action="refuse-coach-event" style="background:transparent; color:${color}; border:1px solid ${color}; font-weight:bold; padding:8px 12px; border-radius:4px; cursor:pointer; font-size:12px;">

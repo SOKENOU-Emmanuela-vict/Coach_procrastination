@@ -37,8 +37,48 @@ export class SchedulerEngine {
         return {
             date: dateStr,
             habits: activeHabits,
-            sessions: [] // Plus de sessions statiques de bootcamp
+            sessions: await this._buildSessionsFromEvents(dateStr)
         };
+    }
+
+    /**
+     * Transforme les événements de travail personnel du jour (révisions, projets, langues, perso…)
+     * en sessions pour le mode Focus. Les cours et examens (obligatoires, suivis de toute façon)
+     * restent dans l'agenda mais ne deviennent JAMAIS des sessions Focus — y compris les cours importés
+     * depuis l'emploi du temps (type 'class', source 'school_schedule').
+     * L'id de session = id de l'événement, ce qui évite tout double comptage dans les bilans.
+     */
+    async _buildSessionsFromEvents(dateStr) {
+        const rawEvents = await this.storage.loadData('events');
+        const events = Array.isArray(rawEvents) ? rawEvents : [];
+        const passiveTypes = ['course', 'cours', 'class', 'classe', 'cm', 'td', 'tp', 'lecture', 'lesson', 'tutorial', 'exam', 'examen', 'cc'];
+        const typeLabels = { revision: 'Révision', project: 'Projet', projet: 'Projet', langue: 'Langue', language: 'Langue', personal: 'Personnel', life: 'Life' };
+
+        return events
+            .filter(e => e && e.date === dateStr)
+            .filter(e => !passiveTypes.includes((e.type || '').toLowerCase()) && e.source !== 'school_schedule')
+            .sort((a, b) => (a.startTime || '99:99').localeCompare(b.startTime || '99:99'))
+            .map(e => {
+                let duration = 0;
+                if (e.startTime && e.endTime) duration = this._timeToMins(e.endTime) - this._timeToMins(e.startTime);
+                if (!(duration > 0)) duration = e.targetDuration || e.duration || 25; // défaut : un pomodoro
+                const typeKey = (e.type || '').toLowerCase();
+                return {
+                    id: e.id,
+                    title: e.title || typeLabels[typeKey] || 'Session',
+                    objective: typeLabels[typeKey] || e.type || '',
+                    expectedDuration: duration,
+                    startTime: e.startTime || null,
+                    endTime: e.endTime || null,
+                    priority: e.priority === 'high' ? 'Haute' : (e.priority === 'low' ? 'Basse' : 'Normale'),
+                    subjectId: e.subjectId || null,
+                    projectId: e.projectId || null,
+                    skillId: e.subjectId || e.projectId || null,
+                    resourceLink: e.resourceLink || null,
+                    source: 'event',
+                    completed: false
+                };
+            });
     }
 
     async getFullProgram() {

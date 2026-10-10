@@ -65,7 +65,7 @@ async function runTests() {
             return {
                 semester: { id: semId, name: 'Test Semester' },
                 average: { value: 15, status: 'complete' },
-                cectStatus: { officialTotal: 30, detailedTotal: 26, discrepancy: 4, status: 'to_confirm' },
+                cectStatus: { officialTotal: 30, detailedTotal: 30, discrepancy: 0, status: 'verified' },
                 subjects: [],
                 upcomingAssessments: [],
                 alerts: []
@@ -80,7 +80,7 @@ async function runTests() {
     // 3. Test App Routing & currentSemesterId
     await mockApp.refreshUserStats();
     assert(requestedSemester === 'sem_s4_27', "App : currentSemesterId ('sem_s4_27') est bien extrait du profil et transmis à getSemesterSummary");
-    assert(mockApp.state.academicSummary.cectStatus.discrepancy === 4, "App : Le cas S4 (30/26/4/to_confirm) est préservé et transmis dans le state");
+    assert(mockApp.state.academicSummary.cectStatus.discrepancy === 0 && mockApp.state.academicSummary.cectStatus.status === 'verified' && mockApp.state.academicSummary.cectStatus.detailedTotal === 30, "App : Le statut CECT du S4 (30/30/0/verified) est préservé et transmis dans le state");
 
     // Test avec un autre semestre
     user.currentSemesterId = 'sem_s3_26';

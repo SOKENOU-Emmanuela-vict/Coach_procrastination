@@ -1,3 +1,4 @@
+import { escapeHtml } from '../utils/html.js';
 export class DesktopView {
     constructor(containerId, app) {
         this.container = document.getElementById(containerId);
@@ -8,11 +9,23 @@ export class DesktopView {
         if (typeof document !== 'undefined' && document.body) {
             document.body.className = 'theme-cyber';
         }
-        const userName = state.userProfile?.name || 'Mathieu';
+        const userName = escapeHtml(state.userProfile?.name || 'Mathieu');
+
+        // Message du coach : première recommandation utile (hors simples créneaux libres)
+        const insightsList = Array.isArray(state.coachInsights) ? state.coachInsights : [];
+        const mainInsight = insightsList.find(r => r && r.message && r.title !== 'Créneau de disponibilité') || null;
+        const coachMessage = escapeHtml(mainInsight ? mainInsight.message : 'Salut ! Je suis là si tu as besoin d\'aide pour t\'organiser.').replace(/\n/g, '<br>');
+
+        // Sommeil du bilan : { durationMinutes, quality }
+        const sleepMinutes = state.todayCheckIn?.sleep?.durationMinutes || 0;
+        const sleepHours = sleepMinutes > 0 ? Math.round((sleepMinutes / 60) * 10) / 10 : null;
+        const average = state.academicSummary?.average?.value;
+        const targetCredits = state.academicSummary?.cectStatus?.officialTotal;
         
-        // Obtenir la date en format long (ex: Lundi 23 Juin 2026)
+        // Obtenir la date en format long (ex: Lundi 23 Juin 2026) basée sur la date pédagogique (cut-off 4h)
         const dateOptions = { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' };
-        let dateStr = new Date().toLocaleDateString('fr-FR', dateOptions);
+        const pedaDate = this.app.getPedagogicalDateObject ? this.app.getPedagogicalDateObject() : new Date();
+        let dateStr = pedaDate.toLocaleDateString('fr-FR', dateOptions);
         dateStr = dateStr.charAt(0).toUpperCase() + dateStr.slice(1);
 
         let html = `
@@ -75,9 +88,7 @@ export class DesktopView {
                     <span>🕒</span>
                     <span style="font-weight:bold;">10:24</span>
                 </div>
-                <div id="btn-profile" style="width:40px; height:40px; border-radius:50%; background:var(--accent-primary); display:flex; align-items:center; justify-content:center; color:white; font-weight:bold; font-size:18px; cursor:pointer; transition: transform 0.2s;" onmouseover="this.style.transform='scale(1.1)'" onmouseout="this.style.transform='scale(1)'">
-                    ${userName.charAt(0)}
-                </div>
+                <img id="btn-profile" src="assets/profile.jpg" alt="Profile" style="width:40px; height:40px; border-radius:50%; object-fit:cover; cursor:pointer; transition: transform 0.2s; border:2px solid var(--accent-primary);" onmouseover="this.style.transform='scale(1.1)'" onmouseout="this.style.transform='scale(1)'">
             </div>
         </div>
 
@@ -116,7 +127,7 @@ export class DesktopView {
                         return `
                         <div>
                             <span style="font-size:12px; text-transform:uppercase; letter-spacing:1px; opacity:0.8;">Session en cours</span>
-                            <h3 style="margin:10px 0 5px 0; font-size:20px;">${currentEvent.title || currentEvent.type}</h3>
+                            <h3 style="margin:10px 0 5px 0; font-size:20px;">${escapeHtml(currentEvent.title || currentEvent.type)}</h3>
                             <span style="font-size:14px; opacity:0.8;">${currentEvent.startTime} - ${currentEvent.endTimeStr}</span>
                         </div>
                         <div style="display:flex; align-items:center; gap:15px; margin-top:20px;">
@@ -156,7 +167,7 @@ export class DesktopView {
                                     <strong style="font-size:14px;">${e.startTime}</strong>
                                 </div>
                                 <div style="border-left:2px solid ${color}; padding-left:15px;">
-                                    <strong style="font-size:14px;">${e.title || e.type}</strong>
+                                    <strong style="font-size:14px;">${escapeHtml(e.title || e.type)}</strong>
                                 </div>
                             </div>`;
                         }).join('');
@@ -172,11 +183,11 @@ export class DesktopView {
                 <div style="display:flex; flex-direction:column; gap:15px;">
                     <div style="background:var(--bg-main); padding:15px; border-radius:8px; display:flex; justify-content:space-between; align-items:center; border: 1px solid var(--border-color);">
                         <strong style="font-size:14px;">Moyenne Générale</strong>
-                        <span style="font-size:14px; color:var(--text-muted); font-weight:bold;">${state.academicSummary?.overallAverage ? state.academicSummary.overallAverage.toFixed(1) : '--'} / 20</span>
+                        <span style="font-size:14px; color:var(--text-muted); font-weight:bold;">${typeof average === 'number' ? average.toFixed(1) : '--'} / 20</span>
                     </div>
                     <div style="background:var(--bg-main); padding:15px; border-radius:8px; display:flex; justify-content:space-between; align-items:center; border: 1px solid var(--border-color);">
                         <strong style="font-size:14px;">Crédits Validés</strong>
-                        <span style="font-size:14px; color:var(--text-muted); font-weight:bold;">${state.academicSummary?.earnedCredits || '--'} / ${state.academicSummary?.targetCredits || '--'}</span>
+                        <span style="font-size:14px; color:var(--text-muted); font-weight:bold;">${state.academicSummary?.earnedCredits || '--'} / ${targetCredits || '--'}</span>
                     </div>
                 </div>
             </div>
@@ -218,19 +229,22 @@ export class DesktopView {
                 <h3 style="margin:0 0 20px 0; font-size:16px;">Progrès langues</h3>
                 <div style="display:flex; flex-direction:column; gap:20px; flex-grow:1; justify-content:center;">
                     ${(() => {
-                        const langNodes = (state.learningGraph?.nodes || []).filter(n => n.type === 'language' || n.category === 'language');
+                        const rawNodes = state.learningGraph?.nodes || [];
+                        const nodeList = Array.isArray(rawNodes) ? rawNodes : Object.values(rawNodes);
+                        // LearningGraphEngine expose le nœud 'languages' (pas de champ type/category)
+                        const langNodes = nodeList.filter(n => n && (n.id === 'languages' || n.type === 'language' || n.category === 'language'));
                         if (langNodes.length === 0) {
                             return '<div style="color:var(--text-muted); font-size:14px; text-align:center;">Aucune langue suivie.</div>';
                         }
                         return langNodes.slice(0, 3).map((l, i) => {
                             const colors = ['var(--accent-primary)', '#84a98c', '#f43f5e'];
                             const color = colors[i % colors.length];
-                            const prog = l.progress || 0;
+                            const prog = Math.round(l.progress ?? l.level ?? 0);
                             return `
                             <div style="display:flex; align-items:center; gap:15px;">
                                 <div style="width:50px; height:50px; border-radius:50%; border:4px solid ${color}; border-top-color:${prog < 50 ? 'transparent' : color}; display:flex; align-items:center; justify-content:center; font-weight:bold; font-size:14px;">${prog}%</div>
                                 <div>
-                                    <strong style="display:block; font-size:14px;">${l.title || l.name}</strong>
+                                    <strong style="display:block; font-size:14px;">${escapeHtml(l.title || l.name)}</strong>
                                     <span style="font-size:12px; color:var(--text-muted);">Niveau ${l.level || 'Non défini'}</span>
                                 </div>
                             </div>`;
@@ -275,10 +289,10 @@ export class DesktopView {
                             <i class="bi bi-moon-stars-fill" style="color:#8b5cf6; font-size:20px;"></i>
                             <span style="font-size:14px; font-weight:bold;">Sommeil</span>
                         </div>
-                        <span style="font-size:14px; font-weight:bold; color:var(--accent-primary);">${state.todayCheckIn?.sleep ? state.todayCheckIn.sleep + 'h' : '--'}</span>
+                        <span style="font-size:14px; font-weight:bold; color:var(--accent-primary);">${sleepHours !== null ? sleepHours + 'h' : '--'}</span>
                     </div>
                     <div style="height:6px; background:var(--bg-main); border-radius:3px; overflow:hidden;">
-                        <div style="height:100%; width:${state.todayCheckIn?.sleep ? Math.min(100, (state.todayCheckIn.sleep/8)*100) : 0}%; background:#8b5cf6; border-radius:3px;"></div>
+                        <div style="height:100%; width:${sleepHours !== null ? Math.min(100, (sleepHours/8)*100) : 0}%; background:#8b5cf6; border-radius:3px;"></div>
                     </div>
                 </div>
             </div>
@@ -290,10 +304,10 @@ export class DesktopView {
                     <span style="font-size:20px;">🤖</span>
                 </div>
                 <div style="background:var(--bg-main); padding:15px; border-radius:12px; border-bottom-left-radius:2px; font-size:14px; line-height:1.5; color:var(--text-main); margin-bottom:15px; border:1px solid var(--border-color);">
-                    "${state.coachInsights?.dailyMessage || 'Salut ! Je suis là si tu as besoin d\'aide pour t\'organiser.'}"
+                    "${coachMessage}"
                 </div>
                 <div style="display:flex; gap:10px;">
-                    <input type="text" placeholder="Demander conseil..." style="flex:1; padding:10px 15px; border-radius:8px; border:1px solid var(--border-color); background:var(--bg-main); color:var(--text-main);">
+                    <input type="text" id="desktop-ask-coach" placeholder="Demander conseil..." style="flex:1; padding:10px 15px; border-radius:8px; border:1px solid var(--border-color); background:var(--bg-main); color:var(--text-main);">
                     <button class="bureau-nav-item" data-view="chat" style="background:var(--accent-primary); color:white; border:none; padding:0 20px; border-radius:8px; cursor:pointer;">➔</button>
                 </div>
             </div>
@@ -304,12 +318,35 @@ export class DesktopView {
         
         this.container.innerHTML = html;
 
+        // "Demander conseil..." : le texte saisi est envoyé au coach (sinon le bouton ouvre simplement le chat)
+        const askInput = this.container.querySelector('#desktop-ask-coach');
+        const askBtn = askInput && askInput.parentElement ? askInput.parentElement.querySelector('button[data-view="chat"]') : null;
+        const askText = () => (askInput && typeof askInput.value === 'string' ? askInput.value.trim() : '');
+        if (askBtn && typeof askBtn.addEventListener === 'function') {
+            // Enregistré avant le gestionnaire de navigation : s'il y a une question, on l'envoie au lieu de naviguer seulement
+            askBtn.addEventListener('click', (e) => {
+                const text = askText();
+                if (text && typeof this.app.sendChatMessage === 'function') {
+                    e.stopImmediatePropagation();
+                    this.app.sendChatMessage(text);
+                }
+            });
+        }
+        if (askInput && typeof askInput.addEventListener === 'function') {
+            askInput.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter' && askText() && typeof this.app.sendChatMessage === 'function') {
+                    e.preventDefault();
+                    this.app.sendChatMessage(askText());
+                }
+            });
+        }
+
         // Navigation locale
         this.container.querySelectorAll('.bureau-nav-item').forEach(btn => {
             btn.addEventListener('click', (e) => {
                 const viewName = e.currentTarget.getAttribute('data-view');
-                if (viewName && this.app.router) {
-                    this.app.router.render(viewName, this.app.state);
+                if (viewName) {
+                    this.app.renderView(viewName);
                 }
             });
         });
@@ -321,7 +358,7 @@ export class DesktopView {
                 if (this.app.renderView) {
                     this.app.renderView('languages');
                 } else if (this.app.router) {
-                    this.app.router.render('languages', this.app.state);
+                    this.app.renderView('languages');
                 }
             });
         }
@@ -332,7 +369,7 @@ export class DesktopView {
                 if (this.app.renderView) {
                     this.app.renderView('portfolio');
                 } else if (this.app.router) {
-                    this.app.router.render('portfolio', this.app.state);
+                    this.app.renderView('portfolio');
                 }
             });
         }

@@ -28,9 +28,22 @@ export class Event {
             this.taskId = config.taskId || null;
             this.source = config.source || 'system';
             
+            // Cours importé depuis l'emploi du temps : ECUE, enseignant, salle, avancement (XXH/YYH), semaine d'import.
+            // Champs ajoutés seulement s'ils sont fournis (les autres événements gardent leur forme).
+            if (config.componentCode) this.componentCode = config.componentCode;
+            if (config.teacher) this.teacher = config.teacher;
+            if (config.room) this.room = config.room;
+            if (Number.isFinite(config.hoursDone)) this.hoursDone = config.hoursDone;
+            if (Number.isFinite(config.hoursTotal)) this.hoursTotal = config.hoursTotal;
+            if (config.importWeek) this.importWeek = config.importWeek;
+
             // Legacy compat
             this.impact = config.impact || 'bloc';
             this.mandatory = config.mandatory !== undefined ? config.mandatory : true;
+
+            // Durée persistée (un getter serait perdu par structuredClone / JSON en IndexedDB)
+            const computed = Event.computeDuration(this);
+            this.duration = computed > 0 ? computed : (typeof config.duration === 'number' && config.duration > 0 ? config.duration : 0);
         } else {
             // Constructor Legacy
             this.id = idOrConfig;
@@ -53,13 +66,17 @@ export class Event {
             this.projectId = null;
             this.taskId = null;
             this.source = 'system';
+            this.duration = 0;
         }
     }
 
-    get duration() {
-        if (!this.startTime || !this.endTime) return 0;
-        const [startH, startM] = this.startTime.split(':').map(Number);
-        const [endH, endM] = this.endTime.split(':').map(Number);
+    /**
+     * Durée en minutes calculée à partir de startTime/endTime (fonctionne aussi sur un objet brut relu du stockage).
+     */
+    static computeDuration(ev) {
+        if (!ev || !ev.startTime || !ev.endTime) return 0;
+        const [startH, startM] = ev.startTime.split(':').map(Number);
+        const [endH, endM] = ev.endTime.split(':').map(Number);
         return (endH * 60 + endM) - (startH * 60 + startM);
     }
 }

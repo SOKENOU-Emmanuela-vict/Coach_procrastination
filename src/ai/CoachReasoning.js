@@ -77,7 +77,8 @@ export class CoachReasoning {
                     // lié à cet assessmentId, sans vérifier si l'événement est dans le passé ou s'il est suffisamment long.
                     const isPlanned = planning && planning.events && planning.events.some(ev => {
                         if (ev.assessmentId !== ass.id) return false;
-                        if (ev.type !== 'revision' && ev.type !== 'Revision' && !ev.title.toLowerCase().includes('révision') && !ev.title.toLowerCase().includes('revision')) return false;
+                        const evTitle = (ev.title || '').toLowerCase();
+                        if (ev.type !== 'revision' && ev.type !== 'Revision' && !evTitle.includes('révision') && !evTitle.includes('revision')) return false;
                         if (!ev.date) return false; // Ne peut pas juger si c'est avant l'examen
                         // Vérifier que la révision a bien lieu avant ou le jour de l'examen
                         return new Date(ev.date) <= new Date(ass.targetDate);
@@ -121,7 +122,7 @@ export class CoachReasoning {
                         type: "REVIEW_PAST_DUE_ASSESSMENT",
                         severity: "high",
                         priority: "high",
-                        rationale: `La date cible de l'évaluation '${ass.title}' (${ass.targetDate}) est dépassée par rapport à la date actuelle (${context.currentDate}).`,
+                        rationale: `L'évaluation '${ass.title}' (${ass.targetDate}) est passée et n'a pas encore de note. As-tu des notes à me donner pour ${ass.subjectName && ass.subjectName !== 'Unknown Subject' ? ass.subjectName : ass.title} ? Réponds-moi dans le chat (ex. « 14/20 »).`,
                         payload: { assessment: ass }
                     }
                 });
@@ -181,6 +182,63 @@ export class CoachReasoning {
             });
         }
 
+        // 7. Boucle cours ↔ évaluations ↔ planning (seulement si l'avancement des cours est fourni par l'App)
+        const courses = context.courses || null;
+        if (courses) {
+            const bySubject = courses.bySubject || {};
+            const today = context.currentDate;
+            // 7a. Compte à rebours jusqu'à chaque évaluation proche : rappel quotidien jusqu'au jour J
+            (academic && academic.upcomingAssessments ? academic.upcomingAssessments : []).forEach(ass => {
+                if (!ass.targetDate || ass.daysRemaining === null || ass.daysRemaining === undefined || ass.daysRemaining > 14) return;
+                const p = ass.subjectId ? bySubject[ass.subjectId] : null;
+                const revisions = (planning && planning.events ? planning.events : []).filter(ev => ev.assessmentId === ass.id
+                    && (ev.type === 'revision' || /r[ée]vision/i.test(ev.title || '')) && ev.date && ev.date >= today && ev.date <= ass.targetDate).length;
+                const when = ass.daysRemaining <= 0 ? "aujourd'hui" : (ass.daysRemaining === 1 ? 'demain' : `dans ${ass.daysRemaining} jours`);
+                const progressTxt = p && p.hoursTotal ? (p.finished ? ` Cours terminé (${p.hoursDone} h / ${p.hoursTotal} h).` : ` Cours : ${p.hoursDone} h / ${p.hoursTotal} h (${p.percent} %).`) : '';
+                decisions.push({
+                    signal: { type: "EXAM_COUNTDOWN", assessmentId: ass.id, evidence: [`targetDate=${ass.targetDate}`, `revisions=${revisions}`] },
+                    decision: {
+                        type: "REMIND_UPCOMING_ASSESSMENT",
+                        severity: ass.daysRemaining <= 3 ? "warning" : "info",
+                        priority: ass.daysRemaining <= 3 ? "high" : "medium",
+                        rationale: `Rappel : ${ass.title} ${when} (${ass.targetDate}).${progressTxt} Révisions planifiées d'ici là : ${revisions}.`,
+                        payload: { assessment: ass, progress: p || null, revisions }
+                    }
+                });
+            });
+            // 7b. Cours terminé sans note : le coach demande les notes (les évaluations passées sont traitées en 4.)
+            (courses.gradeRequests || []).filter(r => r.kind === 'finished_course').forEach(r => {
+                decisions.push({
+                    signal: { type: "GRADE_REQUEST", evidence: [`request=${r.key}`] },
+                    decision: {
+                        type: "ASK_FOR_GRADES",
+                        severity: "info",
+                        priority: "medium",
+                        rationale: `Le cours ${r.label} est terminé${r.hoursTotal ? ` (${r.hoursTotal} h)` : ''}. As-tu des notes à me donner pour ${r.label} ? Réponds-moi dans le chat (ex. « 14/20 »), ou annonce-moi la date de l'examen.`,
+                        payload: { request: r }
+                    }
+                });
+            });
+            // 7c. Emploi du temps de la semaine à importer (le dimanche : semaine suivante)
+            const tt = courses.timetable || null;
+            if (tt && tt.needsImport) {
+                const [y, m, d] = String(tt.targetWeekStart || '').split('-');
+                const weekLabel = d ? `${d}/${m}` : tt.targetWeekStart;
+                decisions.push({
+                    signal: { type: "TIMETABLE_IMPORT", evidence: [`week=${tt.targetWeekStart}`] },
+                    decision: {
+                        type: "REMIND_TIMETABLE_IMPORT",
+                        severity: "info",
+                        priority: tt.isSunday ? "high" : "medium",
+                        rationale: tt.isSunday
+                            ? `C'est dimanche : importe l'emploi du temps de la semaine du ${weekLabel} (Planning → « Importer l'emploi du temps (PDF) ») pour que je suive tes cours.`
+                            : `Je n'ai pas l'emploi du temps de cette semaine (du ${weekLabel}). Importe-le depuis Planning → « Importer l'emploi du temps (PDF) » pour que je suive tes cours.`,
+                        payload: { timetable: tt }
+                    }
+                });
+            }
+        }
+
         // 6. Diagnostic de Procrastination (Risk Engine)
         if (riskProfile && riskProfile.level !== 'LOW') {
             decisions.push({
@@ -202,6 +260,9 @@ export class CoachReasoning {
         const priorityMap = {
             "PROCRASTINATION_RISK": 1,
             "PAST_DUE_ASSESSMENT": 2,
+            "EXAM_COUNTDOWN": 2.5,
+            "GRADE_REQUEST": 2.6,
+            "TIMETABLE_IMPORT": 4.5,
             "SCHEDULE_CONFLICT": 3,
             "UNPREPARED_ASSESSMENT": 4,
             "ACADEMIC_ALERT_ACTIVE": 5,

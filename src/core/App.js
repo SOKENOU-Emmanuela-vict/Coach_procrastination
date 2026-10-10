@@ -9,7 +9,22 @@ import { CoachOrchestrator } from '../ai/CoachOrchestrator.js';
 import { KnowledgeEngine } from '../engines/KnowledgeEngine.js';
 import { KnowledgeRetriever } from '../engines/KnowledgeRetriever.js';
 import { AcademicSeeder } from '../data/AcademicSeeder.js';
+import { CURRICULUM_SEED_VERSION, CURRICULUM_YEAR } from '../data/AcademicCurriculum.js';
 import { RiskEngine } from '../engines/RiskEngine.js';
+import { parseLocalDate, timeToMinutes, minutesToTime } from '../utils/dateUtils.js';
+import { PlanningIntent } from '../models/PlanningIntent.js';
+import { Grade } from '../models/Grade.js';
+import { CoachContextBuilder } from '../ai/CoachContext.js';
+import { detectFlexibleConflictAnswer, flexibleConflictChoices, buildFlexibleConflictQuestion } from '../ai/FlexibleConflictDialog.js';
+import { TimetableImportEngine, DEFAULT_GROUP } from '../engines/TimetableImportEngine.js';
+import { CourseProgressEngine } from '../engines/CourseProgressEngine.js';
+import { SubjectMatcher } from '../engines/SubjectMatcher.js';
+import { ExamRevisionPlanner } from '../ai/ExamRevisionPlanner.js';
+import { parseExamAnnouncement, parseGradeAnswer, parseGradeStatement, isNotYetAnswer } from '../ai/ChatIntentParser.js';
+
+// Disponibilités par défaut tant qu'aucune n'a été saisie (seulement après un premier import d'emploi du temps)
+export const DEFAULT_STUDY_WINDOW = { startTime: '08:00', endTime: '21:00' };
+const GRADE_REASK_DAYS = 3;
 
 export class App {
     constructor(storage, scheduler, studyRecordEngine, checkInEngine, aiEngine, weeklyReviewEngine, chatHistoryEngine) {
@@ -32,6 +47,9 @@ export class App {
         this.knowledgeEngine = new KnowledgeEngine(storage);
         this.knowledgeRetriever = new KnowledgeRetriever(this.knowledgeEngine);
         this.coachEngine = new CoachOrchestrator(this.planningIntelligence, this.knowledgeRetriever, this.riskEngine);
+        // Import de l'emploi du temps : même fournisseur Gemini que le coach (aucune clé supplémentaire)
+        this.timetableImporter = new TimetableImportEngine({ storage, planningEngine: this.planningEngine, llmProvider: this.coachEngine.llmProvider || null });
+        this.clock = () => new Date();
         
         this.state = {
             currentView: 'desktop',
@@ -50,6 +68,9 @@ export class App {
             academicSummary: null,
             todayEvents: [],
             academicSubjects: [],
+            // Avancement des cours (emplois du temps importés) : items par ECUE/matière, bySubject, upcomingSessions
+            courseProgress: { items: [], bySubject: {}, upcomingSessions: [], lastImport: null },
+            timetableStatus: null,
             calendarData: {
                 events: [],
                 availabilities: [],
@@ -59,83 +80,75 @@ export class App {
         this.router = new Router('app-root', this);
     }
     
+    getPedagogicalDateObject(dateObj = new Date()) {
+        return new Date(dateObj); // Date standard (pas de décalage)
+    }
+
     getPedagogicalDate(dateObj = new Date()) {
-        const d = new Date(dateObj);
-        // Si l'heure est avant 4h du matin, on considère que c'est la journée de la veille (jour pédagogique)
-        if (d.getHours() < 4) {
-            d.setDate(d.getDate() - 1);
-        }
-        return d.toLocaleDateString('fr-CA');
+        return this.getPedagogicalDateObject(dateObj).toLocaleDateString('fr-CA');
     }
 
     async start() {
         AppLogger.info("Lancement de l'application (start)");
         document.getElementById('app-root').innerHTML = '<p style="text-align:center;">Génération du planning... (Etape 1)</p>';
-        document.getElementById('bottom-nav').style.display = 'flex';
+        // document.getElementById('bottom-nav').style.display = 'none';
         this.setupNavigation();
         
         // Initialisation des données académiques
+        // Anciennes erreurs techniques enregistrées dans la conversation (« Erreur lors de l'analyse… ») : retirées
+        try {
+            if (this.chatHistoryEngine && typeof this.chatHistoryEngine.purgeTechnicalErrors === 'function') await this.chatHistoryEngine.purgeTechnicalErrors();
+        } catch (e) { AppLogger.error("Nettoyage du chat: " + e.message); }
+
         const seeder = new AcademicSeeder(this.academicEngine);
         await seeder.seed();
-        this.state.academicSubjects = await this.academicEngine.getSubjects();
+        await this.refreshAcademicSubjects();
         
-        const localDate = this.getPedagogicalDate();
-        
-        const plan = await this.scheduler.generateDailyPlan(localDate);
         document.getElementById('app-root').innerHTML = '<p style="text-align:center;">Génération du planning... (Etape 2)</p>';
-        
+        // renderView rafraîchit l'état (plan du jour inclus) avant d'afficher : un seul passage au démarrage.
+        await this.renderView('desktop');
+        // Messages proactifs du jour dans le chat (rappels d'examen, notes à donner, emploi du temps à importer)
+        try { await this.syncProactiveCoachMessages(); } catch (e) { AppLogger.error("Messages du coach: " + e.message); }
+    }
+
+    /**
+     * (Re)génère le plan du jour à partir des événements du jour et marque ce qui est déjà fait.
+     * Appelé à chaque rafraîchissement : le plan n'est plus figé au démarrage (nouveaux événements, minuit…).
+     */
+    async refreshDailyPlan(localDate = this.getPedagogicalDate()) {
+        if (!this.scheduler || typeof this.scheduler.generateDailyPlan !== 'function') return this.state.dailyPlan;
+        const plan = (await this.scheduler.generateDailyPlan(localDate)) || {};
+        plan.date = plan.date || localDate;
+        plan.habits = Array.isArray(plan.habits) ? plan.habits : [];
+        plan.sessions = Array.isArray(plan.sessions) ? plan.sessions : [];
+
         const history = await this.storage.loadData('study_history') || [];
         const completedIds = history.filter(r => r.date === localDate).map(r => r.sessionId);
-        
         plan.habits.forEach(h => h.completed = completedIds.includes(h.id));
         plan.sessions.forEach(s => s.completed = completedIds.includes(s.id));
-        
+
         this.state.dailyPlan = plan;
-        document.getElementById('app-root').innerHTML = '<p style="text-align:center;">Génération du planning... (Etape 3)</p>';
-        await this.refreshUserStats();
-        
-        document.getElementById('app-root').innerHTML = '<p style="text-align:center;">Génération du planning... (Etape 4)</p>';
-        this.renderView('desktop');
+        return plan;
     }
-    
-    async refreshUserStats() {
+
+    /**
+     * Contexte unique du coach, identique pour le rafraîchissement de l'interface et pour le chat.
+     * @param {Object} options
+     * @param {boolean} options.useLLM - appeler le LLM (seulement à la demande : chat)
+     * @param {Array} options.chatHistory - derniers messages [{role, content}]
+     */
+    async buildCoachContext({ useLLM = false, chatHistory = null } = {}) {
+        // Avancement des cours + disponibilités par défaut (avant le calcul des créneaux)
+        const courseProgress = await this.refreshCourseProgress();
+        const gradeRequests = await this.computeGradeRequests();
         const dToday = new Date();
         const localDate = this.getPedagogicalDate(dToday);
-
-        this.state.dailyStats = await this.studyRecordEngine.getDailyStats(localDate);
-        this.state.dailySummary = await this.checkInEngine.buildDailySummary(localDate);
-        this.state.todayCheckIn = await this.checkInEngine.getCheckIn(localDate);
-        
-        const loadedProfile = await this.storage.loadData('user_profile');
-        this.state.userProfile = loadedProfile || { 
-            streak: 1, 
-            lastActive: null,
-            name: "Étudiant",
-            formation: null,
-            niveau: null,
-            groupe: null,
-            currentSemesterId: 'sem_s3_26' // Changed to load seeded S3 data
-        };
-        this.state.fullHistory = await this.studyRecordEngine.getFullHistory();
-        
-        // Charger les données du graphe d'apprentissage pour les widgets du dashboard
-        if (this.learningGraphEngine) {
-            this.state.learningGraph = { nodes: await this.learningGraphEngine.evaluateGraph() };
-        }
-        
-        // Les insights et alertes académiques seront ajoutés via CoachAI.
-        // systemHealth est déprécié.
-        const dTodayLocal = new Date(localDate);
-        this.state.monthlyReport = await this.studyRecordEngine.getMonthlyStats(dTodayLocal.getFullYear(), dTodayLocal.getMonth());
-        this.state.allCheckins = await this.storage.loadData('daily_checkins') || {};
-        
-        // Données pour le Bureau (Desktop) et Espace Académique
-        const semesterId = this.state.userProfile.currentSemesterId || null;
-        this.state.academicSummary = semesterId ? await this.academicEngine.getSemesterSummary(semesterId, localDate) : null;
+        const nowMinutes = dToday.getHours() * 60 + dToday.getMinutes();
 
         // Construction du contexte temporel pour le Coach (J à J+5)
         const temporalEvents = [];
         const availableSlots = [];
+        const availabilityDates = []; // jours avec des disponibilités, même occupées par des événements flexibles
         const conflicts = [];
         for (let i = 0; i <= 5; i++) {
             const d = new Date(dToday);
@@ -145,47 +158,828 @@ export class App {
             const evs = await this.planningEngine.getEventsForDate(dateStr);
             temporalEvents.push(...evs);
             
-            const slots = await this.planningEngine.getAvailableSlots(dateStr);
-            slots.forEach(s => availableSlots.push({ date: dateStr, ...s }));
+            // Le coach propose d'abord du temps réellement libre (événements flexibles compris) ;
+            // s'il n'y en a pas, PlanningAI peut proposer un créneau sur un événement flexible en DEMANDANT.
+            const slots = await this.planningEngine.getAvailableSlots(dateStr, { subtractFlexible: true });
+            const lockedOnlySlots = await this.planningEngine.getAvailableSlots(dateStr);
+            if (lockedOnlySlots.length > 0) availabilityDates.push(dateStr);
+            slots.forEach(s => {
+                if (i === 0) {
+                    // Aujourd'hui : on ne garde que ce qui reste à partir de maintenant
+                    const start = Math.max(timeToMinutes(s.startTime), nowMinutes);
+                    const end = timeToMinutes(s.endTime);
+                    if (end - start <= 0) return;
+                    availableSlots.push({ date: dateStr, ...s, startTime: minutesToTime(start), durationMinutes: end - start });
+                } else {
+                    availableSlots.push({ date: dateStr, ...s });
+                }
+            });
 
             const dayConflicts = await this.planningEngine.detectConflicts(dateStr);
             conflicts.push(...dayConflicts);
         }
 
-        const coachContextData = {
+        return {
             userProfile: this.state.userProfile,
             academicSummary: this.state.academicSummary,
             projects: await this.storage.loadData('projects') || [],
             temporalEvents: temporalEvents,
             availableSlots: availableSlots,
+            availabilityDates: availabilityDates,
             conflicts: conflicts,
             analytics: this.state.analytics,
-            currentDate: localDate
+            currentDate: localDate,
+            chatHistory: chatHistory,
+            options: { useLLM },
+            courses: {
+                progress: courseProgress.items,
+                bySubject: courseProgress.bySubject,
+                upcomingSessions: courseProgress.upcomingSessions,
+                timetable: this.state.timetableStatus || null,
+                gradeRequests
+            }
+        };
+    }
+
+    // ---------------------------------------------------------------------------------------------
+    // Emploi du temps hebdomadaire → cours verrouillés + avancement → coach
+    // ---------------------------------------------------------------------------------------------
+
+    _todayStr(now = this.clock()) {
+        return this.getPedagogicalDate(now);
+    }
+
+    async _loadProfile() {
+        const loaded = (this.state && this.state.userProfile) || (await this.storage.loadData('user_profile')) || {};
+        return loaded || {};
+    }
+
+    /**
+     * Recalcule l'avancement des cours (heures faites selon l'heure actuelle) et l'état de l'import de la semaine.
+     * Active les disponibilités par défaut (DEFAULT_STUDY_WINDOW) seulement si un emploi du temps a été importé,
+     * qu'aucune disponibilité n'a été saisie (voir PlanningEngine._windowsForDate) et que le profil ne l'interdit pas.
+     */
+    async refreshCourseProgress(now = this.clock()) {
+        const imports = (await this.storage.loadData('timetable_imports')) || [];
+        const subjects = (this.state && Array.isArray(this.state.academicSubjects) && this.state.academicSubjects.length > 0)
+            ? this.state.academicSubjects
+            : ((await this.storage.loadData('acad_subjects')) || []);
+        const progress = CourseProgressEngine.compute(Array.isArray(imports) ? imports : [], { now, subjects: Array.isArray(subjects) ? subjects : [] });
+        const profile = await this._loadProfile();
+        if (this.state) {
+            this.state.courseProgress = progress;
+            this.state.timetableStatus = TimetableImportEngine.timetableStatus(imports, now);
+        }
+        if (this.planningEngine) {
+            this.planningEngine.defaultStudyWindow = (Array.isArray(imports) && imports.length > 0 && profile.useDefaultStudyWindow !== false)
+                ? (profile.defaultStudyWindow || DEFAULT_STUDY_WINDOW) : null;
+        }
+        return progress;
+    }
+
+    /**
+     * Notes que le coach doit demander :
+     *  - évaluation passée sans note (kind 'past_assessment') ;
+     *  - cours terminé (heures faites ≥ total) sans évaluation notée ni évaluation à venir (kind 'finished_course').
+     */
+    async computeGradeRequests(now = this.clock()) {
+        const ae = this.academicEngine;
+        if (!ae || typeof ae.getAssessments !== 'function' || typeof ae.getGrades !== 'function' || typeof ae.getSubjects !== 'function') return [];
+        const today = this._todayStr(now);
+        const assessments = (await this.academicEngine.getAssessments()) || [];
+        const grades = (await this.academicEngine.getGrades()) || [];
+        const subjects = (await this.academicEngine.getSubjects()) || [];
+        const hasFinal = (a) => grades.some(g => g.assessmentId === a.id && (g.isFinal || grades.filter(x => x.assessmentId === a.id).length === 1));
+        const subjectName = (id) => (subjects.find(s => s.id === id) || {}).name || null;
+        const requests = [];
+        for (const a of assessments) {
+            if (!a || !a.targetDate || hasFinal(a)) continue;
+            if (String(a.targetDate) < today) {
+                requests.push({ key: `ass_${a.id}`, kind: 'past_assessment', assessmentId: a.id, subjectId: a.subjectId,
+                    label: subjectName(a.subjectId) || a.title, title: a.title, targetDate: a.targetDate });
+            }
+        }
+        const progress = (this.state && this.state.courseProgress) || { items: [] };
+        for (const it of (progress.items || [])) {
+            if (!it.finished || !it.subjectId) continue;
+            const own = assessments.filter(a => a.subjectId === it.subjectId && (!a.componentCode || !it.componentCode || a.componentCode === it.componentCode));
+            if (own.some(a => hasFinal(a))) continue;
+            if (own.some(a => a.targetDate && String(a.targetDate) >= today)) continue; // examen pas encore passé
+            if (own.some(a => a.targetDate && String(a.targetDate) < today)) continue; // déjà demandé via l'évaluation passée
+            const label = it.componentName && it.componentName !== it.subjectName ? `${it.componentName} (${it.subjectName})` : (it.subjectName || it.title);
+            requests.push({ key: `course_${it.key}`, kind: 'finished_course', subjectId: it.subjectId, componentCode: it.componentCode || null,
+                label, hoursTotal: it.hoursTotal, lastSessionDate: it.lastSessionDate });
+        }
+        return requests;
+    }
+
+    /**
+     * Erreur Gemini (GeminiProvider : status / code) → message clair pour l'interface, avec ce qu'il faut faire.
+     * Les autres erreurs (format, taille, JSON) sont renvoyées telles quelles.
+     */
+    static explainGeminiFailure(err, prefix) {
+        if (!err || !err.code || err.name !== 'GeminiError') return err;
+        const advice = {
+            OVERLOADED: 'Gemini est très demandé en ce moment : réessaie dans quelques minutes.',
+            SERVER: 'Réessaie dans quelques minutes.',
+            TIMEOUT: 'Réessaie dans quelques minutes (ou envoie une photo plus légère).',
+            NETWORK: 'Vérifie ta connexion Internet puis réessaie.',
+            QUOTA: 'Le quota de la clé est atteint : réessaie plus tard (ou demain).',
+            AUTH: 'La clé Gemini doit être remplacée.',
+            MODEL: 'Le modèle Gemini doit être mis à jour dans le code.'
+        }[err.code] || 'Réessaie plus tard.';
+        const code = err.status ? `code ${err.status}` : err.code;
+        const reason = String(err.message || '').replace(/^Erreur API Gemini \([^)]*\) : /, '').replace(/\.$/, '');
+        const out = new Error(`${prefix} (${code}) : ${reason}. ${advice}`);
+        out.code = err.code;
+        out.status = err.status;
+        return out;
+    }
+
+    /**
+     * Étape 1 de l'import : lecture du fichier par Gemini et aperçu (rien n'est enregistré).
+     * @param {Object} file - { base64, mimeType, fileName, sizeBytes }
+     */
+    async extractTimetable(file = {}) {
+        const profile = await this._loadProfile();
+        const subjects = (await this.academicEngine.getSubjects()) || [];
+        let preview;
+        try {
+            preview = await this.timetableImporter.extract({
+                ...file,
+                group: profile.groupe || DEFAULT_GROUP,
+                referenceDate: this._todayStr(),
+                subjects,
+                semesterId: profile.currentSemesterId || 'sem_s3_26'
+            });
+        } catch (err) {
+            throw App.explainGeminiFailure(err, "Lecture de l'emploi du temps impossible");
+        }
+        this.pendingTimetablePreview = preview;
+        return preview;
+    }
+
+    /** Aperçu recalculé pour un autre groupe (sans nouvel appel à Gemini). */
+    async changeTimetableGroup(preview, group) {
+        const subjects = (await this.academicEngine.getSubjects()) || [];
+        const updated = this.timetableImporter.selectGroup(preview, group, subjects);
+        this.pendingTimetablePreview = updated;
+        return updated;
+    }
+
+    /**
+     * Étape 2 : enregistrement des séances validées (cours verrouillés, hors Focus), avancement, profil.
+     * @param {Object} preview
+     * @param {Object} choices - { rows: [{ id, include, subjectId }] }
+     */
+    async applyTimetableImport(preview, choices = {}) {
+        const res = await this.timetableImporter.apply(preview || this.pendingTimetablePreview, choices);
+        if (!res || !res.success) {
+            const err = new Error((res && res.reason) || "Import refusé.");
+            err.result = res;
+            throw err;
+        }
+        this.pendingTimetablePreview = null;
+        if (this.state) {
+            // Le planning affiche la semaine importée (utile le dimanche, quand on importe la semaine suivante)
+            this.state.selectedDate = res.weekStart > this._todayStr() ? res.weekStart : null;
+            if (this.state.userProfile) this.state.userProfile = { ...this.state.userProfile, groupe: preview.group };
+        }
+        await this.refreshCourseProgress();
+        try { await this._announceTimetableImport(res); } catch (e) { AppLogger.error("Message d'import: " + e.message); }
+        return res;
+    }
+
+    /**
+     * Après un import validé : le coach confirme dans le chat ce qu'il a reçu (cours, avancement) et
+     * clôt le rappel « emploi du temps à importer » de cette semaine.
+     */
+    async _announceTimetableImport(res) {
+        if (!res || !res.weekStart || !this.chatHistoryEngine || typeof this.chatHistoryEngine.saveMessage !== 'function') return;
+        const [, m, d] = String(res.weekStart).split('-');
+        const today = this._todayStr();
+        const cp = (this.state && this.state.courseProgress) || { items: [], upcomingSessions: [] };
+        const next = (cp.upcomingSessions || []).find(s => s.date >= today);
+        const progress = (cp.items || []).filter(it => it.hoursTotal && it.subjectId).slice(0, 4)
+            .map(it => `${it.subjectName || it.title} ${it.hoursDone} h/${it.hoursTotal} h`);
+        const parts = [`Bien reçu : emploi du temps de la semaine du ${d}/${m}, ${res.count} cours ajoutés à ton planning.`];
+        if (next) parts.push(`Prochain cours : ${next.title} ${next.date === today ? "aujourd'hui" : this._frDate(next.date)} à ${next.startTime}.`);
+        if (progress.length) parts.push(`Avancement : ${progress.join(' ; ')}.`);
+        parts.push("Dis-moi dès que tu connais la date d'un examen (ex. « examen de Structures algébriques le 15/10 »).");
+        await this._sayCoach(parts.join('\n'), { intent: null, proactive: 'timetable_imported' });
+        const nudges = await this._loadNudges();
+        const key = `timetable_${res.weekStart}`;
+        nudges[key] = { ...(nudges[key] || {}), done: true, lastAsked: today };
+        await this.storage.saveData('coach_nudges', nudges);
+    }
+
+    _daysBetween(fromStr, toStr) {
+        return Math.round((parseLocalDate(toStr) - parseLocalDate(fromStr)) / 86400000);
+    }
+
+    _frDate(dateStr) {
+        const d = parseLocalDate(dateStr);
+        return isNaN(d) ? dateStr : d.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' });
+    }
+
+    _subjectMatcher(subjects) {
+        const semesterId = (this.state && this.state.userProfile && this.state.userProfile.currentSemesterId) || 'sem_s3_26';
+        return new SubjectMatcher(subjects, { semesterId });
+    }
+
+    async _sayCoach(content, metadata = {}) {
+        return this.chatHistoryEngine.saveMessage({ role: 'assistant', content, conversationId: 'default', metadata });
+    }
+
+    /**
+     * Propose les séances de révision manquantes avant une évaluation (créneaux calculés par PlanningAI,
+     * question « on décide ensemble » si seul un créneau sur un événement flexible existe) et les écrit dans le chat.
+     * @returns {Promise<Object>} { target, proposed, planned: [...recs] }
+     */
+    async proposeRevisionSessions(assessment, { intro = null } = {}) {
+        const today = this._todayStr();
+        const subjects = (await this.academicEngine.getSubjects()) || [];
+        const subject = subjects.find(s => s.id === assessment.subjectId) || null;
+        await this.refreshCourseProgress();
+        const progress = (this.state.courseProgress && this.state.courseProgress.bySubject && this.state.courseProgress.bySubject[assessment.subjectId]) || null;
+        const daysRemaining = this._daysBetween(today, assessment.targetDate);
+        const alreadyPlanned = ((await this.planningEngine.getEventsForAssessment(assessment.id)) || [])
+            .filter(e => e.type === 'revision' && e.date >= today && e.date <= assessment.targetDate).length;
+        const { recs, target } = ExamRevisionPlanner.buildRecommendations({
+            assessment, subjectName: subject ? subject.name : '', progress, daysRemaining, alreadyPlanned
+        });
+        if (intro) await this._sayCoach(intro, { intent: null });
+        if (recs.length === 0) return { target, proposed: 0, planned: [], alreadyPlanned };
+        const data = await this.buildCoachContext({ useLLM: false });
+        const planning = CoachContextBuilder.build(data).planning;
+        const planned = await this.coachEngine.planningAI.plan(recs, planning);
+        for (const rec of planned) {
+            await this._sayCoach(rec.message, { intent: rec.intent || null, flexibleConflict: rec.flexibleConflict || null });
+        }
+        return { target, proposed: planned.filter(r => r.intent || r.flexibleConflict).length, planned, alreadyPlanned };
+    }
+
+    /**
+     * « j'ai examen de X le 15/10 » : évaluation créée (ou retrouvée) pour la matière reconnue, examen ajouté au planning
+     * (événement verrouillé sans horaire), puis séances de révision proposées. Réponse écrite dans le chat.
+     */
+    async handleExamAnnouncement(parsed) {
+        const subjects = (await this.academicEngine.getSubjects()) || [];
+        const match = this._subjectMatcher(subjects).match(parsed.subjectPhrase, { short: true });
+        if (match.status === 'unmapped') {
+            return this._sayCoach(`Je n'ai pas reconnu la matière « ${parsed.subjectPhrase} ». Redis-moi son nom, par exemple : « examen de Structures algébriques le 15/10 ».`);
+        }
+        if (match.ambiguous) {
+            const names = [match.subjectName].concat(match.alternatives.map(a => a.subjectName)).filter((v, i, a) => v && a.indexOf(v) === i).slice(0, 3);
+            return this._sayCoach(`Tu parles de quelle matière : ${names.map(n => `« ${n} »`).join(' ou ')} ? Redis-moi la phrase avec le nom complet.`);
+        }
+        const subject = subjects.find(s => s.id === match.subjectId);
+        if (!parsed.date) {
+            return this._sayCoach(`C'est noté pour ${subject.name}. Quelle est la date de l'${parsed.type === 'Examen' ? 'examen' : 'évaluation'} ? Par exemple : « ${parsed.type.toLowerCase()} de ${parsed.subjectPhrase} le 15/10 ».`);
+        }
+
+        // Évaluation : on réutilise celle de la même matière à la même date (pas de doublon si elle est annoncée deux fois)
+        const assessments = (await this.academicEngine.getAssessments()) || [];
+        let assessment = assessments.find(a => a.subjectId === subject.id && a.targetDate === parsed.date);
+        if (!assessment) {
+            assessment = {
+                id: `ass_chat_${subject.id}_${parsed.date}_${Math.floor(Math.random() * 1000)}`,
+                subjectId: subject.id,
+                title: `${parsed.type} — ${subject.name}`,
+                type: parsed.type,
+                weight: 1,
+                maxScore: 20,
+                targetDate: parsed.date,
+                componentCode: match.componentCode || null,
+                source: 'chat'
+            };
+            await this.academicEngine.saveAssessment(assessment);
+        }
+        // Examen visible dans le planning (« À venir ») : événement verrouillé, sans horaire, écrit par le moteur
+        const examEvents = (await this.planningEngine.getEventsForAssessment(assessment.id)) || [];
+        if (!examEvents.some(e => e.type === 'exam')) {
+            await this.planningEngine.executeIntent(new PlanningIntent({
+                action: 'create', target: 'event', constraints: { date: parsed.date },
+                payload: { title: assessment.title, type: 'exam', lockStatus: 'locked', priority: 'high', subjectId: subject.id, assessmentId: assessment.id, source: 'chat' }
+            }));
+        }
+        await this.refreshAcademicSubjects();
+
+        const today = this._todayStr();
+        const days = this._daysBetween(today, parsed.date);
+        if (days < 0) {
+            return this._sayCoach(`J'ai enregistré ${assessment.title} le ${this._frDate(parsed.date)}, mais cette date est passée. As-tu des notes à me donner pour ${subject.name} ? Réponds-moi ici (ex. « 14/20 »).`,
+                { intent: null, gradeRequest: { key: `ass_${assessment.id}`, kind: 'past_assessment', assessmentId: assessment.id, subjectId: subject.id, label: subject.name } });
+        }
+        await this.refreshCourseProgress();
+        const progress = (this.state.courseProgress.bySubject || {})[subject.id] || null;
+        const when = days === 0 ? "aujourd'hui" : (days === 1 ? 'demain' : `dans ${days} jours`);
+        const target = ExamRevisionPlanner.target({ daysRemaining: days, progress });
+        const defaultWindows = !!this.planningEngine.defaultStudyWindow && ((await this.planningEngine.getAvailabilityWindows()) || []).length === 0;
+        let intro = `C'est noté : ${assessment.title} le ${this._frDate(parsed.date)} (${when}). ${ExamRevisionPlanner.progressText(progress)}`;
+        if (days >= 1) {
+            intro += ` Je te propose ${target.sessions} séance${target.sessions > 1 ? 's' : ''} de révision de ${target.duration} min avant l'examen, et je te le rappellerai chaque jour d'ici là.`;
+            if (defaultWindows) intro += ` (Tu n'as pas encore saisi de disponibilités : je me base sur ${this.planningEngine.defaultStudyWindow.startTime}-${this.planningEngine.defaultStudyWindow.endTime}, en dehors de tes cours.)`;
+        } else {
+            intro += ` Courage ! Dis-moi ta note quand tu l'auras (ex. « 14/20 »).`;
+            return this._sayCoach(intro, { intent: null });
+        }
+        return this.proposeRevisionSessions(assessment, { intro });
+    }
+
+    /** Question « notes à donner » encore ouverte : portée par le dernier tour de parole du coach. */
+    async _findPendingGradeRequests() {
+        if (!this.chatHistoryEngine || typeof this.chatHistoryEngine.getRecentMessages !== 'function') return [];
+        const recent = await this.chatHistoryEngine.getRecentMessages('default', 40);
+        let i = recent.length - 1;
+        if (i >= 0 && recent[i].role === 'user') i--;
+        const requests = [];
+        while (i >= 0 && recent[i].role === 'assistant') {
+            const md = recent[i].metadata || {};
+            if (md.gradeRequest) requests.unshift(md.gradeRequest);
+            if (Array.isArray(md.gradeRequests)) requests.unshift(...md.gradeRequests);
+            i--;
+        }
+        const seen = new Set();
+        return requests.filter(r => r && r.key && !seen.has(r.key) && seen.add(r.key));
+    }
+
+    /**
+     * Enregistre une note donnée dans le chat pour une demande du coach (évaluation passée ou cours terminé).
+     * Cours terminé sans évaluation : une évaluation « Note — X » (poids 1) est créée à la date du jour.
+     * La note est ramenée sur le barème de l'évaluation ; la note de la matière se met à jour (moyenne des évaluations).
+     */
+    async recordGradeFromChat(request, { score, max = 20 }) {
+        const assessments = (await this.academicEngine.getAssessments()) || [];
+        let assessment = request.assessmentId ? assessments.find(a => a.id === request.assessmentId) : null;
+        if (!assessment) {
+            assessment = {
+                id: `ass_grade_${request.subjectId}_${Date.now()}`,
+                subjectId: request.subjectId,
+                title: `Note — ${request.label}`,
+                type: 'Examen',
+                weight: 1,
+                maxScore: max,
+                targetDate: this._todayStr(),
+                componentCode: request.componentCode || null,
+                source: 'chat'
+            };
+            await this.academicEngine.saveAssessment(assessment);
+        }
+        const assMax = Number(assessment.maxScore) || 20;
+        const value = Math.round((Number(score) * assMax / (Number(max) || assMax)) * 100) / 100;
+        await this.saveAssessmentGrade({ assessmentId: assessment.id, score: value, isFinal: true, dateEarned: this._todayStr() });
+        await this._markNudge(request.key, { done: true });
+        const subject = (this.state.academicSubjects || []).find(s => s.id === assessment.subjectId);
+        let avgTxt = '';
+        if (subject) {
+            if (subject.gradeStatus === 'complete' && subject.grade !== null) avgTxt = ` Note de ${subject.name} : ${subject.grade}/20.`;
+            else if (subject.provisionalGrade !== null && subject.provisionalGrade !== undefined) {
+                avgTxt = ` Moyenne provisoire de ${subject.name} : ${subject.provisionalGrade}/20 (${subject.gradedAssessments}/${subject.totalAssessments} évaluation${subject.totalAssessments > 1 ? 's' : ''} notée${subject.gradedAssessments > 1 ? 's' : ''}).`;
+            }
+        }
+        await this._sayCoach(`Merci ! J'ai enregistré ${score}/${max} pour ${request.label}.${avgTxt}`, { intent: null });
+        return { assessment, score: value };
+    }
+
+    async _loadNudges() {
+        const n = await this.storage.loadData('coach_nudges');
+        return (n && typeof n === 'object' && !Array.isArray(n)) ? n : {};
+    }
+
+    async _markNudge(key, fields) {
+        if (!key) return;
+        const nudges = await this._loadNudges();
+        nudges[key] = { ...(nudges[key] || {}), ...fields };
+        await this.storage.saveData('coach_nudges', nudges);
+    }
+
+    /**
+     * Messages du chat qui pilotent la boucle académique, traités par règles (sans LLM) :
+     * réponse à une demande de notes, annonce d'examen, note donnée spontanément.
+     * @returns {Promise<boolean>} true si le message a été traité
+     */
+    async _handleAcademicChat(text) {
+        // --- INTERCEPTION DU CHECK-IN ---
+        if (this.chatHistoryEngine && typeof this.chatHistoryEngine.getRecentMessages === 'function') {
+            const recentMsgs = await this.chatHistoryEngine.getRecentMessages('default', 5);
+            const lastCoach = recentMsgs.slice().reverse().find(m => m.role === 'assistant');
+            if (lastCoach && lastCoach.metadata && lastCoach.metadata.pendingCheckIn) {
+                let mood = 'medium';
+                let energy = 'medium';
+                let motivation = 'medium';
+                const t = text.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+                
+                if (/(top|super|bien|excellent|heureu|genial)/.test(t)) mood = 'high';
+                if (/(triste|deprime|mauvais|bof|pas ouf|mal)/.test(t)) mood = 'low';
+                
+                if (/(fatigue|epuise|hs|faible|ko)/.test(t)) energy = 'low';
+                if (/(en forme|plein d energie|petard|frais)/.test(t)) energy = 'high';
+                
+                if (/(tres motive|a fond|determine|chaud)/.test(t)) motivation = 'high';
+                if (/(demotive|pas envie|flemme)/.test(t)) motivation = 'low';
+                
+                await this.checkInEngine.saveCheckIn({
+                    date: this._todayStr(),
+                    mood,
+                    energy,
+                    motivation,
+                    notes: text
+                });
+                
+                let coachResponse = `Check-in enregistré : humeur ${mood}, énergie ${energy}, motivation ${motivation}.`;
+
+                if (energy === 'low' || mood === 'low') {
+                    coachResponse += ` Ton niveau est bas aujourd'hui. Veux-tu que j'allège ton planning d'aujourd'hui (réduction des séances, priorité aux examens) ? (réponds "oui" pour accepter, "non" pour garder le plan)`;
+                    await this._sayCoach(coachResponse, { intent: null, pendingLightenPlan: true });
+                } else {
+                    coachResponse += ` On garde le cap !`;
+                    await this._sayCoach(coachResponse, { intent: null });
+                }
+                return true;
+            }
+
+            if (lastCoach && lastCoach.metadata && lastCoach.metadata.pendingLightenPlan) {
+                const t = text.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+                if (/(oui|ouais|ok|vas y|allez|accepte|all[eé]ge|d accord|daccord|dac|ca marche|parfait)/.test(t)) {
+                    const res = await this.planningEngine.lightenDailyPlan(this._todayStr());
+                    await this._sayCoach(`C'est fait ! J'ai allégé ton planning (${res.removedCount} séance(s) retirée(s), ${res.shortenedCount} raccourcie(s)). Pense à rafraîchir ou recharger la vue.`, { intent: null });
+                } else {
+                    await this._sayCoach(`D'accord, on garde le planning tel quel. Courage pour aujourd'hui !`, { intent: null });
+                }
+                return true;
+            }
+        }
+        // --- FIN INTERCEPTION CHECK-IN ---
+
+        const pending = await this._findPendingGradeRequests();
+        const answer = parseGradeAnswer(text);
+        const statement = parseGradeStatement(text);
+        const subjects = (await this.academicEngine.getSubjects()) || [];
+
+        if (pending.length > 0) {
+            if (!answer && !statement && isNotYetAnswer(text)) {
+                const until = this.getPedagogicalDate(new Date(this.clock().getTime() + GRADE_REASK_DAYS * 86400000));
+                for (const r of pending) await this._markNudge(r.key, { snoozedUntil: until });
+                await this._sayCoach(`D'accord, je te redemanderai dans ${GRADE_REASK_DAYS} jours.`, { intent: null });
+                return true;
+            }
+            if (statement) {
+                const m = this._subjectMatcher(subjects).match(statement.subjectPhrase, { short: true });
+                const req = m.subjectId ? pending.find(r => r.subjectId === m.subjectId) : null;
+                if (req) { await this.recordGradeFromChat(req, statement); return true; }
+            }
+            if (answer && !statement) {
+                if (pending.length === 1) { await this.recordGradeFromChat(pending[0], answer); return true; }
+                await this._sayCoach(`Pour quelle matière ? ${pending.map(r => `« ${r.label} »`).join(', ')}. Réponds par exemple « ${answer.score}/${answer.max} en ${pending[0].label} ».`,
+                    { intent: null, gradeRequests: pending });
+                return true;
+            }
+        }
+
+        const exam = parseExamAnnouncement(text, this.clock());
+        if (exam) {
+            await this.handleExamAnnouncement(exam);
+            return true;
+        }
+
+        if (statement) {
+            const m = this._subjectMatcher(subjects).match(statement.subjectPhrase, { short: true });
+            if (m.subjectId && !m.ambiguous) {
+                const today = this._todayStr();
+                const grades = (await this.academicEngine.getGrades()) || [];
+                const open = ((await this.academicEngine.getAssessments()) || [])
+                    .filter(a => a.subjectId === m.subjectId && !grades.some(g => g.assessmentId === a.id && g.isFinal))
+                    .sort((a, b) => String(b.targetDate || '').localeCompare(String(a.targetDate || '')));
+                const target = open.find(a => !a.targetDate || String(a.targetDate) <= today) || null;
+                const subject = subjects.find(s => s.id === m.subjectId);
+                await this.recordGradeFromChat({
+                    key: target ? `ass_${target.id}` : null, kind: target ? 'past_assessment' : 'finished_course',
+                    assessmentId: target ? target.id : null, subjectId: m.subjectId, componentCode: m.componentCode || null,
+                    label: subject ? subject.name : statement.subjectPhrase
+                }, statement);
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Messages proactifs du coach, au plus une fois par jour et par sujet (clé de stockage 'coach_nudges') :
+     *  - emploi du temps de la semaine à importer (le dimanche : semaine suivante) ;
+     *  - rappel de chaque évaluation à venir (≤ 14 jours) jusqu'au jour J, avec proposition des révisions manquantes ;
+     *  - « As-tu des notes à me donner pour X ? » (évaluation passée sans note, cours terminé), redemandé tous les 3 jours.
+     * @returns {Promise<number>} nombre de messages ajoutés
+     */
+    async syncProactiveCoachMessages(now = this.clock()) {
+        if (!this.chatHistoryEngine || typeof this.chatHistoryEngine.saveMessage !== 'function' || !this.academicEngine
+            || typeof this.academicEngine.getAssessments !== 'function') return 0;
+        const today = this._todayStr(now);
+        const nudges = await this._loadNudges();
+        const posted = [];
+        const due = (key, everyDays = 1) => {
+            const n = nudges[key] || {};
+            if (n.done) return false;
+            if (n.snoozedUntil && n.snoozedUntil > today) return false;
+            return !n.lastAsked || this._daysBetween(n.lastAsked, today) >= everyDays;
+        };
+        const mark = (key) => { nudges[key] = { ...(nudges[key] || {}), lastAsked: today }; posted.push(key); };
+
+        await this.refreshCourseProgress(now);
+
+        // --- NUDGE CHECK-IN ---
+        const keyCheckIn = `checkin_${today}`;
+        if (due(keyCheckIn)) {
+            const checkins = await this.storage.loadData('daily_checkins') || {};
+            if (!checkins[today]) {
+                await this._sayCoach(`Bonjour ! Comment te sens-tu aujourd'hui pour travailler ? (Dis-moi ton humeur, ton énergie et ta motivation, ex: "humeur au top, énergie moyenne, très motivé").`, { intent: null, proactive: 'checkin', pendingCheckIn: true });
+            }
+            mark(keyCheckIn);
+        }
+        // --- FIN NUDGE CHECK-IN ---
+
+        const tt = this.state.timetableStatus;
+        if (tt && tt.needsImport) {
+            const key = `timetable_${tt.targetWeekStart}`;
+            if (due(key)) {
+                const [, m, d] = tt.targetWeekStart.split('-');
+                await this._sayCoach(tt.isSunday
+                    ? `C'est dimanche ! Envoie-moi l'emploi du temps de la semaine du ${d}/${m} : Planning → « Importer l'emploi du temps (PDF) ».`
+                    : `Je n'ai pas encore l'emploi du temps de cette semaine (du ${d}/${m}). Importe-le depuis Planning → « Importer l'emploi du temps (PDF) » pour que je suive l'avancement de tes cours.`,
+                    { intent: null, proactive: 'timetable' });
+                mark(key);
+            }
+        }
+
+        const subjects = (await this.academicEngine.getSubjects()) || [];
+        const grades = (await this.academicEngine.getGrades()) || [];
+        const upcoming = ((await this.academicEngine.getAssessments()) || [])
+            .filter(a => a && a.targetDate && String(a.targetDate) >= today && this._daysBetween(today, a.targetDate) <= 14
+                && !grades.some(g => g.assessmentId === a.id && g.isFinal))
+            .sort((a, b) => String(a.targetDate).localeCompare(String(b.targetDate)));
+        for (const a of upcoming) {
+            const key = `exam_${a.id}`;
+            if (!due(key)) continue;
+            mark(key);
+            const subject = subjects.find(s => s.id === a.subjectId);
+            const days = this._daysBetween(today, a.targetDate);
+            const when = days === 0 ? "aujourd'hui" : (days === 1 ? 'demain' : `dans ${days} jours`);
+            const progress = (this.state.courseProgress.bySubject || {})[a.subjectId] || null;
+            const planned = ((await this.planningEngine.getEventsForAssessment(a.id)) || []).filter(e => e.type === 'revision' && e.date >= today && e.date <= a.targetDate).length;
+            const target = ExamRevisionPlanner.target({ daysRemaining: days, progress });
+            const intro = `Rappel : ${a.title} ${when} (${this._frDate(a.targetDate)}). ${ExamRevisionPlanner.progressText(progress)} Révisions planifiées d'ici là : ${planned}/${target.sessions}.`;
+            if (days >= 1 && planned < target.sessions) await this.proposeRevisionSessions(a, { intro });
+            else await this._sayCoach(days === 0 ? `${intro} Bon courage pour aujourd'hui !` : intro, { intent: null, proactive: 'exam' });
+        }
+
+        for (const r of await this.computeGradeRequests(now)) {
+            if (!due(r.key, GRADE_REASK_DAYS)) continue;
+            mark(r.key);
+            const why = r.kind === 'finished_course' ? `Le cours ${r.label} est terminé d'après ton emploi du temps.` : `${r.title} (${this._frDate(r.targetDate)}) est passé.`;
+            await this._sayCoach(`${why} As-tu des notes à me donner pour ${r.label} ? Réponds-moi ici (ex. « 14/20 »), ou « pas encore ».`,
+                { intent: null, proactive: 'grade', gradeRequest: r });
+        }
+
+        if (posted.length > 0) {
+            // relecture : proposeRevisionSessions a pu écrire d'autres clés entre-temps
+            const fresh = await this._loadNudges();
+            for (const k of posted) fresh[k] = { ...(fresh[k] || {}), ...nudges[k] };
+            await this.storage.saveData('coach_nudges', fresh);
+        }
+        return posted.length;
+    }
+    
+    async refreshUserStats() {
+        const dToday = new Date();
+        const localDate = this.getPedagogicalDate(dToday);
+        // Semaine affichée après un import du dimanche : on revient à la semaine courante une fois celle-ci passée
+        if (this.state.selectedDate && this.state.selectedDate < TimetableImportEngine.mondayOf(dToday)) this.state.selectedDate = null;
+
+        await this.refreshDailyPlan(localDate);
+        this.state.dailyStats = await this.studyRecordEngine.getDailyStats(localDate);
+        this.state.dailySummary = await this.checkInEngine.buildDailySummary(localDate);
+        this.state.todayCheckIn = await this.checkInEngine.getCheckIn(localDate);
+        
+        const loadedProfile = await this.storage.loadData('user_profile');
+        const defaultProfile = { 
+            streak: 1, 
+            lastActive: null,
+            name: "Étudiant",
+            formation: null,
+            niveau: null,
+            groupe: null,
+            currentSemesterId: 'sem_s3_26' // Changed to load seeded S3 data
+        };
+        // Fusion : un profil partiel (ex: créé par StudyRecordEngine avec seulement streak/lastActive)
+        // ne doit pas faire disparaître le semestre courant ni le nom.
+        this.state.userProfile = { ...defaultProfile, ...(loadedProfile || {}) };
+        this.state.fullHistory = await this.studyRecordEngine.getFullHistory();
+        
+        // Charger les données du graphe d'apprentissage pour les widgets du dashboard
+        if (this.learningGraphEngine) {
+            this.state.learningGraph = { nodes: await this.learningGraphEngine.evaluateGraph() };
+        }
+        
+        // Les insights et alertes académiques seront ajoutés via CoachAI.
+        // systemHealth est déprécié.
+        const dTodayLocal = parseLocalDate(localDate);
+        this.state.monthlyReport = await this.studyRecordEngine.getMonthlyStats(dTodayLocal.getFullYear(), dTodayLocal.getMonth());
+        this.state.allCheckins = await this.storage.loadData('daily_checkins') || {};
+        
+        // Données pour le Bureau (Desktop) et Espace Académique
+        const semesterId = this.state.userProfile.currentSemesterId || null;
+        this.state.academicSummary = semesterId ? await this.academicEngine.getSemesterSummary(semesterId, localDate) : null;
+        await this.refreshAcademicSubjects();
+
+        // Activité réelle transmise au coach (bilans, exécution du jour, régularité)
+        this.state.analytics = {
+            streak: this.state.userProfile?.streak || 0,
+            today: this.state.dailySummary?.execution || null,
+            todayPlannedMinutes: this.state.dailySummary?.planned?.minutes || 0,
+            todayActualMinutes: this.state.dailySummary?.actual?.minutes || 0,
+            todayCheckIn: this.state.todayCheckIn ? {
+                energy: this.state.todayCheckIn.energy,
+                blockers: this.state.todayCheckIn.blockers,
+                dayAssessment: this.state.todayCheckIn.dayAssessment
+            } : null,
+            month: this.state.monthlyReport ? {
+                totalHours: this.state.monthlyReport.totalHours,
+                daysActive: this.state.monthlyReport.daysActive,
+                proofsGenerated: this.state.monthlyReport.proofsGenerated
+            } : null
         };
 
-        this.state.coachInsights = await this.coachEngine.getInsights(coachContextData);
+        // Règles déterministes uniquement : pas d'appel LLM à chaque rafraîchissement (latence + coût).
+        const coachContextData = await this.buildCoachContext({ useLLM: false });
+        const insights = (await this.coachEngine.getInsights(coachContextData)) || [];
+        // Dernier conseil LLM obtenu à la demande (chat), réaffiché sans nouvel appel le même jour
+        if (this.llmAdviceCache && this.llmAdviceCache.date === localDate && Array.isArray(insights)) {
+            insights.push({ ...this.llmAdviceCache.rec, intent: null, actionable: false, title: "Dernier conseil de l'IA" });
+        }
+        this.state.coachInsights = insights;
         this.state.todayEvents = await this.planningEngine.getEventsForDate(localDate);
         await this.refreshCalendarData();
     }
 
-    async acceptCoachSuggestion(intent) {
-        if (!intent) return;
+    /**
+     * Applique une proposition du coach.
+     * @param {Object} intent
+     * @param {Object} [options] - transmis à PlanningEngine.executeIntent : { allowFlexibleOverlap,
+     *   flexibleResolution: 'keep'|'move'|'replace', confirmedFlexibleIds } (confirmation d'un chevauchement
+     *   avec un événement flexible). Sans options, tout chevauchement est refusé.
+     * @returns {Promise<Object>} le résultat ({ success: true, ... })
+     * @throws {Error} si le moteur refuse (conflit, référence manquante…) : l'interface affiche l'erreur.
+     *   err.result contient la réponse complète du moteur (ex: needsConfirmation, overlappingFlexible).
+     */
+    async acceptCoachSuggestion(intent, options = {}) {
+        if (!intent) return null;
         
+        let result = { success: true };
         if (intent.action === 'save_checkin') {
-            if (this.checkInEngine) {
-                // Ensure the date is injected if missing
-                const payload = intent.payload || {};
-                payload.date = payload.date || this.getPedagogicalDate();
-                await this.checkInEngine.saveCheckIn(payload);
-            }
+            if (!this.checkInEngine) throw new Error("Le moteur de bilan n'est pas disponible.");
+            // Ensure the date is injected if missing
+            const payload = { ...(intent.payload || {}) };
+            payload.date = payload.date || this.getPedagogicalDate();
+            const checkIn = await this.checkInEngine.saveCheckIn(payload);
+            result = { success: true, checkIn };
         } else if (this.planningEngine) {
-            await this.planningEngine.executeIntent(intent);
+            const execResult = await this.planningEngine.executeIntent(intent, { now: new Date(), ...options });
+            if (execResult && execResult.success === false) {
+                const err = new Error(execResult.reason || "Planification refusée par le moteur.");
+                err.result = execResult;
+                throw err;
+            }
+            result = execResult || { success: true };
         }
         
         await this.refreshCalendarData();
         await this.refreshUserStats();
+        return result;
     }
     
+    /**
+     * Mise à jour d'une matière depuis la vue Académique (champs autorisés : name, code, cect).
+     */
+    async updateSubject(subjectId, fields = {}) {
+        const subjects = await this.academicEngine.getSubjects();
+        const subject = subjects.find(s => s.id === subjectId);
+        if (!subject) throw new Error('Matière introuvable');
+        const updated = { ...subject };
+        if (typeof fields.name === 'string' && fields.name.trim()) updated.name = fields.name.trim();
+        if (typeof fields.code === 'string') updated.code = fields.code.trim();
+        if (Number.isFinite(fields.cect) && fields.cect >= 0) updated.cect = fields.cect;
+        await this.academicEngine.saveSubject(updated);
+        await this.refreshAcademicSubjects();
+        await this.renderView('academic');
+        return updated;
+    }
+
+    /**
+     * Matières enrichies de leur note, calculée par AcademicEngine à partir des notes de leurs évaluations
+     * (moyenne pondérée par les poids des évaluations, sinon moyenne simple).
+     *  - grade : note de la matière, seulement quand TOUTES ses évaluations sont notées (affichée par la vue)
+     *  - provisionalGrade : moyenne des évaluations déjà notées (en cours de semestre)
+     *  - gradeStatus : 'complete' | 'partial' | 'no_grades' | 'no_assessments'
+     * Les champs calculés ne sont jamais réenregistrés dans acad_subjects.
+     */
+    async refreshAcademicSubjects() {
+        if (!this.academicEngine || typeof this.academicEngine.getSubjects !== 'function') return this.state.academicSubjects;
+        const subjects = await this.academicEngine.getSubjects();
+        const enriched = [];
+        for (const s of subjects) {
+            let avg = null;
+            try {
+                avg = typeof this.academicEngine.getSubjectAverage === 'function' ? await this.academicEngine.getSubjectAverage(s.id) : null;
+            } catch (e) { avg = null; }
+            enriched.push({
+                ...s,
+                grade: avg && avg.status === 'complete' ? avg.average : null,
+                provisionalGrade: avg ? avg.average : null,
+                gradeStatus: avg ? avg.status : null,
+                gradeMethod: avg ? avg.method || null : null,
+                gradedAssessments: avg ? avg.gradedCount || 0 : 0,
+                totalAssessments: avg ? avg.assessmentCount || 0 : 0
+            });
+        }
+        this.state.academicSubjects = enriched;
+        return enriched;
+    }
+
+    /**
+     * Enregistre la note d'UNE évaluation (modèle par évaluation : la note de la matière en est déduite).
+     * @param {Object} params - { assessmentId, score, isFinal = true, attemptNumber, feedback, dateEarned }
+     *   score est exprimé sur le maxScore de l'évaluation. Une nouvelle note finale remplace la précédente
+     *   (l'ancienne reste dans l'historique, marquée non finale).
+     */
+    async saveAssessmentGrade({ assessmentId, score, isFinal = true, attemptNumber = null, feedback = '', dateEarned = null } = {}) {
+        const assessments = await this.academicEngine.getAssessments();
+        const assessment = assessments.find(a => a.id === assessmentId);
+        if (!assessment) throw new Error('Évaluation introuvable');
+        const value = Number(score);
+        const max = Number(assessment.maxScore) || 20;
+        if (!Number.isFinite(value) || value < 0 || value > max) throw new Error(`Note invalide (0 à ${max})`);
+
+        const existing = (await this.academicEngine.getGrades()).filter(g => g.assessmentId === assessmentId);
+        if (isFinal) {
+            for (const g of existing.filter(g => g.isFinal)) {
+                await this.academicEngine.saveGrade({ ...g, isFinal: false });
+            }
+        }
+        const grade = new Grade(`gr_${Date.now()}_${Math.floor(Math.random() * 1000)}`, assessmentId, value,
+            attemptNumber || existing.length + 1, !!isFinal, feedback || '', dateEarned);
+        await this.academicEngine.saveGrade({ ...grade });
+        await this.refreshAcademicSubjects();
+        return grade;
+    }
+
+    /**
+     * Sauvegarde complète : toutes les clés du stockage (planning, académique, bilans, chat…).
+     * La vue Portfolio ne lit plus le stockage elle-même.
+     */
+    async exportAllData() {
+        const storage = this.storage;
+        const dbKeys = typeof storage.getAllKeys === 'function'
+            ? await storage.getAllKeys()
+            : ['study_history', 'user_profile', 'daily_checkins', 'events', 'availabilities', 'academic_schedule',
+               'acad_years', 'acad_semesters', 'acad_subjects', 'acad_assessments', 'acad_grades',
+               'projects', 'user_habits', 'user_skills', 'chat_history', 'weekly_reviews'];
+        const exportData = { _meta: { app: 'coach_procrastination', format: 1, exportedAt: new Date().toISOString() } };
+        for (const key of dbKeys) {
+            const value = await storage.loadData(key);
+            if (value !== null && value !== undefined) exportData[key] = value;
+        }
+        return exportData;
+    }
+
+    /**
+     * Restaure une sauvegarde après validation minimale (objet JSON, clés simples, au moins une donnée connue).
+     * Lève Error('format') si le fichier n'est pas une sauvegarde de l'app. Retourne le nombre de clés écrites.
+     */
+    async importAllData(importedData) {
+        if (!importedData || typeof importedData !== 'object' || Array.isArray(importedData)) {
+            throw new Error('format');
+        }
+        const keys = Object.keys(importedData).filter(k => k !== '_meta');
+        const knownKeys = ['study_history', 'user_profile', 'daily_checkins', 'events', 'availabilities', 'acad_subjects', 'acad_assessments', 'acad_grades', 'chat_history'];
+        if (keys.length === 0 || !keys.some(k => knownKeys.includes(k)) || keys.some(k => !/^[A-Za-z0-9_\-]+$/.test(k))) {
+            throw new Error('format');
+        }
+        for (const key of keys) {
+            await this.storage.saveData(key, importedData[key]);
+        }
+        // Sauvegarde antérieure au cursus officiel actuel (matières sans année à jour) : on réaligne les
+        // métadonnées officielles des matières (CECT, intitulés, enseignants) sans toucher aux notes ni aux liens.
+        const importedYear = Array.isArray(importedData.acad_years) ? importedData.acad_years.find(y => y && y.id === CURRICULUM_YEAR.id) : null;
+        if (keys.includes('acad_subjects') && !(importedYear && Number(importedYear.seedVersion) >= CURRICULUM_SEED_VERSION)) {
+            try {
+                await new AcademicSeeder(this.academicEngine).migrate({ force: true });
+            } catch (e) {
+                AppLogger.error("Migration du cursus après import impossible: " + e.message);
+            }
+        }
+        return keys.length;
+    }
+
     async refreshCalendarData() {
         // Charge toutes les données brutes pour le CalendarView (pas optimal pour 1000 events, mais ok pour la V1)
         this.state.calendarData.events = await this.planningEngine.getEvents();
@@ -208,45 +1002,45 @@ export class App {
     async saveCalendarEvent(eventData) {
         await this.planningEngine.saveEvent(eventData);
         await this.refreshCalendarData();
-        await this.refreshUserStats();
-        this.renderView('calendar');
+        await this.renderView('calendar');
     }
 
     async deleteCalendarEvent(eventId) {
         await this.planningEngine.deleteEvent(eventId);
         await this.refreshCalendarData();
-        await this.refreshUserStats();
-        this.renderView('calendar');
+        await this.renderView('calendar');
     }
 
     async saveCalendarAvailability(windowData) {
         await this.planningEngine.saveAvailabilityWindow(windowData);
         await this.refreshCalendarData();
-        await this.refreshUserStats();
-        this.renderView('calendar');
+        await this.renderView('calendar');
     }
 
     async deleteCalendarAvailability(windowId) {
         await this.planningEngine.deleteAvailabilityWindow(windowId);
         await this.refreshCalendarData();
-        await this.refreshUserStats();
-        this.renderView('calendar');
+        await this.renderView('calendar');
     }
 
     setupNavigation() {
-        document.querySelectorAll('#bottom-nav button[data-view]').forEach(btn => {
-            btn.addEventListener('click', (e) => {
-                const viewName = e.currentTarget.getAttribute('data-view');
-                this.renderView(viewName);
-            });
-        });
+        // Obsolete (bottom-nav was removed)
     }
     
-    async renderView(viewName) {
-        if (viewName === 'portfolio' || viewName === 'coach' || viewName === 'bilan' || viewName === 'desktop' || viewName === 'calendar' || viewName === 'academic' || viewName === 'weekly') {
+    /**
+     * Chemin de navigation unique (barres latérales, boutons) : rafraîchit l'état puis affiche la vue.
+     * @param {string} viewName
+     * @param {Object} options - { refresh: false } pour un simple réaffichage (ex: chat pendant l'envoi)
+     */
+    async renderView(viewName, options = {}) {
+        if (options.refresh !== false) {
             await this.refreshUserStats();
         }
         
+        if (viewName === 'chat' && options.refresh !== false) {
+            try { await this.syncProactiveCoachMessages(); } catch (e) { AppLogger.error("Messages du coach: " + e.message); }
+        }
+
         if (viewName === 'weekly') {
             const dToday = new Date();
             const endDate = this.getPedagogicalDate(dToday);
@@ -257,10 +1051,6 @@ export class App {
         }
         
         this.state.currentView = viewName;
-        document.querySelectorAll('#bottom-nav button[data-view]').forEach(b => b.classList.remove('active'));
-        
-        const activeBtn = document.querySelector(`#bottom-nav button[data-view="${viewName}"]`);
-        if (activeBtn) activeBtn.classList.add('active');
 
         // THEME MANAGEMENT
         if (typeof document !== 'undefined' && document.body && document.body.classList) {
@@ -389,12 +1179,61 @@ export class App {
             conversationId: 'default' // Pour l'instant une seule conversation
         });
         
-        // On demande à la vue de se rafraîchir pour afficher le message de l'user
-        this.renderView('chat');
-        
+        // On demande à la vue de se réafficher (sans recalcul) pour montrer le message de l'user
+        this.renderView('chat', { refresh: false });
+
+        // Réponse à une question du coach sur un chevauchement avec un événement flexible ?
         try {
-            // 2. Appel au Coach Orchestrator
-            const recommendations = await this.coachEngine.getInsights(this.state, text);
+            const pending = await this._findPendingFlexibleConflict();
+            const decision = pending ? detectFlexibleConflictAnswer(text) : null;
+            if (pending && decision) {
+                await this.resolveFlexibleConflict(pending, decision);
+                this.renderView('chat', { refresh: false });
+                return;
+            }
+        } catch (e) {
+            console.error(e);
+            await this.chatHistoryEngine.saveMessage({
+                role: 'assistant',
+                content: "Je n'ai pas pu appliquer ta réponse : " + e.message,
+                conversationId: 'default',
+                metadata: { error: true }
+            });
+            this.renderView('chat', { refresh: false });
+            return;
+        }
+        
+        // Boucle académique par règles : note demandée par le coach, annonce d'examen, note donnée spontanément
+        try {
+            if (this.academicEngine && typeof this.academicEngine.getAssessments === 'function' && await this._handleAcademicChat(text)) {
+                this.renderView('chat', { refresh: false });
+                return;
+            }
+        } catch (e) {
+            console.error(e);
+            await this.chatHistoryEngine.saveMessage({
+                role: 'assistant',
+                content: "Je n'ai pas pu traiter ce message : " + e.message,
+                conversationId: 'default',
+                metadata: { error: true }
+            });
+            this.renderView('chat', { refresh: false });
+            return;
+        }
+
+        try {
+            // 2. Contexte identique à celui du tableau de bord + mémoire courte de la conversation
+            let chatHistory = [];
+            if (this.chatHistoryEngine && typeof this.chatHistoryEngine.getRecentMessages === 'function') {
+                const recent = await this.chatHistoryEngine.getRecentMessages('default', 11);
+                chatHistory = recent.slice(0, -1).map(m => ({ role: m.role, content: m.content })); // sans le message courant
+            }
+            const coachContextData = await this.buildCoachContext({ useLLM: true, chatHistory });
+            const recommendations = await this.coachEngine.getInsights(coachContextData, text);
+
+            // Mise en cache du conseil LLM (réaffiché au rafraîchissement sans nouvel appel)
+            const llmRec = (recommendations || []).find(r => r && typeof r.id === 'string' && r.id.startsWith('coach_llm_'));
+            if (llmRec) this.llmAdviceCache = { rec: llmRec, date: coachContextData.currentDate };
             
             // 3. Traitement de la réponse
             if (!recommendations || recommendations.length === 0) {
@@ -404,12 +1243,34 @@ export class App {
                     conversationId: 'default'
                 });
             } else {
+                // Les créneaux libres sont regroupés en une seule bulle (au lieu d'une bulle par créneau),
+                // placée à l'endroit du premier créneau pour conserver l'ordre de priorité.
+                const slotRecs = recommendations.filter(r => r.title === 'Créneau de disponibilité');
+                let slotsEmitted = false;
                 for (const rec of recommendations) {
+                    if (rec.title === 'Créneau de disponibilité') {
+                        if (slotsEmitted) continue;
+                        slotsEmitted = true;
+                        const lines = slotRecs.slice(0, 5).map(r => {
+                            const ev = r.evidence || [];
+                            const get = (k) => (ev.find(x => String(x).startsWith(k + '=')) || '').split('=')[1] || '?';
+                            return `• ${get('date')} à ${get('startTime')} (${get('duration')} min)`;
+                        });
+                        const more = slotRecs.length > 5 ? `\n… et ${slotRecs.length - 5} autre(s).` : '';
+                        await this.chatHistoryEngine.saveMessage({
+                            role: 'assistant',
+                            content: `Créneaux libres repérés :\n${lines.join('\n')}${more}`,
+                            conversationId: 'default',
+                            metadata: { intent: null }
+                        });
+                        continue;
+                    }
                     await this.chatHistoryEngine.saveMessage({
                         role: 'assistant',
                         content: rec.message,
                         conversationId: 'default',
-                        metadata: { intent: rec.intent || null }
+                        // flexibleConflict : question en attente de réponse (pas de bouton, réponse dans le chat)
+                        metadata: { intent: rec.intent || null, flexibleConflict: rec.flexibleConflict || null }
                     });
                 }
             }
@@ -417,12 +1278,121 @@ export class App {
             console.error(e);
             await this.chatHistoryEngine.saveMessage({
                 role: 'assistant',
-                content: "Erreur lors de l'analyse : " + e.message,
-                conversationId: 'default'
+                content: "Je n'ai pas pu analyser ta demande (" + e.message + "). Réessaie dans un instant.",
+                conversationId: 'default',
+                metadata: { error: true }
             });
         }
         
-        // 4. Rafraîchissement final
-        this.renderView('chat');
+        // 4. Réaffichage final
+        this.renderView('chat', { refresh: false });
+    }
+
+    /**
+     * Question « chevauchement avec un événement flexible » encore ouverte : portée par un message du coach
+     * dans son DERNIER tour de parole (entre l'avant-dernier et le dernier message de l'utilisateur).
+     * Dès que le coach a répondu à autre chose, la question n'est plus en attente.
+     * @returns {Promise<Object|null>} le flexibleConflict en attente (le premier du tour s'il y en a plusieurs)
+     */
+    async _findPendingFlexibleConflict() {
+        if (!this.chatHistoryEngine || typeof this.chatHistoryEngine.getRecentMessages !== 'function') return null;
+        const recent = await this.chatHistoryEngine.getRecentMessages('default', 40);
+        let i = recent.length - 1;
+        if (i >= 0 && recent[i].role === 'user') i--; // le message qui vient d'être envoyé
+        const turn = [];
+        while (i >= 0 && recent[i].role === 'assistant') { turn.unshift(recent[i]); i--; }
+        const withConflict = turn.find(m => m.metadata && m.metadata.flexibleConflict && m.metadata.flexibleConflict.intent);
+        return withConflict ? withConflict.metadata.flexibleConflict : null;
+    }
+
+    _isSlotPast(constraints, now = new Date()) {
+        const today = this.getPedagogicalDate(now);
+        if (!constraints || !constraints.date) return true;
+        if (constraints.date < today) return true;
+        return constraints.date === today && constraints.startTime
+            && timeToMinutes(constraints.startTime) < now.getHours() * 60 + now.getMinutes();
+    }
+
+    /**
+     * Applique la décision de l'utilisateur sur un créneau qui chevauche un ou des événements flexibles,
+     * et répond dans le chat.
+     * @param {Object} conflict - metadata.flexibleConflict d'un message du coach
+     * @param {'keep'|'move'|'replace'|'other'} decision
+     */
+    async resolveFlexibleConflict(conflict, decision) {
+        const say = (content, metadata = {}) => this.chatHistoryEngine.saveMessage({ role: 'assistant', content, conversationId: 'default', metadata });
+        const slot = conflict.intent.constraints || {};
+        const flexible = conflict.overlappingFlexible || [];
+        const names = flexible.map(e => `« ${e.title} »`).join(', ');
+
+        if (decision === 'other') {
+            return this._replanFlexibleConflict(conflict, "D'accord, je cherche un autre créneau.");
+        }
+        if (this._isSlotPast(slot)) {
+            return this._replanFlexibleConflict(conflict, `Le créneau du ${slot.date} à ${slot.startTime} est déjà passé, je cherche un autre créneau.`);
+        }
+
+        let result;
+        try {
+            result = await this.acceptCoachSuggestion(new PlanningIntent(conflict.intent), {
+                flexibleResolution: decision,
+                confirmedFlexibleIds: flexible.map(e => e.id)
+            });
+        } catch (err) {
+            const res = err.result || {};
+            if (res.moveFailed) {
+                const failedNames = res.moveFailed.map(e => `« ${e.title} »`).join(', ');
+                return say(`Je n'ai trouvé aucun créneau libre pour déplacer ${failedNames} dans les 7 prochains jours. `
+                    + flexibleConflictChoices(flexible, { allowMove: false }), { intent: null, flexibleConflict: conflict });
+            }
+            if (res.needsConfirmation && Array.isArray(res.overlappingFlexible)) {
+                // Un autre événement flexible est apparu sur ce créneau entre-temps : on redemande
+                const updated = { ...conflict, overlappingFlexible: res.overlappingFlexible };
+                const candidate = { ...slot, overlappingFlexible: res.overlappingFlexible };
+                return say(`Ce créneau a changé depuis ma proposition. `
+                    + buildFlexibleConflictQuestion({ candidate, deadline: conflict.deadline, duration: conflict.duration || conflict.planningRequest?.duration || 60 })
+                        .replace(/^Je n'ai trouvé aucun créneau totalement libre[^.]*\. /, ''),
+                    { intent: null, flexibleConflict: updated });
+            }
+            return this._replanFlexibleConflict(conflict, `Je n'ai pas pu planifier ce créneau (${err.message}).`);
+        }
+
+        let msg = `C'est fait : « ${conflict.title} » est planifiée le ${slot.date} de ${slot.startTime} à ${slot.endTime}.`;
+        if (decision === 'move' && result && Array.isArray(result.moved)) {
+            msg += result.moved.map(m => ` « ${m.title} » est déplacé au ${m.to.date} de ${m.to.startTime} à ${m.to.endTime}.`).join('');
+        } else if (decision === 'replace') {
+            msg += ` ${names} ${flexible.length > 1 ? 'ont été retirés' : 'a été retiré'} de ton agenda.`;
+        } else {
+            msg += ` ${names} ${flexible.length > 1 ? 'restent' : 'reste'} en place (les deux se chevauchent).`;
+        }
+        return say(msg, { intent: null });
+    }
+
+    /**
+     * Cherche un autre créneau pour la même demande (créneaux refusés exclus) et répond dans le chat :
+     * créneau libre (bouton « Accepter »), nouvelle question, ou aucun créneau.
+     */
+    async _replanFlexibleConflict(conflict, prefix) {
+        const slot = conflict.intent.constraints || {};
+        const excludedSlots = (conflict.excludedSlots || []).concat([{ date: slot.date, startTime: slot.startTime, endTime: slot.endTime }]);
+        const data = await this.buildCoachContext({ useLLM: false });
+        const planning = CoachContextBuilder.build(data).planning;
+        planning.excludedSlots = excludedSlots;
+        const rec = {
+            id: `coach_replan_${Date.now()}`,
+            type: 'SUGGESTION',
+            title: conflict.title || 'Session',
+            message: prefix,
+            evidence: [],
+            actionable: true,
+            planningRequest: conflict.planningRequest
+        };
+        const [planned] = await this.coachEngine.planningAI.plan([rec], planning);
+        return this.chatHistoryEngine.saveMessage({
+            role: 'assistant',
+            content: planned.message,
+            conversationId: 'default',
+            metadata: { intent: planned.intent || null, flexibleConflict: planned.flexibleConflict || null }
+        });
     }
 }

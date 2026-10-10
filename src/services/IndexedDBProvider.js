@@ -55,6 +55,17 @@ export class IndexedDBProvider extends StorageProvider {
         });
     }
 
+    async getAllKeys() {
+        await this.initPromise;
+        return new Promise((resolve, reject) => {
+            const transaction = this.db.transaction(['keyvaluepairs'], 'readonly');
+            const store = transaction.objectStore('keyvaluepairs');
+            const request = store.getAllKeys();
+            request.onsuccess = () => resolve(request.result || []);
+            request.onerror = () => reject(request.error);
+        });
+    }
+
     async clearData(key) {
         await this.initPromise;
         return new Promise((resolve, reject) => {

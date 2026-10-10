@@ -10,7 +10,7 @@ export class LLMDecision {
             throw new Error(`LLMDecision invalide: Version non supportée (${data.version}).`);
         }
 
-        if (data.type !== "recommendation" && data.type !== "planning_intent") {
+        if (data.type !== "recommendation" && data.type !== "planning_intent" && data.type !== "checkin_intent") {
             throw new Error(`LLMDecision invalide: Type inconnu (${data.type}).`);
         }
 
@@ -34,7 +34,8 @@ export class LLMDecision {
             }
             
             // Basic structural validation of intent before passing to PlanningIntent validator
-            if (data.intent.action !== 'create' && data.intent.action !== 'update' && data.intent.action !== 'delete') {
+            // Seule la création est exécutable par PlanningEngine.executeIntent (pas de déplacement/suppression par l'IA).
+            if (data.intent.action !== 'create') {
                 throw new Error("LLMDecision invalide: Action d'intent inconnue.");
             }
             if (!data.intent.target) {
@@ -50,6 +51,34 @@ export class LLMDecision {
                         throw new Error(`LLMDecision invalide: Le champ temporel interdit '${key}' a été détecté dans le payload.`);
                     }
                 }
+            }
+        }
+
+        if (data.type === "checkin_intent") {
+            if (!data.intent || typeof data.intent !== 'object') {
+                throw new Error("LLMDecision invalide: Intent manquant pour le type checkin_intent.");
+            }
+            if (data.intent.action !== 'save_checkin') {
+                throw new Error("LLMDecision invalide: Action d'intent inconnue pour un bilan (attendu: save_checkin).");
+            }
+            if (data.intent.target && data.intent.target !== 'checkin') {
+                throw new Error("LLMDecision invalide: Target d'intent invalide pour un bilan (attendu: checkin).");
+            }
+            const p = data.intent.payload;
+            if (!p || typeof p !== 'object') {
+                throw new Error("LLMDecision invalide: Payload du bilan manquant.");
+            }
+            if (p.energy !== undefined && !['low', 'medium', 'high'].includes(p.energy)) {
+                throw new Error("LLMDecision invalide: Énergie du bilan invalide (low/medium/high).");
+            }
+            if (p.dayAssessment !== undefined && !['completed', 'partial', 'missed'].includes(p.dayAssessment)) {
+                throw new Error("LLMDecision invalide: dayAssessment invalide (completed/partial/missed).");
+            }
+            if (p.sleep !== undefined && (typeof p.sleep !== 'object' || typeof p.sleep.durationMinutes !== 'number' || p.sleep.durationMinutes < 0)) {
+                throw new Error("LLMDecision invalide: sleep.durationMinutes doit être un nombre positif.");
+            }
+            if (p.blockers !== undefined && !Array.isArray(p.blockers)) {
+                throw new Error("LLMDecision invalide: blockers doit être un tableau.");
             }
         }
 

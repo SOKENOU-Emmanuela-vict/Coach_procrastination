@@ -9,7 +9,9 @@ const mimeTypes = {
     '.json': 'application/json',
     '.png': 'image/png',
     '.jpg': 'image/jpg',
-    '.svg': 'image/svg+xml'
+    '.svg': 'image/svg+xml',
+    '.webmanifest': 'application/manifest+json',
+    '.ico': 'image/x-icon'
 };
 
 const server = http.createServer((request, response) => {
@@ -34,7 +36,8 @@ const server = http.createServer((request, response) => {
                 response.end('Sorry, check with the site admin for error: '+error.code+' ..\n');
             }
         } else {
-            response.writeHead(200, { 'Content-Type': contentType });
+            // no-cache : le navigateur revalide toujours les modules (pas de mélange d'anciennes et de nouvelles versions)
+            response.writeHead(200, { 'Content-Type': contentType, 'Cache-Control': 'no-cache' });
             response.end(content, 'utf-8');
         }
     });

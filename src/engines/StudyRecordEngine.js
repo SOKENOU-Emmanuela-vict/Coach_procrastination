@@ -1,5 +1,6 @@
 import { AppLogger } from '../utils/AppLogger.js';
 import { StudyRecord } from '../models/StudyRecord.js';
+import { parseLocalDate } from '../utils/dateUtils.js';
 
 export class StudyRecordEngine {
     constructor(storageProvider) {
@@ -9,10 +10,13 @@ export class StudyRecordEngine {
     async completeSession(session, metrics = {}, planDate = null) {
         AppLogger.info(`StudyRecordEngine: Enregistrement complet de la session ${session.title}`);
         
-        let user = await this.storage.loadData('user_profile') || { streak: 1, lastActive: null };
+        // On part du profil existant (nom, semestre, préférences…) : seuls streak/lastActive sont mis à jour.
+        const existingProfile = await this.storage.loadData('user_profile') || {};
+        let user = { ...existingProfile };
+        if (typeof user.streak !== 'number') user.streak = 0;
+        if (user.lastActive === undefined) user.lastActive = null;
         
         const d = new Date();
-        if (d.getHours() < 4) d.setDate(d.getDate() - 1);
         const today = d.toLocaleDateString('fr-CA');
         const sessionDate = planDate || today;
         
@@ -99,7 +103,7 @@ export class StudyRecordEngine {
         let proofsCount = 0;
 
         history.forEach(r => {
-            const rDate = new Date(r.date);
+            const rDate = parseLocalDate(r.date);
             if (rDate.getFullYear() === year && rDate.getMonth() === month) {
                 if (r.status === 'completed' || r.status === 'partial') {
                     totalTimeMinutes += r.actualDuration || 0;
