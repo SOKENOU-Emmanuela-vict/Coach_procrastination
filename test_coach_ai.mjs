@@ -129,7 +129,8 @@ async function runTests() {
         },
         availableSlots: [{ date: "2026-09-12" }],
         temporalEvents: [],
-        currentDate: "2026-09-12"
+        currentDate: "2026-09-12",
+        options: { useLLM: false }
     };
     
     let finalRecs = await orchestrator.getInsights(rawInput);

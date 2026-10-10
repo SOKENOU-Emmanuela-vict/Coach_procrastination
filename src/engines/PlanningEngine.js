@@ -194,7 +194,7 @@ export class PlanningEngine {
             for (const ev of flexible) {
                 const target = await this._findSlotForMove(ev, items, occupied, options);
                 if (!target) { failed.push(this._summary(ev)); continue; }
-                const movedEv = { ...ev, date: target.date, startTime: target.startTime, endTime: target.endTime };
+                const movedEv = { ...ev, date: target.date, startTime: target.startTime, endTime: target.endTime, postponedCount: (ev.postponedCount || 0) + 1 };
                 occupied.push(movedEv);
                 updates.push(movedEv);
                 result.moved.push({ ...this._summary(ev), from: { date: ev.date, startTime: ev.startTime, endTime: ev.endTime }, to: target });

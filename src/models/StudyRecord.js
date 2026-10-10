@@ -10,6 +10,7 @@ export class StudyRecord {
         this.endTime = null;
         this.plannedDuration = 0;
         this.actualDuration = 0;
+        this.delayMinutes = 0;
         
         // Status
         this.status = 'pending'; // 'completed', 'partial', 'skipped', 'cancelled'
@@ -47,8 +48,10 @@ export class StudyRecord {
             this.notes = metrics.notes || "";
             this.reflection = metrics.reflection || "";
             this.source = metrics.source || "";
-            this.device = metrics.device || "Desktop";
             this.proof = metrics.proof || null;
+        }
+        if (metrics && typeof metrics.delayMinutes === 'number') {
+            this.delayMinutes = metrics.delayMinutes;
         }
     }
 }

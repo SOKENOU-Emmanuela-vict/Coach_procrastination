@@ -27,6 +27,7 @@ export class Event {
             this.projectId = config.projectId || null;
             this.taskId = config.taskId || null;
             this.source = config.source || 'system';
+            this.postponedCount = typeof config.postponedCount === 'number' ? config.postponedCount : 0;
             
             // Cours importé depuis l'emploi du temps : ECUE, enseignant, salle, avancement (XXH/YYH), semaine d'import.
             // Champs ajoutés seulement s'ils sont fournis (les autres événements gardent leur forme).
@@ -66,6 +67,7 @@ export class Event {
             this.projectId = null;
             this.taskId = null;
             this.source = 'system';
+            this.postponedCount = 0;
             this.duration = 0;
         }
     }

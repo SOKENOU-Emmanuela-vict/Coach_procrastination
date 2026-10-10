@@ -57,7 +57,9 @@ export class WeeklyReviewEngine {
             cancelled: 0,
             completionRate: 0,
             plannedMinutes: 0,
-            actualMinutes: 0
+            actualMinutes: 0,
+            totalDelayMinutes: 0,
+            totalPostponedCount: 0
         };
 
         const subjectBreakdown = {};
@@ -77,6 +79,8 @@ export class WeeklyReviewEngine {
             exec.partial += daily.execution.partial;
             exec.missed += daily.execution.missed;
             exec.cancelled += daily.execution.cancelled;
+            exec.totalDelayMinutes += (daily.execution.totalDelayMinutes || 0);
+            exec.totalPostponedCount += (daily.execution.totalPostponedCount || 0);
 
             // Follow-Ups (intention declarative)
             if (daily.declarative && daily.declarative.needsFollowUp && daily.declarative.needsFollowUp.length > 0) {

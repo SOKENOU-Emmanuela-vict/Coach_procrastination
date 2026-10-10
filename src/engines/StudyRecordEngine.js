@@ -32,6 +32,19 @@ export class StudyRecordEngine {
             new Date().toISOString(),
             session.skillId || session.subjectId || session.projectId || (Array.isArray(session.skillIds) ? session.skillIds[0] : session.skillIds)
         );
+        
+        let delayMinutes = 0;
+        if (session.startTime) {
+            const actualStart = new Date(record.startTime);
+            const actualMinutes = actualStart.getHours() * 60 + actualStart.getMinutes();
+            const [planH, planM] = session.startTime.split(':').map(Number);
+            const planMinutes = planH * 60 + planM;
+            if (actualMinutes > planMinutes + 10) { // 10 min grace period
+                delayMinutes = actualMinutes - planMinutes;
+            }
+        }
+        metrics.delayMinutes = delayMinutes;
+        
         record.finish(new Date().toISOString(), metrics.actualDuration || session.expectedDuration, metrics.status || 'completed', 1.0, metrics);
         
         if (metrics.proof && metrics.proof.type) {

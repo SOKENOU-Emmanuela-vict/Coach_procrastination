@@ -69,7 +69,8 @@ export class CheckInEngine {
                     source: 'event',
                     subjectId: e.subjectId,
                     projectId: e.projectId,
-                    taskId: e.taskId
+                    taskId: e.taskId,
+                    postponedCount: e.postponedCount || 0
                 });
             }
         });
@@ -82,7 +83,8 @@ export class CheckInEngine {
                     type: 'session',
                     plannedDuration: s.expectedDuration || 0,
                     source: 'scheduler',
-                    skillId: s.skillId
+                    skillId: s.skillId,
+                    postponedCount: s.postponedCount || 0
                 });
             }
         });
@@ -101,6 +103,8 @@ export class CheckInEngine {
         let cancelled = 0;
         let completedMinutes = 0;
         let plannedMinutes = 0;
+        let totalDelayMinutes = 0;
+        let totalPostponedCount = 0;
 
         const actualItems = [];
 
@@ -113,8 +117,10 @@ export class CheckInEngine {
                 item.status = record.status; // 'completed', 'partial', 'skipped', 'cancelled'
                 item.actualDuration = record.actualDuration || 0;
                 item.proof = record.proof || null;
+                item.delayMinutes = record.delayMinutes || 0;
                 
                 completedMinutes += item.actualDuration;
+                totalDelayMinutes += item.delayMinutes;
 
                 if (record.status === 'completed') completed++;
                 else if (record.status === 'partial') partial++;
@@ -126,9 +132,11 @@ export class CheckInEngine {
                 item.status = 'missed'; // no record = missed
                 item.actualDuration = 0;
                 item.proof = null;
+                item.delayMinutes = 0;
                 missed++;
                 actualItems.push(item);
             }
+            totalPostponedCount += (item.postponedCount || 0);
         }
 
         // Add ad-hoc executions (sessions done that weren't planned initially)
@@ -140,12 +148,14 @@ export class CheckInEngine {
                     type: 'adhoc',
                     plannedDuration: record.plannedDuration || 0,
                     actualDuration: record.actualDuration || 0,
+                    delayMinutes: record.delayMinutes || 0,
                     status: record.status,
                     source: 'adhoc',
                     proof: record.proof || null
                 };
                 
                 completedMinutes += adhocItem.actualDuration;
+                totalDelayMinutes += adhocItem.delayMinutes;
                 if (record.status === 'completed') completed++;
                 else if (record.status === 'partial') partial++;
                 else if (record.status === 'cancelled') cancelled++;
@@ -188,7 +198,9 @@ export class CheckInEngine {
                 partial,
                 missed,
                 cancelled,
-                completionRate
+                completionRate,
+                totalDelayMinutes,
+                totalPostponedCount
             },
             declarative: checkIn || null
         };
