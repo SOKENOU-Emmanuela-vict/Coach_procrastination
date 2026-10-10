@@ -644,6 +644,86 @@ export class App {
                 }
                 return true;
             }
+
+            if (lastCoach && lastCoach.metadata && lastCoach.metadata.pendingTaskPlanning) {
+                const t = text.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+                const data = lastCoach.metadata.pendingTaskPlanning;
+                if (/(oui|ouais|ok|d accord|daccord|dac|ca marche|parfait|planifie|ajoute)/.test(t)) {
+                    // Créer l'événement
+                    const eventId = `ev_${Date.now()}`;
+                    await this.planningEngine.saveEvent({
+                        id: eventId,
+                        date: data.slot.date,
+                        startTime: data.slot.startTime,
+                        endTime: data.slot.endTime,
+                        title: data.task.title,
+                        type: 'personal',
+                        taskId: data.task.id,
+                        isLocked: true
+                    });
+                    // Mettre à jour la tâche
+                    const savedTask = await this.projectEngine.getPersonalTasks().then(tasks => tasks.find(x => x.id === data.task.id));
+                    if (savedTask) {
+                        savedTask.status = 'planifiée';
+                        await this.projectEngine.savePersonalTask(savedTask);
+                    }
+                    await this._sayCoach(`C'est fait ! J'ai planifié "${data.task.title}" le ${data.slot.date} à ${data.slot.startTime}.`, { intent: null });
+                } else {
+                    await this._sayCoach(`D'accord, la tâche reste dans ta liste "à faire".`, { intent: null });
+                }
+                return true;
+            }
+
+            if (lastCoach && lastCoach.metadata && lastCoach.metadata.pendingTaskFollowUp) {
+                const t = text.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+                const data = lastCoach.metadata.pendingTaskFollowUp;
+                const savedTask = await this.projectEngine.getPersonalTasks().then(tasks => tasks.find(x => x.id === data.task.id));
+                
+                if (/(oui|ouais|ok|d accord|daccord|dac|ca marche|parfait|fait|fini|termine)/.test(t)) {
+                    if (savedTask) {
+                        savedTask.status = 'faite';
+                        await this.projectEngine.savePersonalTask(savedTask);
+                    }
+                    await this._sayCoach(`Super ! C'est validé.`, { intent: null });
+                } else if (/(non|pas|jamais|pas encore|plus tard|reporte)/.test(t)) {
+                    if (savedTask) {
+                        savedTask.status = 'reportée';
+                        savedTask.reportsCount = (savedTask.reportsCount || 0) + 1;
+                        await this.projectEngine.savePersonalTask(savedTask);
+                        
+                        // RiskEngine : alimenter les reports
+                        if (this.riskEngine) {
+                            // On pourrait enregistrer un événement de procrastination
+                        }
+
+                        // Proposer un nouveau créneau
+                        let proposedSlot = null;
+                        if (this.planningEngine && this.planningIntelligence) {
+                            for (let i = 1; i <= 4; i++) {
+                                const d = new Date(this.clock());
+                                d.setDate(d.getDate() + i);
+                                const dateStr = this.getPedagogicalDate(d);
+                                const res = await this.planningIntelligence.findCandidateSlots({ date: dateStr, duration: savedTask.estimatedMinutes || 30, subtractFlexible: true });
+                                if (res.candidates && res.candidates.length > 0) {
+                                    proposedSlot = res.candidates[0];
+                                    break;
+                                }
+                            }
+                        }
+                        if (proposedSlot) {
+                            await this._sayCoach(`Pas de souci. Veux-tu qu'on reporte "${savedTask.title}" au ${proposedSlot.date} de ${proposedSlot.startTime} à ${proposedSlot.endTime} ? (oui/non)`, {
+                                intent: null,
+                                pendingTaskPlanning: { task: savedTask, slot: proposedSlot }
+                            });
+                        } else {
+                            await this._sayCoach(`D'accord, je l'ai marquée comme reportée (aucun créneau trouvé pour la replanifier).`, { intent: null });
+                        }
+                    } else {
+                        await this._sayCoach(`D'accord.`, { intent: null });
+                    }
+                }
+                return true;
+            }
         }
         // --- FIN INTERCEPTION CHECK-IN ET CONFIRMATIONS ---
 
@@ -695,9 +775,32 @@ export class App {
 
         const pTaskCreation = parsePersonalTaskCreation(text);
         if (pTaskCreation && this.projectEngine) {
-            const task = { title: pTaskCreation.title, category: 'other' };
-            await this.projectEngine.savePersonalTask(task);
-            await this._sayCoach(`C'est noté, j'ai ajouté "${task.title}" à tes tâches personnelles.`, { intent: null });
+            const task = await this.projectEngine.savePersonalTask({ title: pTaskCreation.title, category: 'other', estimatedMinutes: 30 });
+            
+            // Chercher un créneau libre
+            let proposedSlot = null;
+            if (this.planningEngine && this.planningIntelligence) {
+                // Essayer demain, puis après-demain, etc.
+                for (let i = 0; i <= 3; i++) {
+                    const d = new Date(this.clock());
+                    d.setDate(d.getDate() + i);
+                    const dateStr = this.getPedagogicalDate(d);
+                    const res = await this.planningIntelligence.findCandidateSlots({ date: dateStr, duration: 30, subtractFlexible: true });
+                    if (res.candidates && res.candidates.length > 0) {
+                        proposedSlot = res.candidates[0];
+                        break;
+                    }
+                }
+            }
+
+            if (proposedSlot) {
+                await this._sayCoach(`C'est noté, j'ai ajouté "${task.title}" à tes tâches. Veux-tu que je la planifie le ${proposedSlot.date} de ${proposedSlot.startTime} à ${proposedSlot.endTime} ? (oui/non)`, { 
+                    intent: null,
+                    pendingTaskPlanning: { task, slot: proposedSlot }
+                });
+            } else {
+                await this._sayCoach(`C'est noté, j'ai ajouté "${task.title}" à tes tâches. (Aucun créneau libre trouvé dans les prochains jours).`, { intent: null });
+            }
             return true;
         }
 
@@ -707,9 +810,9 @@ export class App {
             const projects = await this.projectEngine.getProjects();
             
             const titleLower = taskCompletion.title.toLowerCase();
-            const pTask = tasks.find(t => t.status !== 'completed' && t.title.toLowerCase().includes(titleLower));
+            const pTask = tasks.find(t => t.status !== 'faite' && t.title.toLowerCase().includes(titleLower));
             if (pTask) {
-                pTask.status = 'completed';
+                pTask.status = 'faite';
                 await this.projectEngine.savePersonalTask(pTask);
                 await this._sayCoach(`Parfait ! La tâche "${pTask.title}" est terminée.`, { intent: null });
                 return true;
@@ -866,6 +969,29 @@ export class App {
             await this._sayCoach(`${why} As-tu des notes à me donner pour ${r.label} ? Réponds-moi ici (ex. « 14/20 »), ou « pas encore ».`,
                 { intent: null, proactive: 'grade', gradeRequest: r });
         }
+
+        // --- NUDGE TACHES DU JOUR ---
+        if (now.getHours() >= 18) {
+            const todayEvents = await this.planningEngine.getEventsForDate(today);
+            const personalEvents = todayEvents.filter(e => e.type === 'personal' && e.taskId);
+            if (personalEvents.length > 0 && this.projectEngine) {
+                const tasks = await this.projectEngine.getPersonalTasks();
+                for (const ev of personalEvents) {
+                    const t = tasks.find(x => x.id === ev.taskId);
+                    if (t && t.status === 'planifiée') {
+                        const key = `task_followup_${t.id}_${today}`;
+                        if (due(key)) {
+                            mark(key);
+                            await this._sayCoach(`Tu avais prévu de "${t.title}" aujourd'hui. C'est fait ? (oui/non)`, {
+                                intent: null, proactive: 'task', pendingTaskFollowUp: { task: t }
+                            });
+                            break; // Une seule tâche à la fois
+                        }
+                    }
+                }
+            }
+        }
+        // --- FIN NUDGE TACHES DU JOUR ---
 
         if (posted.length > 0) {
             // relecture : proposeRevisionSessions a pu écrire d'autres clés entre-temps

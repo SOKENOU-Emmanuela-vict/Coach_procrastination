@@ -54,10 +54,11 @@ export class PortfolioView {
         }
         if (state.personalTasks) {
             state.personalTasks.forEach(t => {
-                const color = t.status === 'completed' || t.status === 'done' ? '#4CAF50' : '#e0e0e0';
+                const isDone = t.status === 'faite';
+                const color = isDone ? '#4CAF50' : (t.status === 'reportée' ? '#f44336' : (t.status === 'planifiée' ? '#00f2fe' : '#e0e0e0'));
                 projectsHtml += `<div style="background:#12242f; padding:15px; border:1px solid ${color}; border-radius:10px; position:relative;">
-                    <h4 style="color:${color}; margin:0; font-size:14px; padding-right:50px;">${t.status === 'completed' || t.status === 'done' ? '✅' : '⏳'} ${escapeHtml(t.title)}</h4>
-                    <div style="color:#88a7b7; font-size:11px; margin-top:4px;">Domaine: ${t.domain || '-'} | Date: ${t.dueDate || '-'} | Priorité: ${t.priority || '-'}</div>
+                    <h4 style="color:${color}; margin:0; font-size:14px; padding-right:50px;">${isDone ? '✅' : '⏳'} ${escapeHtml(t.title)}</h4>
+                    <div style="color:#88a7b7; font-size:11px; margin-top:4px;">Domaine: ${t.domain || '-'} | Date: ${t.dueDate || '-'} | Priorité: ${t.priority || '-'} | Statut: ${t.status}</div>
                     <div style="position:absolute; top:15px; right:15px; display:flex; gap:5px;">
                         <button class="btn-edit-item" data-id="${t.id}" data-type="task" style="background:transparent; border:none; color:#ffb74d; cursor:pointer;">✏️</button>
                         <button class="btn-delete-item" data-id="${t.id}" data-type="task" style="background:transparent; border:none; color:#f44336; cursor:pointer;">🗑️</button>

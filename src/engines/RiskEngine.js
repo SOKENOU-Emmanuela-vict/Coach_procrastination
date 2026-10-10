@@ -144,6 +144,20 @@ export class RiskEngine {
             }
         }
 
+        // 5.5 Analyse des tâches personnelles (Reports)
+        const pTasks = context.personalTasks || [];
+        const reportedTasks = pTasks.filter(t => t.reportsCount > 0 && t.status !== 'faite');
+        if (reportedTasks.length > 0) {
+            const totalReports = reportedTasks.reduce((sum, t) => sum + (t.reportsCount || 0), 0);
+            if (totalReports >= 5) {
+                riskScore += 20;
+                riskFactors.push({ type: 'execution', description: `Procrastination active : ${totalReports} reports cumulés sur les tâches personnelles.`, weight: 20 });
+            } else {
+                riskScore += 10;
+                riskFactors.push({ type: 'execution', description: `Quelques reports de tâches personnelles (${totalReports}).`, weight: 10 });
+            }
+        }
+
         // 6. Normalisation du score
         riskScore = Math.max(0, Math.min(100, riskScore));
 

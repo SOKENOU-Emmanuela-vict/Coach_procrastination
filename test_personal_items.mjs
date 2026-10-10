@@ -41,7 +41,7 @@ async function runTests() {
 
     // 3. Tâches perso
     let t1 = new PersonalTask({ title: 'Faire les courses', category: 'errands', estimatedMinutes: 45 });
-    assert.strictEqual(t1.status, 'todo');
+    assert.strictEqual(t1.status, 'à faire');
     assert.strictEqual(t1.priority, 'medium');
     
     await engine.savePersonalTask(t1);
