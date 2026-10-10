@@ -27,9 +27,10 @@ export class PortfolioView {
         <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 15px;">`;
         if (state.projects) {
             state.projects.forEach(p => {
+                const regScore = p.regularity ? p.regularity.score : 0;
                 projectsHtml += `<div style="background:#12242f; padding:15px; border:1px solid #2a5268; border-radius:10px; position:relative;">
                     <h4 style="color:#00f2fe; margin:0 0 5px 0; padding-right:50px;">🎯 ${escapeHtml(p.title)}</h4>
-                    <div style="color:#88a7b7; font-size:12px;">Domaine: ${p.domain || '-'} | Progression : ${p.progress}%</div>
+                    <div style="color:#88a7b7; font-size:12px;">Domaine: ${p.domain || '-'} | Progression : ${p.progress}% | Régularité : ${regScore}%</div>
                     <div style="background:#071015; border-radius:10px; height:6px; overflow:hidden; margin-top:5px;">
                         <div style="width:${p.progress}%; background:#00f2fe; height:100%;"></div>
                     </div>
@@ -318,70 +319,6 @@ export class PortfolioView {
                 </h3>
                 ${projectsHtml}
             </div>
-
-            <!-- MODAL EDITION ITEM -->
-            <div id="item-editor-modal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.7); z-index:9999; justify-content:center; align-items:center;">
-                <div style="background:#152b36; border:1px solid #00f2fe; border-radius:12px; padding:25px; width:400px; max-width:90%;">
-                    <h3 id="modal-item-header" style="color:#00f2fe; margin-top:0;">Éditer l'élément</h3>
-                    
-                    <input type="hidden" id="modal-item-id">
-                    
-                    <div style="margin-bottom:12px;">
-                        <label style="color:#88a7b7; font-size:12px;">Type</label>
-                        <select id="modal-item-type-select" style="width:100%; padding:8px; border-radius:5px; background:#0f2027; color:#e0e0e0; border:1px solid #2a5268;">
-                            <option value="project">Projet</option>
-                            <option value="book">Livre</option>
-                            <option value="task">Tâche</option>
-                        </select>
-                    </div>
-
-                    <div style="margin-bottom:12px;">
-                        <label style="color:#88a7b7; font-size:12px;">Titre</label>
-                        <input type="text" id="modal-item-title" style="width:100%; padding:8px; border-radius:5px; background:#0f2027; color:#e0e0e0; border:1px solid #2a5268;">
-                    </div>
-
-                    <div style="margin-bottom:12px;">
-                        <label style="color:#88a7b7; font-size:12px;">Domaine</label>
-                        <select id="modal-item-domain" style="width:100%; padding:8px; border-radius:5px; background:#0f2027; color:#e0e0e0; border:1px solid #2a5268;">
-                            <option value="ecole">École</option>
-                            <option value="langue">Langues</option>
-                            <option value="fitness">Fitness / Bien-être</option>
-                            <option value="lecture">Lecture</option>
-                            <option value="projet">Projet</option>
-                            <option value="perso">Personnel</option>
-                        </select>
-                    </div>
-
-                    <div style="margin-bottom:12px;">
-                        <label style="color:#88a7b7; font-size:12px;">Échéance (Optionnel)</label>
-                        <input type="date" id="modal-item-dueDate" style="width:100%; padding:8px; border-radius:5px; background:#0f2027; color:#e0e0e0; border:1px solid #2a5268;">
-                    </div>
-
-                    <div style="margin-bottom:12px;">
-                        <label style="color:#88a7b7; font-size:12px;">Durée estimée (min)</label>
-                        <input type="number" id="modal-item-duration" style="width:100%; padding:8px; border-radius:5px; background:#0f2027; color:#e0e0e0; border:1px solid #2a5268;">
-                    </div>
-
-                    <div style="margin-bottom:12px;">
-                        <label style="color:#88a7b7; font-size:12px;">Importance</label>
-                        <select id="modal-item-priority" style="width:100%; padding:8px; border-radius:5px; background:#0f2027; color:#e0e0e0; border:1px solid #2a5268;">
-                            <option value="low">Basse</option>
-                            <option value="medium">Moyenne</option>
-                            <option value="high">Haute</option>
-                        </select>
-                    </div>
-
-                    <div style="margin-bottom:20px;">
-                        <label style="color:#88a7b7; font-size:12px;">Cible (ex: nbre total de pages)</label>
-                        <input type="number" id="modal-item-target" style="width:100%; padding:8px; border-radius:5px; background:#0f2027; color:#e0e0e0; border:1px solid #2a5268;">
-                    </div>
-
-                    <div style="display:flex; justify-content:flex-end; gap:10px;">
-                        <button type="button" id="btn-modal-cancel" style="background:transparent; color:#88a7b7; border:1px solid #2a5268; padding:8px 15px; border-radius:5px; cursor:pointer;">Annuler</button>
-                        <button type="button" id="btn-modal-save" style="background:#00f2fe; color:#0f2027; border:none; padding:8px 15px; border-radius:5px; cursor:pointer; font-weight:bold;">Sauvegarder</button>
-                    </div>
-                </div>
-            </div>
         `;
 
         this.attachPortfolioTabs();
@@ -394,37 +331,13 @@ export class PortfolioView {
         const secProjects = document.getElementById('portfolio-section-projects');
         
         // -- LOGIQUE DU MODAL --
-        const modal = document.getElementById('item-editor-modal');
-        const modalId = document.getElementById('modal-item-id');
-        const modalType = document.getElementById('modal-item-type-select');
-        const modalTitle = document.getElementById('modal-item-title');
-        const modalDomain = document.getElementById('modal-item-domain');
-        const modalDueDate = document.getElementById('modal-item-dueDate');
-        const modalDuration = document.getElementById('modal-item-duration');
-        const modalPriority = document.getElementById('modal-item-priority');
-        const modalTarget = document.getElementById('modal-item-target');
-        
-        const openModal = (data = {}) => {
-            modalId.value = data.id || '';
-            modalType.value = data.type || 'project';
-            modalType.disabled = !!data.id; // Impossible de changer le type d'un élément existant
-            modalTitle.value = data.title || '';
-            modalDomain.value = data.domain || 'perso';
-            modalDueDate.value = data.dueDate || data.targetDate || '';
-            modalDuration.value = data.duration || data.estimatedMinutes || '';
-            modalPriority.value = data.priority || 'medium';
-            modalTarget.value = data.target || data.totalPages || '';
-            modal.style.display = 'flex';
-        };
-
-        const closeModal = () => { modal.style.display = 'none'; };
-
         document.querySelectorAll('.btn-open-modal').forEach(btn => {
-            btn.addEventListener('click', () => openModal());
+            btn.addEventListener('click', () => {
+                const type = btn.getAttribute('data-type') || 'project';
+                this.app.openGlobalItemEditor({ type });
+            });
         });
         
-        document.getElementById('btn-modal-cancel')?.addEventListener('click', closeModal);
-
         document.querySelectorAll('.btn-edit-item').forEach(btn => {
             btn.addEventListener('click', async (e) => {
                 const id = e.currentTarget.getAttribute('data-id');
@@ -433,7 +346,7 @@ export class PortfolioView {
                 if (type === 'project') item = (await this.app.projectEngine.getProjects()).find(i => i.id === id);
                 if (type === 'book') item = (await this.app.projectEngine.getBooks()).find(i => i.id === id);
                 if (type === 'task') item = (await this.app.projectEngine.getPersonalTasks()).find(i => i.id === id);
-                if (item) openModal({ ...item, type });
+                if (item) this.app.openGlobalItemEditor({ ...item, type });
             });
         });
 
@@ -448,43 +361,6 @@ export class PortfolioView {
                     this.app.renderView('portfolio');
                 }
             });
-        });
-
-        document.getElementById('btn-modal-save')?.addEventListener('click', async () => {
-            const id = modalId.value;
-            const type = modalType.value;
-            const title = modalTitle.value.trim();
-            if (!title) return alert("Le titre est requis");
-            
-            const baseData = {
-                title,
-                domain: modalDomain.value,
-                priority: modalPriority.value,
-            };
-
-            if (type === 'project') {
-                const existing = id ? (await this.app.projectEngine.getProjects()).find(i => i.id === id) : {};
-                await this.app.projectEngine.saveProject({
-                    ...existing, ...baseData, id: id || undefined,
-                    targetDate: modalDueDate.value || null,
-                });
-            } else if (type === 'book') {
-                const existing = id ? (await this.app.projectEngine.getBooks()).find(i => i.id === id) : {};
-                await this.app.projectEngine.saveBook({
-                    ...existing, ...baseData, id: id || undefined,
-                    totalPages: modalTarget.value ? parseInt(modalTarget.value, 10) : 0,
-                    targetDate: modalDueDate.value || null,
-                });
-            } else if (type === 'task') {
-                const existing = id ? (await this.app.projectEngine.getPersonalTasks()).find(i => i.id === id) : {};
-                await this.app.projectEngine.savePersonalTask({
-                    ...existing, ...baseData, id: id || undefined,
-                    dueDate: modalDueDate.value || null,
-                    estimatedMinutes: modalDuration.value ? parseInt(modalDuration.value, 10) : 30
-                });
-            }
-            closeModal();
-            this.app.renderView('portfolio');
         });
 
         buttons.forEach(btn => {

@@ -13,12 +13,22 @@ export class AcademicEngine {
         if (index >= 0) items[index] = year; else items.push(year);
         await this.storage.saveData('acad_years', items);
     }
+    async deleteYear(id) {
+        let items = await this.getYears();
+        items = items.filter(i => i.id !== id);
+        await this.storage.saveData('acad_years', items);
+    }
 
     async getSemesters() { return await this.storage.loadData('acad_semesters') || []; }
     async saveSemester(semester) {
         let items = await this.getSemesters();
         const index = items.findIndex(i => i.id === semester.id);
         if (index >= 0) items[index] = semester; else items.push(semester);
+        await this.storage.saveData('acad_semesters', items);
+    }
+    async deleteSemester(id) {
+        let items = await this.getSemesters();
+        items = items.filter(i => i.id !== id);
         await this.storage.saveData('acad_semesters', items);
     }
 
@@ -29,6 +39,11 @@ export class AcademicEngine {
         if (index >= 0) items[index] = subject; else items.push(subject);
         await this.storage.saveData('acad_subjects', items);
     }
+    async deleteSubject(id) {
+        let items = await this.getSubjects();
+        items = items.filter(i => i.id !== id);
+        await this.storage.saveData('acad_subjects', items);
+    }
 
     async getAssessments() { return await this.storage.loadData('acad_assessments') || []; }
     async saveAssessment(assessment) {
@@ -37,12 +52,22 @@ export class AcademicEngine {
         if (index >= 0) items[index] = assessment; else items.push(assessment);
         await this.storage.saveData('acad_assessments', items);
     }
+    async deleteAssessment(id) {
+        let items = await this.getAssessments();
+        items = items.filter(i => i.id !== id);
+        await this.storage.saveData('acad_assessments', items);
+    }
 
     async getGrades() { return await this.storage.loadData('acad_grades') || []; }
     async saveGrade(grade) {
         let items = await this.getGrades();
         const index = items.findIndex(i => i.id === grade.id);
         if (index >= 0) items[index] = grade; else items.push(grade);
+        await this.storage.saveData('acad_grades', items);
+    }
+    async deleteGrade(id) {
+        let items = await this.getGrades();
+        items = items.filter(i => i.id !== id);
         await this.storage.saveData('acad_grades', items);
     }
 

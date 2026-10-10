@@ -1,6 +1,7 @@
 import { Project } from '../models/Project.js';
 import { Book } from '../models/Book.js';
 import { PersonalTask } from '../models/PersonalTask.js';
+import { Goal } from '../models/Goal.js';
 import { AppLogger } from '../utils/AppLogger.js';
 
 export class ProjectEngine {
@@ -28,6 +29,23 @@ export class ProjectEngine {
         projects = projects.filter(p => p.id !== id);
         await this.storage.saveData('projects', projects);
         AppLogger.info(`ProjectEngine: Projet ${id} supprimé.`);
+    }
+
+    async calculateProjectRegularity(projectId) {
+        const history = await this.storage.loadData('study_history') || [];
+        const projectRecords = history.filter(r => r.skillId === projectId && r.status === 'completed');
+        
+        if (projectRecords.length === 0) return { score: 0, daysWorked: 0, daysElapsed: 0 };
+        
+        const sortedRecords = projectRecords.sort((a, b) => a.date.localeCompare(b.date));
+        const firstDate = new Date(sortedRecords[0].date);
+        const today = new Date();
+        
+        const daysElapsed = Math.max(1, Math.floor((today - firstDate) / (1000 * 60 * 60 * 24)) + 1);
+        const uniqueDays = new Set(projectRecords.map(r => r.date)).size;
+        
+        const score = Math.max(0, Math.min(100, Math.round((uniqueDays / daysElapsed) * 100)));
+        return { score, daysWorked: uniqueDays, daysElapsed };
     }
 
     // --- LECTURES ---
@@ -72,5 +90,27 @@ export class ProjectEngine {
         tasks = tasks.filter(t => t.id !== id);
         await this.storage.saveData('personal_tasks', tasks);
         AppLogger.info(`ProjectEngine: Tâche personnelle ${id} supprimée.`);
+    }
+
+    // --- OBJECTIFS (GOALS) ---
+    async getGoals() {
+        const raw = await this.storage.loadData('goals') || [];
+        return raw.map(g => new Goal(g));
+    }
+
+    async saveGoal(goal) {
+        const goals = await this.getGoals();
+        const index = goals.findIndex(g => g.id === goal.id);
+        if (index !== -1) goals[index] = goal;
+        else goals.push(goal);
+        await this.storage.saveData('goals', goals);
+        AppLogger.info(`ProjectEngine: Objectif ${goal.id} sauvegardé.`);
+    }
+
+    async deleteGoal(id) {
+        let goals = await this.getGoals();
+        goals = goals.filter(g => g.id !== id);
+        await this.storage.saveData('goals', goals);
+        AppLogger.info(`ProjectEngine: Objectif ${id} supprimé.`);
     }
 }

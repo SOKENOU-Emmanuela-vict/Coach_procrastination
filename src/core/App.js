@@ -112,6 +112,92 @@ export class App {
         await this.renderView('desktop');
         // Messages proactifs du jour dans le chat (rappels d'examen, notes à donner, emploi du temps à importer)
         try { await this.syncProactiveCoachMessages(); } catch (e) { AppLogger.error("Messages du coach: " + e.message); }
+        
+        this.setupGlobalItemEditor();
+    }
+
+    setupGlobalItemEditor() {
+        const modal = document.getElementById('global-item-editor-modal');
+        if (!modal) return;
+        document.getElementById('global-btn-modal-cancel')?.addEventListener('click', () => {
+            modal.style.display = 'none';
+        });
+        document.getElementById('global-btn-modal-save')?.addEventListener('click', async () => {
+            const id = document.getElementById('global-modal-item-id').value;
+            const type = document.getElementById('global-modal-item-type-select').value;
+            const title = document.getElementById('global-modal-item-title').value.trim();
+            if (!title) return alert("Le titre/nom est requis");
+            
+            const baseData = {
+                title,
+                domain: document.getElementById('global-modal-item-domain').value,
+                priority: document.getElementById('global-modal-item-priority').value,
+            };
+
+            if (type === 'project') {
+                const existing = id ? (await this.projectEngine.getProjects()).find(i => i.id === id) : {};
+                await this.projectEngine.saveProject({
+                    ...existing, ...baseData, id: id || undefined,
+                    targetDate: document.getElementById('global-modal-item-dueDate').value || null,
+                });
+            } else if (type === 'book') {
+                const existing = id ? (await this.projectEngine.getBooks()).find(i => i.id === id) : {};
+                await this.projectEngine.saveBook({
+                    ...existing, ...baseData, id: id || undefined,
+                    totalPages: document.getElementById('global-modal-item-target').value ? parseInt(document.getElementById('global-modal-item-target').value, 10) : 0,
+                    targetDate: document.getElementById('global-modal-item-dueDate').value || null,
+                });
+            } else if (type === 'task') {
+                const existing = id ? (await this.projectEngine.getPersonalTasks()).find(i => i.id === id) : {};
+                await this.projectEngine.savePersonalTask({
+                    ...existing, ...baseData, id: id || undefined,
+                    estimatedMinutes: document.getElementById('global-modal-item-duration').value ? parseInt(document.getElementById('global-modal-item-duration').value, 10) : 0,
+                    dueDate: document.getElementById('global-modal-item-dueDate').value || null,
+                });
+            } else if (type === 'habit') {
+                const existing = id ? (await this.scheduler.getHabits()).find(i => i.id === id) : {};
+                await this.scheduler.saveHabit({
+                    ...existing, ...baseData, id: id || `hab_${Date.now()}`,
+                    target: document.getElementById('global-modal-item-target').value ? parseFloat(document.getElementById('global-modal-item-target').value) : null,
+                });
+            } else if (type === 'skill') {
+                const existing = id ? (await this.scheduler.getSkills()).find(i => i.id === id) : {};
+                await this.scheduler.saveSkill({
+                    ...existing, ...baseData, id: id || `skill_${Date.now()}`
+                });
+            } else if (type === 'subject') {
+                const existing = id ? (await this.academicEngine.getSubjects()).find(i => i.id === id) : {};
+                await this.academicEngine.saveSubject({
+                    ...existing, id: id || `sub_${Date.now()}`, name: baseData.title
+                });
+            } else if (type === 'goal') {
+                const existing = id ? (await this.projectEngine.getGoals()).find(i => i.id === id) : {};
+                await this.projectEngine.saveGoal({
+                    ...existing, ...baseData, id: id || undefined,
+                    deadline: document.getElementById('global-modal-item-dueDate').value || null,
+                    progress: document.getElementById('global-modal-item-target').value ? parseFloat(document.getElementById('global-modal-item-target').value) : 0
+                });
+            }
+
+            modal.style.display = 'none';
+            this.renderView(this.state.currentView);
+        });
+    }
+
+    openGlobalItemEditor(data = {}) {
+        const modal = document.getElementById('global-item-editor-modal');
+        if (!modal) return;
+        
+        document.getElementById('global-modal-item-id').value = data.id || '';
+        document.getElementById('global-modal-item-type-select').value = data.type || 'project';
+        document.getElementById('global-modal-item-title').value = data.title || data.name || '';
+        document.getElementById('global-modal-item-domain').value = data.domain || 'perso';
+        document.getElementById('global-modal-item-dueDate').value = data.dueDate || data.targetDate || data.deadline || '';
+        document.getElementById('global-modal-item-duration').value = data.duration || data.estimatedMinutes || '';
+        document.getElementById('global-modal-item-priority').value = data.priority || 'medium';
+        document.getElementById('global-modal-item-target').value = data.target || data.totalPages || data.progress || '';
+        
+        modal.style.display = 'flex';
     }
 
     /**
@@ -970,6 +1056,38 @@ export class App {
                 { intent: null, proactive: 'grade', gradeRequest: r });
         }
 
+        // --- NUDGE RAPPELS TACHES PERSONNELLES (J-2, J-1, Jour J) ---
+        if (this.projectEngine) {
+            const pTasks = (await this.projectEngine.getPersonalTasks()) || [];
+            for (const t of pTasks) {
+                if (!t.dueDate || t.status === 'done' || t.status === 'cancelled') continue;
+                const days = this._daysBetween(today, t.dueDate);
+                if (days >= 0 && days <= 2) {
+                    const key = `ptask_remind_${t.id}_${days}`;
+                    if (!due(key)) continue;
+                    mark(key);
+                    const when = days === 0 ? "aujourd'hui" : (days === 1 ? 'demain' : `dans ${days} jours`);
+                    await this._sayCoach(`Rappel : ta tâche "${t.title}" est à faire pour ${when}. N'oublie pas de la planifier ou de la réaliser !`, { intent: null, proactive: 'task_remind' });
+                }
+            }
+        }
+
+        // --- NUDGE ALERTES OBJECTIFS (GOALS) ---
+        if (this.projectEngine && typeof this.projectEngine.getGoals === 'function') {
+            const goals = (await this.projectEngine.getGoals()) || [];
+            for (const g of goals) {
+                if (!g.deadline || g.progress >= 50) continue;
+                const days = this._daysBetween(today, g.deadline);
+                if (days >= 0 && days <= 5) { // 5 days threshold for goals
+                    const key = `goal_alert_${g.id}_${days}`;
+                    if (!due(key, 2)) continue; // alert every 2 days
+                    mark(key);
+                    await this._sayCoach(`🚨 Alerte Objectif : Ton objectif "${g.title}" arrive à échéance dans ${days} jours, mais ton avancement n'est que de ${g.progress}%. Faisons un plan pour avancer !`, { intent: null, proactive: 'goal_alert' });
+                }
+            }
+        }
+
+
         // --- NUDGE TACHES DU JOUR ---
         if (now.getHours() >= 18) {
             const todayEvents = await this.planningEngine.getEventsForDate(today);
@@ -1040,7 +1158,13 @@ export class App {
         this.state.allCheckins = await this.storage.loadData('daily_checkins') || {};
 
         if (this.projectEngine) {
-            this.state.projects = await this.projectEngine.getProjects();
+            const rawProjects = await this.projectEngine.getProjects();
+            for (let p of rawProjects) {
+                if (typeof this.projectEngine.calculateProjectRegularity === 'function') {
+                    p.regularity = await this.projectEngine.calculateProjectRegularity(p.id);
+                }
+            }
+            this.state.projects = rawProjects;
             this.state.books = await this.projectEngine.getBooks();
             this.state.personalTasks = await this.projectEngine.getPersonalTasks();
         }

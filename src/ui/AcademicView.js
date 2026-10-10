@@ -25,10 +25,15 @@ export class AcademicView {
 
         const renderSubjectCard = (sub) => `
             <div class="bureau-card" style="background:var(--bg-card); border-radius:12px; border:1px solid var(--border-color); padding:20px; position:relative; margin-bottom:15px; display:flex; flex-direction:column; gap:15px;">
-                <!-- Edit button -->
-                <button class="btn-action-subject" data-action="edit" data-id="${sub.id}" style="position:absolute; top:15px; right:15px; background:transparent; border:none; color:var(--text-muted); cursor:pointer;">
-                    <i class="bi bi-pencil-square" style="font-size:16px;"></i>
-                </button>
+                <!-- Edit & Delete buttons -->
+                <div style="position:absolute; top:15px; right:15px; display:flex; gap:8px;">
+                    <button class="btn-edit-item" data-id="${sub.id}" data-type="subject" style="background:transparent; border:none; color:var(--text-muted); cursor:pointer;">
+                        <i class="bi bi-pencil-square" style="font-size:16px;"></i>
+                    </button>
+                    <button class="btn-delete-item" data-id="${sub.id}" data-type="subject" style="background:transparent; border:none; color:#f44336; cursor:pointer;">
+                        <i class="bi bi-trash" style="font-size:16px;"></i>
+                    </button>
+                </div>
                 
                 <h4 style="margin:0; font-size:16px; color:var(--text-main); padding-right:30px;">
                     <span style="font-size:12px; color:var(--text-muted); display:block; margin-bottom:4px;">${sub.code || ''} • ${sub.cect} CECT</span>
@@ -102,7 +107,12 @@ export class AcademicView {
     <!-- MAIN CONTENT -->
     <div class="bureau-content" style="flex: 1; padding: 30px 40px; overflow-y: auto; background: var(--bg-main);">
         <div style="margin-bottom:30px;">
-            <h1 style="font-size: 24px; font-weight: 700; color:var(--text-main); letter-spacing:1px; margin:0 0 20px 0;">CURSUS ACADÉMIQUE</h1>
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
+                <h1 style="font-size: 24px; font-weight: 700; color:var(--text-main); letter-spacing:1px; margin:0;">CURSUS ACADÉMIQUE</h1>
+                <button type="button" class="btn-open-modal" data-type="subject" style="background:var(--accent-primary); color:white; border:none; padding:8px 15px; border-radius:20px; font-weight:bold; cursor:pointer; display:flex; align-items:center; gap:8px;">
+                    <i class="bi bi-plus-circle"></i> Ajouter
+                </button>
+            </div>
             <div style="display:flex; gap:20px; overflow-x:auto; padding-bottom:10px;">
                 ${blocks.map(b => `
                     <div class="block-tab ${this.selectedBlock === b.id ? 'active' : ''}" data-id="${b.id}" style="min-width:280px; height:120px; border-radius:12px; overflow:hidden; position:relative; cursor:pointer; border: ${this.selectedBlock === b.id ? '3px solid var(--accent-primary)' : '1px solid var(--border-color)'}; box-shadow: ${this.selectedBlock === b.id ? '0 8px 20px rgba(14,165,233,0.3)' : 'none'}; transition: all 0.2s;">
@@ -220,35 +230,23 @@ export class AcademicView {
                 
                 modal.style.display = 'flex';
                 
-                if (actionName === 'edit') {
-                    modalTitle.innerHTML = `<i class="bi bi-pencil-square"></i> Éditer : ${sub.name}`;
-                    modalContent.innerHTML = `
-                        <div style="display:flex; flex-direction:column; gap:15px;">
-                            <label>Nom de la matière : <input type="text" value="${sub.name}" class="form-input" style="width:100%; padding:10px; background:var(--bg-card); color:var(--text-main); border:1px solid var(--border-color); border-radius:8px; margin-top:5px;"></label>
-                            <label>Code (ex: IA202) : <input type="text" value="${sub.code || ''}" class="form-input" style="width:100%; padding:10px; background:var(--bg-card); color:var(--text-main); border:1px solid var(--border-color); border-radius:8px; margin-top:5px;"></label>
-                            <label>Crédits ECTS : <input type="number" value="${sub.cect || 0}" class="form-input" style="width:100%; padding:10px; background:var(--bg-card); color:var(--text-main); border:1px solid var(--border-color); border-radius:8px; margin-top:5px;"></label>
-                            <button style="background:var(--accent-primary); color:white; border:none; padding:10px; border-radius:8px; font-weight:bold; cursor:pointer; margin-top:10px;">Sauvegarder</button>
-                        </div>
-                    `;
-                    // Bouton « Sauvegarder » existant branché sur App.updateSubject (nom, code, crédits)
-                    const saveBtn = modalContent.querySelector('button');
-                    const [nameInput, codeInput, cectInput] = modalContent.querySelectorAll('input');
-                    if (saveBtn && nameInput && found.id) {
-                        saveBtn.addEventListener('click', async () => {
-                            const name = nameInput.value.trim();
-                            const cect = Number(cectInput ? cectInput.value : found.cect);
-                            if (!name || !Number.isFinite(cect) || cect < 0) {
-                                alert('Nom obligatoire et crédits positifs.');
-                                return;
-                            }
-                            try {
-                                modal.style.display = 'none';
-                                await this.app.updateSubject(found.id, { name, code: codeInput ? codeInput.value.trim() : found.code, cect });
-                            } catch (err) {
-                                alert('Erreur lors de la sauvegarde : ' + err.message);
-                            }
-                        });
+                if (actionName === 'add_grade') {
+                    // Logic to add a grade (via prompt in a simplified flow or specific logic)
+                    const newGrade = prompt("Entrez la note (/20) :");
+                    if (newGrade !== null) {
+                        const n = parseFloat(newGrade);
+                        if (!isNaN(n) && n >= 0 && n <= 20) {
+                            sub.grade = n;
+                            this.app.academicEngine.saveSubject(sub).then(() => {
+                                this.app.refreshAcademicSubjects().then(() => {
+                                    this.render(this.app.state);
+                                });
+                            });
+                        } else {
+                            alert("Note invalide.");
+                        }
                     }
+                    modal.style.display = 'none';
                 } else if (actionName === 'ressources') {
                     modalTitle.innerHTML = `<i class="bi bi-folder2-open" style="color:#eab308;"></i> Ressources pour ${sub.name}`;
                     modalContent.innerHTML = `
@@ -301,6 +299,38 @@ export class AcademicView {
                             <button style="background:var(--accent-primary); color:white; border:none; padding:10px 30px; border-radius:8px; font-weight:bold; cursor:pointer;">Valider</button>
                         </div>
                     `;
+                }
+            });
+        });
+
+        // Event listeners pour les boutons Edit/Delete
+        this.container.querySelectorAll('.btn-open-modal').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const type = btn.getAttribute('data-type') || 'subject';
+                this.app.openGlobalItemEditor({ type });
+            });
+        });
+
+        this.container.querySelectorAll('.btn-edit-item').forEach(btn => {
+            btn.addEventListener('click', async (e) => {
+                const id = e.currentTarget.getAttribute('data-id');
+                const type = e.currentTarget.getAttribute('data-type');
+                let item = null;
+                if (type === 'subject') item = (await this.app.academicEngine.getSubjects()).find(i => i.id === id);
+                if (item) this.app.openGlobalItemEditor({ ...item, type });
+            });
+        });
+
+        this.container.querySelectorAll('.btn-delete-item').forEach(btn => {
+            btn.addEventListener('click', async (e) => {
+                const id = e.currentTarget.getAttribute('data-id');
+                const type = e.currentTarget.getAttribute('data-type');
+                if (confirm('Êtes-vous sûr de vouloir supprimer cet élément ?')) {
+                    if (type === 'subject') {
+                        await this.app.academicEngine.deleteSubject(id);
+                        await this.app.refreshAcademicSubjects();
+                    }
+                    this.render(this.app.state);
                 }
             });
         });

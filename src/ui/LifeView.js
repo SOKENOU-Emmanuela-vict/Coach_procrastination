@@ -4,15 +4,14 @@ export class LifeView {
         this.app = app;
     }
     
-    render(state) {
+    async render(state) {
         if (typeof document !== 'undefined' && document.body) {
             document.body.className = 'theme-warm';
         }
 
-        const habits = state.dailyPlan?.habits || [
-            { title: "Méditation 10 min", time: "Matin", completed: true },
-            { title: "Lecture 20 pages", time: "Soir", completed: false }
-        ];
+        const habits = await this.app.scheduler.getHabits() || [];
+        const goals = (this.app.projectEngine && typeof this.app.projectEngine.getGoals === 'function') 
+            ? await this.app.projectEngine.getGoals() : [];
 
         let html = `
 <div class="bureau" style="display:flex; height:100vh;">
@@ -80,17 +79,25 @@ export class LifeView {
             <div style="display:flex; flex-direction:column; gap:20px;">
                 <!-- Habitudes -->
                 <div class="bureau-card" style="background:var(--bg-card); border-radius:12px; border:1px solid var(--border-color); padding:20px;">
-                    <div style="display:flex; align-items:center; gap:8px; margin-bottom:15px;">
-                        <i class="bi bi-check2-square" style="color:var(--accent-primary); font-size:18px;"></i>
-                        <h3 style="margin:0; font-size:16px;">Habitudes du jour</h3>
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
+                        <div style="display:flex; align-items:center; gap:8px;">
+                            <i class="bi bi-check2-square" style="color:var(--accent-primary); font-size:18px;"></i>
+                            <h3 style="margin:0; font-size:16px;">Habitudes (Toutes)</h3>
+                        </div>
+                        <button type="button" class="btn-open-modal" data-type="habit" style="background:transparent; border:none; color:var(--accent-primary); cursor:pointer;">
+                            <i class="bi bi-plus-circle" style="font-size:18px;"></i>
+                        </button>
                     </div>
                     <div style="display:flex; flex-direction:column; gap:10px;">
                         ${habits.map(h => `
-                            <div style="display:flex; align-items:center; gap:10px;">
-                                <div style="width:20px; height:20px; border-radius:4px; border:2px solid ${h.completed ? 'var(--accent-primary)' : 'var(--border-color)'}; background:${h.completed ? 'var(--accent-primary)' : 'transparent'}; display:flex; align-items:center; justify-content:center; color:white;">
-                                    ${h.completed ? '<i class="bi bi-check" style="font-size:16px;"></i>' : ''}
+                            <div style="display:flex; justify-content:space-between; align-items:center; gap:10px;">
+                                <div style="display:flex; align-items:center; gap:10px;">
+                                    <span style="font-size:14px; color:var(--text-main);">${h.title}</span>
                                 </div>
-                                <span style="font-size:14px; text-decoration:${h.completed ? 'line-through' : 'none'}; color:${h.completed ? 'var(--text-muted)' : 'var(--text-main)'};">${h.title}</span>
+                                <div style="display:flex; gap:8px;">
+                                    <button class="btn-edit-item" data-id="${h.id}" data-type="habit" style="background:transparent; border:none; color:var(--accent-primary); cursor:pointer;"><i class="bi bi-pencil"></i></button>
+                                    <button class="btn-delete-item" data-id="${h.id}" data-type="habit" style="background:transparent; border:none; color:#f44336; cursor:pointer;"><i class="bi bi-trash"></i></button>
+                                </div>
                             </div>
                         `).join('')}
                     </div>
@@ -153,27 +160,30 @@ export class LifeView {
                     </div>
                 </div>
 
-                <!-- Passions & Hobbies -->
+                <!-- Objectifs -->
                 <div class="bureau-card" style="background:var(--bg-card); border-radius:12px; border:1px solid var(--border-color); padding:20px; flex:1;">
-                    <div style="display:flex; align-items:center; gap:8px; margin-bottom:15px;">
-                        <i class="bi bi-palette" style="color:#8b5cf6; font-size:18px;"></i>
-                        <h3 style="margin:0; font-size:16px;">Passions & Hobbies</h3>
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
+                        <div style="display:flex; align-items:center; gap:8px;">
+                            <i class="bi bi-bullseye" style="color:#8b5cf6; font-size:18px;"></i>
+                            <h3 style="margin:0; font-size:16px;">Objectifs & Jalons</h3>
+                        </div>
+                        <button type="button" class="btn-open-modal" data-type="goal" style="background:transparent; border:none; color:var(--accent-primary); cursor:pointer;">
+                            <i class="bi bi-plus-circle" style="font-size:18px;"></i>
+                        </button>
                     </div>
                     <div style="display:flex; flex-direction:column; gap:10px;">
-                        <div style="display:flex; align-items:center; justify-content:space-between; padding:10px; background:var(--bg-main); border-radius:8px;">
-                            <div style="display:flex; align-items:center; gap:10px;">
-                                <i class="bi bi-brush" style="font-size:18px;"></i>
-                                <span style="font-size:14px; font-weight:500;">Dessin</span>
+                        ${goals.length > 0 ? goals.map(g => `
+                            <div style="display:flex; align-items:center; justify-content:space-between; padding:10px; background:var(--bg-main); border-radius:8px;">
+                                <div>
+                                    <div style="font-size:14px; font-weight:500;">${g.title}</div>
+                                    <div style="font-size:12px; color:var(--text-muted);">Deadline: ${g.deadline || 'Aucune'}</div>
+                                </div>
+                                <div style="display:flex; align-items:center; gap:10px;">
+                                    <span style="font-size:12px; font-weight:bold; color:var(--accent-primary);">${g.progress}%</span>
+                                    <button class="btn-edit-item" data-id="${g.id}" data-type="goal" style="background:transparent; border:none; color:var(--accent-primary); cursor:pointer;"><i class="bi bi-pencil"></i></button>
+                                </div>
                             </div>
-                            <span style="font-size:12px; color:var(--text-muted);">2h cette sem.</span>
-                        </div>
-                        <div style="display:flex; align-items:center; justify-content:space-between; padding:10px; background:var(--bg-main); border-radius:8px;">
-                            <div style="display:flex; align-items:center; gap:10px;">
-                                <i class="bi bi-scissors" style="font-size:18px;"></i>
-                                <span style="font-size:14px; font-weight:500;">Couture</span>
-                            </div>
-                            <span style="font-size:12px; color:var(--text-muted);">Nouvelle pièce</span>
-                        </div>
+                        `).join('') : '<p style="font-size:13px; color:var(--text-muted); margin:0;">Aucun objectif défini.</p>'}
                     </div>
                 </div>
             </div>
@@ -191,6 +201,37 @@ export class LifeView {
                 const viewName = e.currentTarget.getAttribute('data-view');
                 if (viewName) {
                     this.app.renderView(viewName);
+                }
+            });
+        });
+
+        // Event listeners pour les boutons Edit/Delete (Habitudes)
+        this.container.querySelectorAll('.btn-open-modal').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const type = btn.getAttribute('data-type') || 'habit';
+                this.app.openGlobalItemEditor({ type });
+            });
+        });
+
+        this.container.querySelectorAll('.btn-edit-item').forEach(btn => {
+            btn.addEventListener('click', async (e) => {
+                const id = e.currentTarget.getAttribute('data-id');
+                const type = e.currentTarget.getAttribute('data-type');
+                let item = null;
+                if (type === 'habit') item = (await this.app.scheduler.getHabits()).find(i => i.id === id);
+                if (type === 'goal') item = (await this.app.projectEngine.getGoals()).find(i => i.id === id);
+                if (item) this.app.openGlobalItemEditor({ ...item, type });
+            });
+        });
+
+        this.container.querySelectorAll('.btn-delete-item').forEach(btn => {
+            btn.addEventListener('click', async (e) => {
+                const id = e.currentTarget.getAttribute('data-id');
+                const type = e.currentTarget.getAttribute('data-type');
+                if (confirm('Êtes-vous sûr de vouloir supprimer cet élément ?')) {
+                    if (type === 'habit') await this.app.scheduler.deleteHabit(id);
+                    if (type === 'goal') await this.app.projectEngine.deleteGoal(id);
+                    this.app.renderView('life');
                 }
             });
         });

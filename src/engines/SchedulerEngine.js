@@ -6,6 +6,32 @@ export class SchedulerEngine {
         this.storage = storageProvider;
     }
 
+    async getHabits() { return await this.storage.loadData('user_habits') || []; }
+    async saveHabit(habit) {
+        let items = await this.getHabits();
+        const index = items.findIndex(i => i.id === habit.id);
+        if (index >= 0) items[index] = habit; else items.push(habit);
+        await this.storage.saveData('user_habits', items);
+    }
+    async deleteHabit(id) {
+        let items = await this.getHabits();
+        items = items.filter(i => i.id !== id);
+        await this.storage.saveData('user_habits', items);
+    }
+
+    async getSkills() { return await this.storage.loadData('user_skills') || []; }
+    async saveSkill(skill) {
+        let items = await this.getSkills();
+        const index = items.findIndex(i => i.id === skill.id);
+        if (index >= 0) items[index] = skill; else items.push(skill);
+        await this.storage.saveData('user_skills', items);
+    }
+    async deleteSkill(id) {
+        let items = await this.getSkills();
+        items = items.filter(i => i.id !== id);
+        await this.storage.saveData('user_skills', items);
+    }
+
     async generateDailyPlan(dateStr) {
         AppLogger.info(`Scheduler: Génération du plan pour la date ${dateStr}`);
         

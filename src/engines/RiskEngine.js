@@ -158,6 +158,18 @@ export class RiskEngine {
             }
         }
 
+        // 5.6 Analyse des tâches personnelles (Échéances imminentes)
+        const imminentTasks = pTasks.filter(t => {
+            if (t.status === 'faite' || !t.dueDate) return false;
+            const days = Math.round((parseLocalDate(t.dueDate).getTime() - parseLocalDate(todayStr).getTime()) / (1000 * 60 * 60 * 24));
+            return days >= 0 && days <= 2;
+        });
+
+        if (imminentTasks.length > 0) {
+            riskScore += 20;
+            riskFactors.push({ type: 'execution', description: `${imminentTasks.length} tâche(s) personnelle(s) arrivent à échéance (≤ 2j) et ne sont pas terminées.`, weight: 20 });
+        }
+
         // 6. Normalisation du score
         riskScore = Math.max(0, Math.min(100, riskScore));
 
@@ -173,6 +185,51 @@ export class RiskEngine {
             factors: riskFactors,
             protective: protectiveFactors,
             timestamp: new Date().toISOString()
+        };
+    }
+
+    /**
+     * Calcule l'évolution de la procrastination (retards, reports, annulations)
+     * sur les 7 derniers jours comparés aux 23 jours précédents (total 30j).
+     */
+    async getProcrastinationTrends(endDateStr) {
+        const allHistory = await this.storage.loadData('study_history') || [];
+        
+        const end = new Date(endDateStr + 'T12:00:00Z');
+        
+        const d7 = new Date(end); d7.setDate(d7.getDate() - 7);
+        const d30 = new Date(end); d30.setDate(d30.getDate() - 30);
+        
+        const d7Str = d7.toISOString().split('T')[0];
+        const d30Str = d30.toISOString().split('T')[0];
+        
+        let last7 = { delayMinutes: 0, postponed: 0, missed: 0, count: 0 };
+        let prev23 = { delayMinutes: 0, postponed: 0, missed: 0, count: 0 };
+        
+        for (const r of allHistory) {
+            if (r.date > endDateStr || r.date < d30Str) continue;
+            
+            const isLast7 = r.date > d7Str;
+            const target = isLast7 ? last7 : prev23;
+            
+            target.count++;
+            if (r.status === 'missed') target.missed++;
+            if (r.delayMinutes) target.delayMinutes += r.delayMinutes;
+            if (r.postponedCount) target.postponed += r.postponedCount;
+        }
+
+        // Moyennes par session
+        const last7Delay = last7.count > 0 ? (last7.delayMinutes / last7.count) : 0;
+        const prev23Delay = prev23.count > 0 ? (prev23.delayMinutes / prev23.count) : 0;
+
+        let evolution = 'stable';
+        if (last7Delay > prev23Delay * 1.2) evolution = 'worse';
+        else if (last7Delay < prev23Delay * 0.8) evolution = 'better';
+
+        return {
+            last7Days: last7,
+            previous23Days: prev23,
+            evolutionDelay: evolution
         };
     }
 }

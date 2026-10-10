@@ -4,45 +4,39 @@ export class LanguageView {
         this.app = app;
     }
     
-    render(state) {
+    async render(state) {
         if (typeof document !== 'undefined' && document.body) {
             document.body.className = 'theme-cyber';
         }
 
-        const langs = [
-            { name: "Anglais", level: "B2", progress: 75, icon: "🇬🇧" },
-            { name: "Français", level: "C2", progress: 95, icon: "🇫🇷" },
-            { name: "Mandarin", level: "A1", progress: 15, icon: "🇨🇳" },
-            { name: "Russe", level: "A1", progress: 10, icon: "🇷🇺" }
-        ];
+        const skills = await this.app.scheduler.getSkills() || [];
 
-        let cardsHtml = langs.map(l => {
+        let cardsHtml = skills.map(l => {
             return `
             <div class="bureau-card" style="background: var(--bg-card); border-radius: 12px; border: 1px solid var(--border-color); padding:20px; position:relative;">
-                <!-- Bouton EDIT -->
-                <button style="position:absolute; top:15px; right:15px; background:transparent; border:none; color:var(--text-muted); cursor:pointer;">
-                    <i class="bi bi-pencil-square" style="font-size:16px;"></i>
-                </button>
+                <div style="position:absolute; top:15px; right:15px; display:flex; gap:8px;">
+                    <button class="btn-edit-item" data-id="${l.id}" data-type="skill" style="background:transparent; border:none; color:var(--text-muted); cursor:pointer;">
+                        <i class="bi bi-pencil-square" style="font-size:16px;"></i>
+                    </button>
+                    <button class="btn-delete-item" data-id="${l.id}" data-type="skill" style="background:transparent; border:none; color:#f44336; cursor:pointer;">
+                        <i class="bi bi-trash" style="font-size:16px;"></i>
+                    </button>
+                </div>
 
                 <div style="display:flex; align-items:center; gap:15px; margin-bottom:20px;">
-                    <div style="font-size:40px;">${l.icon}</div>
+                    <div style="font-size:40px;">⭐</div>
                     <div>
-                        <h3 style="margin:0; font-size:20px; color:var(--text-main);">${l.name}</h3>
-                        <span style="font-size:14px; color:var(--text-muted);">Niveau Actuel : <strong>${l.level}</strong></span>
+                        <h3 style="margin:0; font-size:20px; color:var(--text-main);">${l.title || l.name || 'Langue'}</h3>
+                        <span style="font-size:14px; color:var(--text-muted);">Domaine : <strong>${l.domain || 'langue'}</strong></span>
                     </div>
                 </div>
 
                 <div style="display:flex; align-items:center; gap:15px; margin-bottom:25px;">
                     <div style="flex-grow:1; height:10px; background:var(--bg-main); border-radius:5px; overflow:hidden;">
-                        <div style="height:100%; width:${l.progress}%; background:var(--accent-primary); border-radius:5px;"></div>
+                        <div style="height:100%; width:${l.target ? Math.min(100, l.target) : 0}%; background:var(--accent-primary); border-radius:5px;"></div>
                     </div>
-                    <span style="font-size:16px; font-weight:bold; color:var(--text-main);">${l.progress}%</span>
+                    <span style="font-size:16px; font-weight:bold; color:var(--text-main);">${l.target ? l.target : 0}%</span>
                 </div>
-
-                <!-- ADD BUTTON -->
-                <button style="width:100%; background:var(--bg-main); color:var(--text-main); border:1px dashed var(--border-color); padding:12px; border-radius:8px; font-weight:bold; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:10px; transition:all 0.2s;" onmouseover="this.style.background='var(--accent-primary)'; this.style.color='white'; this.style.borderStyle='solid'" onmouseout="this.style.background='var(--bg-main)'; this.style.color='var(--text-main)'; this.style.borderStyle='dashed'">
-                    <i class="bi bi-plus-circle"></i> ADD (Progression App)
-                </button>
             </div>`;
         }).join('');
         
@@ -84,9 +78,14 @@ export class LanguageView {
     <div class="bureau-content" style="flex: 1; padding: 30px; overflow-y: auto; background: var(--bg-main);">
         <!-- TOPBAR -->
         <div class="bureau-topbar" style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 30px;">
-            <div>
-                <h1 style="font-size: 24px; font-weight: 700; color:var(--text-main); letter-spacing:1px; margin:0;">LANGUES</h1>
-                <p style="color: var(--text-muted); font-size:14px; margin:5px 0 0 0;">Tes statistiques et ta progression.</p>
+            <div style="display:flex; align-items:center; gap:20px;">
+                <div>
+                    <h1 style="font-size: 24px; font-weight: 700; color:var(--text-main); letter-spacing:1px; margin:0;">LANGUES & SKILLS</h1>
+                    <p style="color: var(--text-muted); font-size:14px; margin:5px 0 0 0;">Tes statistiques et ta progression.</p>
+                </div>
+                <button type="button" class="btn-open-modal" data-type="skill" style="background:var(--accent-primary); color:white; border:none; padding:8px 15px; border-radius:20px; font-weight:bold; cursor:pointer; display:flex; align-items:center; gap:8px;">
+                    <i class="bi bi-plus-circle"></i> Ajouter
+                </button>
             </div>
             <div class="bureau-profile-avatar" style="width:40px; height:40px; border-radius:50%; background:var(--accent-primary); display:flex; align-items:center; justify-content:center; font-weight:bold; color:white; font-size:18px; cursor:pointer;" id="btn-profile">
                 E
@@ -122,5 +121,34 @@ export class LanguageView {
                 }
             });
         }
+
+        // Event listeners pour les boutons Edit/Delete
+        this.container.querySelectorAll('.btn-open-modal').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const type = btn.getAttribute('data-type') || 'skill';
+                this.app.openGlobalItemEditor({ type });
+            });
+        });
+
+        this.container.querySelectorAll('.btn-edit-item').forEach(btn => {
+            btn.addEventListener('click', async (e) => {
+                const id = e.currentTarget.getAttribute('data-id');
+                const type = e.currentTarget.getAttribute('data-type');
+                let item = null;
+                if (type === 'skill') item = (await this.app.scheduler.getSkills()).find(i => i.id === id);
+                if (item) this.app.openGlobalItemEditor({ ...item, type });
+            });
+        });
+
+        this.container.querySelectorAll('.btn-delete-item').forEach(btn => {
+            btn.addEventListener('click', async (e) => {
+                const id = e.currentTarget.getAttribute('data-id');
+                const type = e.currentTarget.getAttribute('data-type');
+                if (confirm('Êtes-vous sûr de vouloir supprimer cet élément ?')) {
+                    if (type === 'skill') await this.app.scheduler.deleteSkill(id);
+                    this.app.renderView('languages');
+                }
+            });
+        });
     }
 }

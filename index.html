@@ -13,6 +13,75 @@
         <h1 style="text-align: center;">Learning OS</h1>
         <p style="text-align: center;">Initialisation du noyau...</p>
     </div>
+
+    <!-- MODAL GLOBAL EDITION ITEM (utilisé par Portfolio, Life, Academic, Langues) -->
+    <div id="global-item-editor-modal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.7); z-index:9999; justify-content:center; align-items:center;">
+        <div style="background:#152b36; border:1px solid #00f2fe; border-radius:12px; padding:25px; width:400px; max-width:90%;">
+            <h3 id="global-modal-item-header" style="color:#00f2fe; margin-top:0;">Éditer l'élément</h3>
+            
+            <input type="hidden" id="global-modal-item-id">
+            
+            <div style="margin-bottom:12px;">
+                <label style="color:#88a7b7; font-size:12px;">Type</label>
+                <select id="global-modal-item-type-select" style="width:100%; padding:8px; border-radius:5px; background:#0f2027; color:#e0e0e0; border:1px solid #2a5268;" disabled>
+                    <option value="project">Projet</option>
+                    <option value="book">Livre</option>
+                    <option value="task">Tâche</option>
+                    <option value="habit">Habitude</option>
+                    <option value="skill">Langue / Skill</option>
+                    <option value="subject">Matière Académique</option>
+                    <option value="assessment">Évaluation Académique</option>
+                </select>
+            </div>
+
+            <div style="margin-bottom:12px;">
+                <label style="color:#88a7b7; font-size:12px;">Titre / Nom</label>
+                <input type="text" id="global-modal-item-title" style="width:100%; padding:8px; border-radius:5px; background:#0f2027; color:#e0e0e0; border:1px solid #2a5268;">
+            </div>
+
+            <div style="margin-bottom:12px;">
+                <label style="color:#88a7b7; font-size:12px;">Domaine</label>
+                <select id="global-modal-item-domain" style="width:100%; padding:8px; border-radius:5px; background:#0f2027; color:#e0e0e0; border:1px solid #2a5268;">
+                    <option value="ecole">École</option>
+                    <option value="langue">Langues</option>
+                    <option value="fitness">Fitness / Bien-être</option>
+                    <option value="lecture">Lecture</option>
+                    <option value="projet">Projet</option>
+                    <option value="perso">Personnel</option>
+                </select>
+            </div>
+
+            <div style="display:flex; gap:10px; margin-bottom:12px;">
+                <div style="flex:1;">
+                    <label style="color:#88a7b7; font-size:12px;">Échéance (Optionnel)</label>
+                    <input type="date" id="global-modal-item-dueDate" style="width:100%; padding:8px; border-radius:5px; background:#0f2027; color:#e0e0e0; border:1px solid #2a5268;">
+                </div>
+                <div style="flex:1;">
+                    <label style="color:#88a7b7; font-size:12px;">Durée (min)</label>
+                    <input type="number" id="global-modal-item-duration" style="width:100%; padding:8px; border-radius:5px; background:#0f2027; color:#e0e0e0; border:1px solid #2a5268;">
+                </div>
+            </div>
+
+            <div style="margin-bottom:12px;">
+                <label style="color:#88a7b7; font-size:12px;">Importance</label>
+                <select id="global-modal-item-priority" style="width:100%; padding:8px; border-radius:5px; background:#0f2027; color:#e0e0e0; border:1px solid #2a5268;">
+                    <option value="low">Basse</option>
+                    <option value="medium">Moyenne</option>
+                    <option value="high">Haute</option>
+                </select>
+            </div>
+
+            <div style="margin-bottom:20px;">
+                <label style="color:#88a7b7; font-size:12px;">Cible (pages, séances, score max...)</label>
+                <input type="number" step="any" id="global-modal-item-target" style="width:100%; padding:8px; border-radius:5px; background:#0f2027; color:#e0e0e0; border:1px solid #2a5268;">
+            </div>
+
+            <div style="display:flex; justify-content:flex-end; gap:10px;">
+                <button type="button" id="global-btn-modal-cancel" style="background:transparent; color:#88a7b7; border:1px solid #2a5268; padding:8px 15px; border-radius:5px; cursor:pointer;">Annuler</button>
+                <button type="button" id="global-btn-modal-save" style="background:#00f2fe; color:#0f2027; border:none; padding:8px 15px; border-radius:5px; cursor:pointer; font-weight:bold;">Sauvegarder</button>
+            </div>
+        </div>
+    </div>
     
     <!-- La navigation principale se fait via DesktopView.js désormais -->
     <script>
