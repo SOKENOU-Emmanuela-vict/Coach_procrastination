@@ -119,14 +119,19 @@ export class App {
     setupGlobalItemEditor() {
         const modal = document.getElementById('global-item-editor-modal');
         if (!modal) return;
-        document.getElementById('global-btn-modal-cancel')?.addEventListener('click', () => {
-            modal.style.display = 'none';
-        });
-        document.getElementById('global-btn-modal-save')?.addEventListener('click', async () => {
-            const id = document.getElementById('global-modal-item-id').value;
-            const type = document.getElementById('global-modal-item-type-select').value;
-            const title = document.getElementById('global-modal-item-title').value.trim();
-            if (!title) return alert("Le titre/nom est requis");
+        const cancelBtn = document.getElementById('global-btn-modal-cancel');
+        if (cancelBtn && typeof cancelBtn.addEventListener === 'function') {
+            cancelBtn.addEventListener('click', () => {
+                modal.style.display = 'none';
+            });
+        }
+        const saveBtn = document.getElementById('global-btn-modal-save');
+        if (saveBtn && typeof saveBtn.addEventListener === 'function') {
+            saveBtn.addEventListener('click', async () => {
+                const id = document.getElementById('global-modal-item-id').value;
+                const type = document.getElementById('global-modal-item-type-select').value;
+                const title = document.getElementById('global-modal-item-title').value.trim();
+                if (!title) return alert("Le titre/nom est requis");
             
             const baseData = {
                 title,
@@ -182,6 +187,7 @@ export class App {
             modal.style.display = 'none';
             this.renderView(this.state.currentView);
         });
+        }
     }
 
     openGlobalItemEditor(data = {}) {
@@ -276,6 +282,7 @@ export class App {
             projects: await this.projectEngine.getProjects(),
             books: await this.projectEngine.getBooks(),
             personalTasks: await this.projectEngine.getPersonalTasks(),
+            goals: await this.projectEngine.getGoals(),
             temporalEvents: temporalEvents,
             availableSlots: availableSlots,
             availabilityDates: availabilityDates,
@@ -1076,13 +1083,32 @@ export class App {
         if (this.projectEngine && typeof this.projectEngine.getGoals === 'function') {
             const goals = (await this.projectEngine.getGoals()) || [];
             for (const g of goals) {
-                if (!g.deadline || g.progress >= 50) continue;
-                const days = this._daysBetween(today, g.deadline);
-                if (days >= 0 && days <= 5) { // 5 days threshold for goals
-                    const key = `goal_alert_${g.id}_${days}`;
-                    if (!due(key, 2)) continue; // alert every 2 days
-                    mark(key);
-                    await this._sayCoach(`🚨 Alerte Objectif : Ton objectif "${g.title}" arrive à échéance dans ${days} jours, mais ton avancement n'est que de ${g.progress}%. Faisons un plan pour avancer !`, { intent: null, proactive: 'goal_alert' });
+                // Alertes d'échéance
+                if (g.deadline && g.progress < 50) {
+                    const days = this._daysBetween(today, g.deadline);
+                    if (days >= 0 && days <= 5) {
+                        const key = `goal_alert_${g.id}_${days}`;
+                        if (due(key, 2)) {
+                            mark(key);
+                            await this._sayCoach(`🚨 Alerte Objectif : Ton objectif "${g.title}" arrive à échéance dans ${days} jours, mais ton avancement n'est que de ${g.progress}%. Faisons un plan pour avancer !`, { intent: null, proactive: 'goal_alert' });
+                        }
+                    }
+                }
+                // Alertes de réussite (50%, 80%, 100%)
+                const milestones = [50, 80, 100];
+                for (const m of milestones) {
+                    if (g.progress >= m) {
+                        const key = `goal_milestone_${g.id}_${m}`;
+                        if (due(key, 9999)) { // une seule fois par jalon
+                            mark(key);
+                            await this._sayCoach(`🎉 Félicitations ! Tu as atteint ${m}% de ton objectif "${g.title}".`, { intent: null, proactive: 'goal_success' });
+                            if (typeof this.appLogger?.info === 'function') this.appLogger.info(`Goal Milestone ${m}%: ${g.title}`);
+                            if (typeof window !== 'undefined' && window.dispatchEvent) {
+                                window.dispatchEvent(new CustomEvent('toast', { detail: { message: `Objectif "${g.title}" : ${m}% atteint !` } }));
+                                window.dispatchEvent(new CustomEvent('badge', { detail: { source: 'goal', message: `Objectif ${m}% : ${g.title}` } }));
+                            }
+                        }
+                    }
                 }
             }
         }
@@ -1167,6 +1193,31 @@ export class App {
             this.state.projects = rawProjects;
             this.state.books = await this.projectEngine.getBooks();
             this.state.personalTasks = await this.projectEngine.getPersonalTasks();
+            
+            const goals = await this.projectEngine.getGoals();
+            let goalsUpdated = false;
+            for (const goal of goals) {
+                if (goal.autoMetric) {
+                    let currentVal = 0;
+                    if (goal.autoMetric.type === 'pages') {
+                        currentVal = this.state.books.reduce((acc, b) => acc + (b.pagesRead || 0), 0);
+                    } else if (goal.autoMetric.type === 'tasks') {
+                        currentVal = this.state.personalTasks.filter(t => t.status === 'faite').length;
+                    } else if (goal.autoMetric.type === 'streak') {
+                        currentVal = this.state.userProfile?.streak || 0;
+                    } else if (goal.autoMetric.type === 'sessions') {
+                        currentVal = (this.state.fullHistory || []).filter(h => h.status === 'completed').length;
+                    }
+                    
+                    const newProgress = Math.min(100, Math.round((currentVal / goal.autoMetric.target) * 100));
+                    if (newProgress > goal.progress) {
+                        goal.progress = newProgress;
+                        await this.projectEngine.saveGoal(goal);
+                        goalsUpdated = true;
+                    }
+                }
+            }
+            this.state.goals = goals;
         }
         
         // Données pour le Bureau (Desktop) et Espace Académique
