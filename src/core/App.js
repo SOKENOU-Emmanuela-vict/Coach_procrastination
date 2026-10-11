@@ -1023,7 +1023,11 @@ export class App {
         if (due(keyCheckIn)) {
             const checkins = await this.storage.loadData('daily_checkins') || {};
             if (!checkins[today]) {
-                await this._sayCoach(`Bonjour ! Comment te sens-tu aujourd'hui pour travailler ? (Dis-moi ton humeur, ton énergie et ta motivation, ex: "humeur au top, énergie moyenne, très motivé").`, { intent: null, proactive: 'checkin', pendingCheckIn: true });
+                const pending = await this.storage.loadData('pending_checkin_conv');
+                if (!pending || pending.date !== today) {
+                    await this.storage.saveData('pending_checkin_conv', { step: 'mood', date: today, data: {} });
+                    await this._sayCoach(`Bonjour ! Comment te sens-tu aujourd'hui ? Quelle est ton humeur (bonne, moyenne, morose...) ?`, { intent: null, proactive: 'checkin', pendingCheckInStep: 'mood' });
+                }
             }
             mark(keyCheckIn);
         }
@@ -1751,6 +1755,24 @@ export class App {
             return;
         }
 
+        // Dialogue de check-in conversationnel pas-à-pas (humeur -> énergie -> motivation)
+        try {
+            if (await this._handleCheckInChat(text)) {
+                this.renderView('chat', { refresh: false });
+                return;
+            }
+        } catch (e) {
+            console.error(e);
+            await this.chatHistoryEngine.saveMessage({
+                role: 'assistant',
+                content: "Erreur lors du bilan : " + e.message,
+                conversationId: 'default',
+                metadata: { error: true }
+            });
+            this.renderView('chat', { refresh: false });
+            return;
+        }
+
         try {
             // 2. Contexte identique à celui du tableau de bord + mémoire courte de la conversation
             let chatHistory = [];
@@ -1924,5 +1946,191 @@ export class App {
             conversationId: 'default',
             metadata: { intent: planned.intent || null, flexibleConflict: planned.flexibleConflict || null }
         });
+    }
+
+    /**
+     * Gère la conversation étape par étape du Check-in quotidien :
+     * 1. Humeur (d'abord)
+     * 2. Énergie (après reformulation de l'humeur)
+     * 3. Motivation (après reformulation de l'énergie)
+     * Si l'une des valeurs n'est pas comprise, la redemande sans enregistrer de fausse donnée par défaut.
+     */
+    async _handleCheckInChat(text) {
+        if (!text) return false;
+        const today = this._todayStr();
+        const pending = await this.storage.loadData('pending_checkin_conv');
+        const trimmed = text.trim();
+
+        // 1. Déclenchement manuel ou explicite par l'utilisatrice
+        if (!pending || pending.date !== today) {
+            if (/\b(faire\s+(mon\s+)?(check-?in|bilan)|daily\s+check-?in|bilan\s+du\s+jour|check-?in|mon\s+bilan|faire\s+le\s+bilan)\b/i.test(trimmed)) {
+                await this.storage.saveData('pending_checkin_conv', { step: 'mood', date: today, data: {} });
+                await this._sayCoach("Bonjour ! Faisons ton bilan du jour ensemble. Pour commencer, quelle est ton humeur aujourd'hui (bonne, moyenne, morose...) ?", {
+                    intent: null,
+                    proactive: 'checkin',
+                    pendingCheckInStep: 'mood'
+                });
+                return true;
+            }
+            return false;
+        }
+
+        // 2. Étape 1 : Humeur
+        if (pending.step === 'mood') {
+            const parsedMood = this._parseMoodRule(trimmed);
+            if (!parsedMood) {
+                await this._sayCoach("Je n'ai pas bien compris ton humeur. Peux-tu me dire si elle est plutôt bonne, moyenne ou basse aujourd'hui ?", {
+                    intent: null,
+                    proactive: 'checkin',
+                    pendingCheckInStep: 'mood'
+                });
+                return true;
+            }
+            pending.data.mood = parsedMood;
+            pending.step = 'energy';
+            await this.storage.saveData('pending_checkin_conv', pending);
+
+            const moodReformulations = {
+                high: "Super, content d'apprendre que tu es de bonne humeur !",
+                medium: "D'accord, une humeur posée et tranquille.",
+                low: "Je comprends, prends soin de toi aujourd'hui."
+            };
+            const reform = moodReformulations[parsedMood] || "C'est bien noté pour ton humeur.";
+            await this._sayCoach(`${reform} Et côté énergie, comment te sens-tu (haute, moyenne, basse) ?`, {
+                intent: null,
+                proactive: 'checkin',
+                pendingCheckInStep: 'energy'
+            });
+            return true;
+        }
+
+        // 3. Étape 2 : Énergie
+        if (pending.step === 'energy') {
+            const parsedEnergy = this._parseEnergyRule(trimmed);
+            if (!parsedEnergy) {
+                await this._sayCoach("Je n'ai pas bien saisi ton niveau d'énergie. Te sens-tu avec une énergie haute, moyenne ou basse ?", {
+                    intent: null,
+                    proactive: 'checkin',
+                    pendingCheckInStep: 'energy'
+                });
+                return true;
+            }
+            pending.data.energy = parsedEnergy;
+            pending.step = 'motivation';
+            await this.storage.saveData('pending_checkin_conv', pending);
+
+            const energyReformulations = {
+                high: "Plein d'énergie, c'est idéal pour avancer !",
+                medium: "Énergie moyenne, c'est stable pour travailler à ton rythme.",
+                low: "Énergie basse, pense à ménager tes efforts."
+            };
+            const reform = energyReformulations[parsedEnergy] || "C'est bien noté pour ton énergie.";
+            await this._sayCoach(`${reform} Pour terminer, quelle est ta motivation pour travailler aujourd'hui (forte, moyenne, faible) ?`, {
+                intent: null,
+                proactive: 'checkin',
+                pendingCheckInStep: 'motivation'
+            });
+            return true;
+        }
+
+        // 4. Étape 3 : Motivation & Enregistrement du Check-in authentique
+        if (pending.step === 'motivation') {
+            const parsedMotivation = this._parseMotivationRule(trimmed);
+            if (!parsedMotivation) {
+                await this._sayCoach("Peux-tu me préciser si ta motivation est plutôt forte, moyenne ou faible ?", {
+                    intent: null,
+                    proactive: 'checkin',
+                    pendingCheckInStep: 'motivation'
+                });
+                return true;
+            }
+            pending.data.motivation = parsedMotivation;
+
+            const checkInData = {
+                date: today,
+                mood: pending.data.mood,
+                energy: pending.data.energy,
+                motivation: parsedMotivation
+            };
+
+            if (this.checkInEngine && typeof this.checkInEngine.saveCheckIn === 'function') {
+                await this.checkInEngine.saveCheckIn(checkInData);
+            } else {
+                const checkins = await this.storage.loadData('daily_checkins') || {};
+                checkins[today] = checkInData;
+                await this.storage.saveData('daily_checkins', checkins);
+            }
+            await this.storage.saveData('pending_checkin_conv', null);
+
+            const labels = {
+                high: { mood: 'bonne', energy: 'haute', motivation: 'forte' },
+                medium: { mood: 'moyenne', energy: 'moyenne', motivation: 'moyenne' },
+                low: { mood: 'morose', energy: 'basse', motivation: 'faible' }
+            };
+            const lM = labels[checkInData.mood]?.mood || checkInData.mood;
+            const lE = labels[checkInData.energy]?.energy || checkInData.energy;
+            const lMo = labels[checkInData.motivation]?.motivation || checkInData.motivation;
+
+            await this._sayCoach(`Parfait, c'est bien noté ! Ton bilan du jour est enregistré : humeur ${lM}, énergie ${lE}, motivation ${lMo}. Belle journée de travail !`, {
+                intent: null,
+                proactive: 'checkin_saved',
+                checkIn: checkInData
+            });
+            if (typeof this.refreshUserStats === 'function') {
+                try {
+                    await this.refreshUserStats();
+                } catch (e) {
+                    console.warn("refreshUserStats warning after check-in:", e.message);
+                }
+            }
+            return true;
+        }
+
+        return false;
+    }
+
+    _parseMoodRule(text) {
+        if (!text) return null;
+        const norm = text.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+        if (/\b(pas\s+(bien|terrible|top)|mauvais(e)?|mal|triste|deprime(e)?|morose|anxieu(x|se)|stresse(e)?|demotive(e)?|bof|baisse|difficile|dur(e)?|nul(le)?|baisse)\b/.test(norm)) {
+            return 'low';
+        }
+        if (/\b(top|super|tres\s+bon(ne)?|excellente?|bonne?|joyeu(x|se)|en\s+forme|heureu(x|se)|content(e)?|positif|positive|cool|genial(e)?|high|good|parfaite?|ravie?|bien)\b/.test(norm)) {
+            return 'high';
+        }
+        if (/\b(moyen(ne)?|correct(e)?|ca\s+va|neutre|normal(e)?|medium|ok|passable|comme\s+ci\s+comme\s+ca|tranquille|ordinaire)\b/.test(norm)) {
+            return 'medium';
+        }
+        return null;
+    }
+
+    _parseEnergyRule(text) {
+        if (!text) return null;
+        const norm = text.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+        if (/\b(basse|faible|fatigue(e)?|epuise(e)?|hs|ko|creve(e)?|low|peu|nulle?|a\s+plat|vide(e)?|pas\s+d['’]?energie|zero)\b/.test(norm)) {
+            return 'low';
+        }
+        if (/\b(haute|plein(e)?|beaucoup|au\s+max|au\s+top|tres\s+haute|100%|high|forte|booste(e)?|tonique|debordante?|parfaite?|max)\b/.test(norm)) {
+            return 'high';
+        }
+        if (/\b(moyen(ne)?|correcte?|normale?|ca\s+va|medium|moderee?|standard|stable|suffisante?|ok)\b/.test(norm)) {
+            return 'medium';
+        }
+        return null;
+    }
+
+    _parseMotivationRule(text) {
+        if (!text) return null;
+        const norm = text.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+        if (/\b(faible|aucune|pas\s+motive(e)?|zero|low|demotive(e)?|flemm(e|ard(e)?)|nulle?|difficile|pas\s+envie|bof)\b/.test(norm)) {
+            return 'low';
+        }
+        if (/\b(forte|tres\s+motive(e)?|a\s+fond|pret(e)?|haute|high|top|determine(e)?|chaud(e)?|booste(e)?|tres\s+forte|max)\b/.test(norm)) {
+            return 'high';
+        }
+        if (/\b(moyen(ne)?|moderee?|ca\s+va|medium|normal(e)?|un\s+peu|correcte?|ok)\b/.test(norm)) {
+            return 'medium';
+        }
+        return null;
     }
 }

@@ -20,9 +20,9 @@ export class CoachChatView {
             ? (st.dailySummary.planned.totalSessions || 0)
             : ((st.dailyPlan && st.dailyPlan.sessions) ? st.dailyPlan.sessions.length : 0);
         const energyLabels = { low: 'Basse', medium: 'Moyenne', high: 'Haute' };
-        const energyLabel = st.todayCheckIn
-            ? (energyLabels[st.todayCheckIn.energy] || String(st.todayCheckIn.energy || '—'))
-            : '--';
+        const energyLabel = (st.todayCheckIn && st.todayCheckIn.energy)
+            ? (energyLabels[st.todayCheckIn.energy] || String(st.todayCheckIn.energy))
+            : '—';
         const upcomingWeek = ((st.academicSummary && st.academicSummary.upcomingAssessments) || [])
             .filter(a => typeof a.daysRemaining === 'number' && a.daysRemaining >= 0 && a.daysRemaining <= 7).length;
         const todayLabel = new Date().toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' });

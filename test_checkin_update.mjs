@@ -16,8 +16,8 @@ async function testCheckInMigration() {
         sleep: { durationMinutes: 480, quality: 'good' }
     };
     const oldCheckIn = new DailyCheckIn(oldData);
-    assert.strictEqual(oldCheckIn.mood, 'medium', "L'humeur par défaut doit être 'medium'");
-    assert.strictEqual(oldCheckIn.motivation, 'medium', "La motivation par défaut doit être 'medium'");
+    assert.strictEqual(oldCheckIn.mood, null, "L'humeur doit être null sans valeur par défaut");
+    assert.strictEqual(oldCheckIn.motivation, null, "La motivation doit être null sans valeur par défaut");
     console.log("✔ Backward compatibility (données anciennes)");
 
     // Test 2: New check-in data with mood and motivation

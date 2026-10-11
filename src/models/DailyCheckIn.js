@@ -19,15 +19,15 @@ export class DailyCheckIn {
         this.id = config.id || `chk_${Date.now()}_${Math.floor(Math.random() * 1000)}`;
         this.date = config.date; 
         
-        this.energy = config.energy || 'medium'; 
-        this.mood = config.mood || 'medium';
-        this.motivation = config.motivation || 'medium';
-        this.sleep = config.sleep || { durationMinutes: 0, quality: 'fair' };
+        this.energy = config.energy || null; 
+        this.mood = config.mood || null;
+        this.motivation = config.motivation || null;
+        this.sleep = config.sleep || null;
         
         this.blockers = Array.isArray(config.blockers) ? config.blockers : [];
         this.notes = config.notes || '';
         
-        this.dayAssessment = config.dayAssessment || 'completed';
+        this.dayAssessment = config.dayAssessment || null;
         
         this.needsFollowUp = Array.isArray(config.needsFollowUp) ? config.needsFollowUp : [];
         

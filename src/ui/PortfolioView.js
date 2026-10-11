@@ -211,20 +211,19 @@ export class PortfolioView {
             dates.forEach(date => {
                 const j = state.allCheckins[date];
                 if (!j) return;
-                const moodEmojis = ["", "😭", "😟", "😐", "🙂", "🤩"];
-                const moodLabel = moodEmojis[j.mood] || "🙂";
-                const hasVoice = j.voiceNote ? true : false;
-                // Le bilan quotidien (CheckInEngine) stocke energy = 'low' | 'medium' | 'high' et blockers = [] ; mood est optionnel
-                const energyScore = typeof j.energy === 'number' ? j.energy : ({ low: 2, medium: 3, high: 4 }[j.energy] || 3);
+                const moodLabel = j.mood ? (j.mood === 'high' ? 'Bonne 🙂' : j.mood === 'medium' ? 'Moyenne 😐' : 'Morose 😟') : 'Non renseignée';
+                const energyLabel = j.energy ? (j.energy === 'high' ? 'Haute ⚡' : j.energy === 'medium' ? 'Moyenne 🔋' : 'Basse 🪫') : 'Non renseignée';
+                const motivationLabel = j.motivation ? (j.motivation === 'high' ? 'Forte 🔥' : j.motivation === 'medium' ? 'Moyenne 📈' : 'Faible 📉') : 'Non renseignée';
                 const blockersText = Array.isArray(j.blockers) ? j.blockers.filter(Boolean).join(', ') : (j.blockers || '');
                 
                 checkinsHtml += `
                 <div style="background: linear-gradient(135deg, #12242f 0%, #0c1921 100%); border: 1px solid #2a5268; border-radius: 12px; padding: 16px; margin-bottom: 15px; box-shadow: 0 4px 12px rgba(0,0,0,0.3);">
                     <div style="display:flex; justify-content:space-between; align-items:center; border-bottom: 1px solid #1e3f52; padding-bottom: 10px; margin-bottom: 12px; flex-wrap:wrap; gap:10px;">
                         <span style="color: #00f2fe; font-weight: bold; font-size: 16px;">📅 Bilan du ${date}</span>
-                        <div style="display:flex; gap:12px; align-items:center;">
-                            <span style="background:#1a3848; color:#fff; padding:4px 10px; border-radius:15px; font-size:12px;">Humeur : ${moodLabel} (${j.mood ?? '-'}/5)</span>
-                            <span style="background:#1a3848; color:#fff; padding:4px 10px; border-radius:15px; font-size:12px;">⚡ Énergie : ${energyScore}/5</span>
+                        <div style="display:flex; gap:12px; align-items:center; flex-wrap:wrap;">
+                            <span style="background:#1a3848; color:#fff; padding:4px 10px; border-radius:15px; font-size:12px;">Humeur : ${escapeHtml(moodLabel)}</span>
+                            <span style="background:#1a3848; color:#fff; padding:4px 10px; border-radius:15px; font-size:12px;">Énergie : ${escapeHtml(energyLabel)}</span>
+                            <span style="background:#1a3848; color:#fff; padding:4px 10px; border-radius:15px; font-size:12px;">Motivation : ${escapeHtml(motivationLabel)}</span>
                         </div>
                     </div>
 
