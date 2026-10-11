@@ -416,11 +416,16 @@ export class TimetableImportEngine {
             }
         }
 
+        const coursesCount = rows.length;
+        const groupDetected = !!(preview.groupsFound && preview.groupsFound.length > 0);
+
         return {
             ...preview,
             group: TimetableImportEngine.groupLabel(group || DEFAULT_GROUP),
             weekStart, weekEnd,
             rows,
+            coursesCount,
+            groupDetected,
             warnings,
             replacesExistingImport: !!(weekStart && (preview.existingWeeks || []).includes(weekStart))
         };
@@ -520,7 +525,10 @@ export class TimetableImportEngine {
             weekEnd: preview.weekEnd,
             replaced: res.replaced || 0,
             overlaps: res.overlaps || [],
-            unmapped: selected.filter(r => !r.subjectId).map(r => r.title)
+            unmapped: selected.filter(r => !r.subjectId).map(r => r.title),
+            group: preview.group,
+            groupsFound: preview.groupsFound || [],
+            groupDetected: !!(preview.groupsFound && preview.groupsFound.length > 0)
         };
     }
 

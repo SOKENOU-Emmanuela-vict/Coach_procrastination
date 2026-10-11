@@ -441,9 +441,28 @@ export class App {
                 semesterId: profile.currentSemesterId || 'sem_s3_26'
             });
         } catch (err) {
-            throw App.explainGeminiFailure(err, "Lecture de l'emploi du temps impossible");
+            const explained = App.explainGeminiFailure(err, "Lecture de l'emploi du temps impossible");
+            if (this.chatHistoryEngine && typeof this.chatHistoryEngine.saveMessage === 'function') {
+                try {
+                    await this._sayCoach(`La lecture de l'emploi du temps a échoué : ${explained.message}. Aucun cours n'a pu être lu.`, { intent: null, proactive: 'timetable_failed' });
+                } catch (e) {}
+            }
+            throw explained;
         }
         this.pendingTimetablePreview = preview;
+
+        if (this.chatHistoryEngine && typeof this.chatHistoryEngine.saveMessage === 'function') {
+            const rowCount = preview.rows ? preview.rows.length : 0;
+            const groupText = (preview.groupsFound && preview.groupsFound.length > 0)
+                ? `groupe(s) détecté(s) : ${preview.groupsFound.join(', ')}`
+                : 'aucun groupe spécifique détecté';
+            if (rowCount === 0) {
+                await this._sayCoach(`J'ai analysé le document mais je n'ai trouvé aucun cours (${groupText}).`, { intent: null, proactive: 'timetable_empty' });
+            } else {
+                await this._sayCoach(`Lecture de l'emploi du temps : ${rowCount} cours lu(s) (${groupText}). Tu peux vérifier l'aperçu et valider.`, { intent: null, proactive: 'timetable_read' });
+            }
+        }
+
         return preview;
     }
 
@@ -490,7 +509,11 @@ export class App {
         const next = (cp.upcomingSessions || []).find(s => s.date >= today);
         const progress = (cp.items || []).filter(it => it.hoursTotal && it.subjectId).slice(0, 4)
             .map(it => `${it.subjectName || it.title} ${it.hoursDone} h/${it.hoursTotal} h`);
-        const parts = [`Bien reçu : emploi du temps de la semaine du ${d}/${m}, ${res.count} cours ajoutés à ton planning.`];
+        const groupDesc = (res.groupsFound && res.groupsFound.length > 0)
+            ? ` (${res.groupsFound.join(', ')})`
+            : (res.group ? ` (${res.group})` : ' (aucun groupe détecté)');
+        const countText = res.count > 0 ? `${res.count} cours ajouté(s) à ton planning` : 'aucun cours ajouté';
+        const parts = [`Bien reçu : emploi du temps de la semaine du ${d}/${m}${groupDesc}, ${countText}.`];
         if (next) parts.push(`Prochain cours : ${next.title} ${next.date === today ? "aujourd'hui" : this._frDate(next.date)} à ${next.startTime}.`);
         if (progress.length) parts.push(`Avancement : ${progress.join(' ; ')}.`);
         parts.push("Dis-moi dès que tu connais la date d'un examen (ex. « examen de Structures algébriques le 15/10 »).");
