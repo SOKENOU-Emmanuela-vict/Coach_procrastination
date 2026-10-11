@@ -2,7 +2,7 @@ import { escapeHtml } from '../utils/html.js';
 import { parseLocalDate } from '../utils/dateUtils.js';
 export class PlanningView {
     constructor(containerId, app) {
-        this.container = document.getElementById(containerId);
+        this.container = typeof containerId === 'string' && typeof document !== 'undefined' ? document.getElementById(containerId) : (containerId || (typeof document !== 'undefined' ? document.getElementById('view-container') : null));
         this.app = app;
     }
     
@@ -67,9 +67,15 @@ export class PlanningView {
             const bgColor = isSchool ? '#0ea5e9' : (e.type === 'Force-N' ? '#ef4444' : '#10b981');
 
             return `
-            <div style="position: absolute; left: calc(60px + ${dayIndex} * ((100% - 60px) / 7) + 2px); width: calc(((100% - 60px) / 7) - 4px); top: ${top}px; height: ${height}px; background: ${bgColor}; color: white; border-radius: 6px; padding: 4px 8px; font-size: 11px; overflow: hidden; box-shadow: 0 2px 4px rgba(0,0,0,0.1); z-index: 10;">
-                <strong style="display:block; text-overflow:ellipsis; white-space:nowrap; overflow:hidden;">${escapeHtml(e.title || e.type)}</strong>
-                <span style="opacity:0.8;">${escapeHtml(e.startTime)} - ${escapeHtml(e.endTime || '')}</span>
+            <div style="position: absolute; left: calc(60px + ${dayIndex} * ((100% - 60px) / 7) + 2px); width: calc(((100% - 60px) / 7) - 4px); top: ${top}px; height: ${height}px; background: ${bgColor}; color: white; border-radius: 6px; padding: 4px 6px; font-size: 11px; overflow: hidden; box-shadow: 0 2px 4px rgba(0,0,0,0.1); z-index: 10;">
+                <div style="display:flex; justify-content:space-between; align-items:center; gap:2px;">
+                    <strong style="display:block; text-overflow:ellipsis; white-space:nowrap; overflow:hidden; flex:1;">${escapeHtml(e.title || e.type)}</strong>
+                    <div style="display:inline-flex; gap:2px;">
+                        <button type="button" class="btn-edit-event" data-id="${escapeHtml(e.id)}" title="Modifier" style="background:transparent; border:none; color:white; cursor:pointer; font-size:10px; padding:0; line-height:1;">✏️</button>
+                        <button type="button" class="btn-delete-event" data-id="${escapeHtml(e.id)}" title="Supprimer" style="background:transparent; border:none; color:#fca5a5; cursor:pointer; font-size:10px; padding:0; line-height:1;">🗑️</button>
+                    </div>
+                </div>
+                <span style="opacity:0.8; font-size:10px;">${escapeHtml(e.startTime)} - ${escapeHtml(e.endTime || '')}</span>
             </div>
             `;
         }).join('');
@@ -114,16 +120,26 @@ export class PlanningView {
         if (currentEvent) {
             currentSessionHtml = `
             <div style="background: rgba(14, 165, 233, 0.1); border: 1px solid var(--accent-primary); border-radius: 8px; padding: 15px;">
-                <strong style="display:block; color:var(--accent-primary); margin-bottom:5px;">${escapeHtml(currentEvent.title || currentEvent.type)}</strong>
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:5px;">
+                    <strong style="color:var(--accent-primary);">${escapeHtml(currentEvent.title || currentEvent.type)}</strong>
+                    <div style="display:inline-flex; gap:6px;">
+                        <button type="button" class="btn-edit-event" data-id="${escapeHtml(currentEvent.id)}" title="Modifier" style="background:transparent; border:none; color:var(--accent-primary); cursor:pointer; font-size:12px; padding:0;">✏️</button>
+                        <button type="button" class="btn-delete-event" data-id="${escapeHtml(currentEvent.id)}" title="Supprimer" style="background:transparent; border:none; color:#ef4444; cursor:pointer; font-size:12px; padding:0;">🗑️</button>
+                    </div>
+                </div>
                 <div style="font-size:12px; color:var(--text-main);"><i class="bi bi-clock"></i> ${currentEvent.startTime} - ${currentEvent.endTimeStr}</div>
             </div>`;
         }
 
         if (upcomingList.length > 0) {
             upcomingHtml = upcomingList.map(e => `
-            <div style="display:flex; justify-content:space-between; padding: 10px 0; border-bottom: 1px solid var(--border-color);">
-                <div style="font-size:13px; font-weight:500; color:var(--text-main); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${escapeHtml(e.title || e.type)}</div>
-                <div style="font-size:12px; color:var(--text-muted);">${e.startTime}</div>
+            <div style="display:flex; justify-content:space-between; align-items:center; padding: 10px 0; border-bottom: 1px solid var(--border-color);">
+                <div style="font-size:13px; font-weight:500; color:var(--text-main); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; flex:1;">${escapeHtml(e.title || e.type)}</div>
+                <div style="display:flex; align-items:center; gap:8px;">
+                    <span style="font-size:12px; color:var(--text-muted);">${e.startTime}</span>
+                    <button type="button" class="btn-edit-event" data-id="${escapeHtml(e.id)}" title="Modifier" style="background:transparent; border:none; color:var(--accent-primary); cursor:pointer; font-size:12px; padding:0;">✏️</button>
+                    <button type="button" class="btn-delete-event" data-id="${escapeHtml(e.id)}" title="Supprimer" style="background:transparent; border:none; color:#ef4444; cursor:pointer; font-size:12px; padding:0;">🗑️</button>
+                </div>
             </div>
             `).join('');
         }
@@ -192,7 +208,8 @@ export class PlanningView {
                 <h1 style="font-size: 24px; font-weight: 700; color:var(--text-main); letter-spacing:1px; margin:0;">PLANNING HEBDO</h1>
                 <p style="color: var(--text-muted); font-size:14px; margin:5px 0 0 0;">${semaineStr}</p>
             </div>
-            <div class="bureau-topbar-actions" style="display:flex; gap:15px; align-items:center;">
+            <div class="bureau-topbar-actions" style="display:flex; gap:12px; align-items:center;">
+                <button id="btn-add-event-planning" style="background:#00f2fe; color:#0f2027; border:none; padding:10px 16px; border-radius:8px; font-weight:bold; cursor:pointer; font-size:13px; display:inline-flex; align-items:center; gap:6px;"><i class="bi bi-plus-lg"></i> Ajouter un événement</button>
                 <button id="btn-import-timetable" style="background:var(--accent-primary); color:white; border:none; padding:10px 16px; border-radius:8px; font-weight:bold; cursor:pointer; font-size:13px;"><i class="bi bi-file-earmark-arrow-up"></i> Importer l'emploi du temps (PDF)</button>
                 <input type="file" id="input-import-timetable" accept="application/pdf,image/*" style="display:none;">
                 <div style="text-align:right;">
@@ -312,6 +329,37 @@ export class PlanningView {
         });
 
         this.attachTimetableImport();
+
+        // CRUD Événements sans IA
+        const btnAdd = this.container.querySelector('#btn-add-event-planning');
+        if (btnAdd) {
+            btnAdd.addEventListener('click', () => {
+                this.app.openEventEditor({ date: currentDateStr });
+            });
+        }
+
+        this.container.querySelectorAll('.btn-edit-event').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const eventId = e.currentTarget.getAttribute('data-id');
+                const eventObj = rawEvents.find(ev => ev.id === eventId);
+                if (eventObj) {
+                    this.app.openEventEditor(eventObj);
+                }
+            });
+        });
+
+        this.container.querySelectorAll('.btn-delete-event').forEach(btn => {
+            btn.addEventListener('click', async (e) => {
+                e.stopPropagation();
+                const eventId = e.currentTarget.getAttribute('data-id');
+                if (!eventId) return;
+                if (typeof window !== 'undefined' && window.confirm && !window.confirm("Supprimer cet événement ?")) {
+                    return;
+                }
+                await this.app.deleteCalendarEvent(eventId);
+            });
+        });
     }
 
     /**

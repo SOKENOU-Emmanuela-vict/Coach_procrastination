@@ -23,6 +23,8 @@ import { SubjectMatcher } from '../engines/SubjectMatcher.js';
 import { ExamRevisionPlanner } from '../ai/ExamRevisionPlanner.js';
 import { parseExamAnnouncement, parseGradeAnswer, parseGradeStatement, isNotYetAnswer, parseBookProgress, parsePersonalTaskCreation, parseTaskCompletion, parseItemUpdate, parseItemDeletion } from '../ai/ChatIntentParser.js';
 import { DailySnapshotEngine } from '../engines/DailySnapshotEngine.js';
+import { Event } from '../models/Event.js';
+import { EventModal } from '../ui/EventModal.js';
 
 // Disponibilités par défaut tant qu'aucune n'a été saisie (seulement après un premier import d'emploi du temps)
 export const DEFAULT_STUDY_WINDOW = { startTime: '08:00', endTime: '21:00' };
@@ -1528,17 +1530,62 @@ export class App {
         return await this.planningEngine.getAvailableSlots(date);
     }
     
-    // --- RELAIS CRUD CALENDRIER ---
+    openEventEditor(data = {}) {
+        if (!this.eventModal) {
+            this.eventModal = new EventModal(this);
+        }
+        this.eventModal.open(data);
+    }
+
+    // --- RELAIS CRUD CALENDRIER / PLANNING SANS IA ---
     async saveCalendarEvent(eventData) {
-        await this.planningEngine.saveEvent(eventData);
+        const rep = eventData.repetition || 'none';
+        let repeatCount = 1;
+        let dayStep = 0;
+        if (rep === 'daily') {
+            repeatCount = 7;
+            dayStep = 1;
+        } else if (rep === 'weekly') {
+            repeatCount = 4;
+            dayStep = 7;
+        } else if (rep === 'weekly_8') {
+            repeatCount = 8;
+            dayStep = 7;
+        }
+
+        const baseDate = parseLocalDate(eventData.date);
+
+        for (let i = 0; i < repeatCount; i++) {
+            const curDate = new Date(baseDate);
+            if (dayStep > 0 && i > 0) {
+                curDate.setDate(baseDate.getDate() + (i * dayStep));
+            }
+            const dateStr = curDate.toLocaleDateString('fr-CA');
+            const curId = (i === 0 && eventData.id) ? eventData.id : `evt_man_${Date.now()}_${i}_${Math.random().toString(36).substring(2, 6)}`;
+
+            const ev = new Event({
+                ...eventData,
+                id: curId,
+                date: dateStr,
+                source: eventData.source || 'manual'
+            });
+            await this.planningEngine.saveEvent(ev);
+        }
+
         await this.refreshCalendarData();
-        await this.renderView('calendar');
+        const targetView = (this.state && this.state.currentView === 'planning') ? 'planning' : 'calendar';
+        if (typeof this.renderView === 'function') {
+            await this.renderView(targetView);
+        }
     }
 
     async deleteCalendarEvent(eventId) {
         await this.planningEngine.deleteEvent(eventId);
         await this.refreshCalendarData();
-        await this.renderView('calendar');
+        const targetView = (this.state && this.state.currentView === 'planning') ? 'planning' : 'calendar';
+        if (typeof this.renderView === 'function') {
+            await this.renderView(targetView);
+        }
     }
 
     async saveCalendarAvailability(windowData) {

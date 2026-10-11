@@ -1,7 +1,7 @@
 import { escapeHtml } from '../utils/html.js';
 export class CalendarView {
     constructor(containerId, app) {
-        this.container = document.getElementById(containerId);
+        this.container = typeof containerId === 'string' && typeof document !== 'undefined' ? document.getElementById(containerId) : (containerId || (typeof document !== 'undefined' ? document.getElementById('view-container') : null));
         this.app = app;
         
         const now = new Date();
@@ -138,7 +138,7 @@ export class CalendarView {
                     <input type="text" placeholder="Rechercher..." style="width:100%; background:rgba(0,0,0,0.2); border:1px solid rgba(255,255,255,0.05); color:#fff; padding:12px 20px 12px 45px; border-radius:12px; outline:none; font-size:13px;">
                 </div>
                 <div style="display:flex; align-items:center; gap:20px;">
-                    <button style="background:linear-gradient(135deg, #00f2fe, #4facfe); border:none; color:#fff; padding:12px 24px; border-radius:12px; font-weight:600; font-size:13px; cursor:pointer; box-shadow:0 10px 20px rgba(79,172,254,0.3); display:flex; align-items:center; gap:10px;">
+                    <button id="btn-add-event-calendar" style="background:linear-gradient(135deg, #00f2fe, #4facfe); border:none; color:#fff; padding:12px 24px; border-radius:12px; font-weight:600; font-size:13px; cursor:pointer; box-shadow:0 10px 20px rgba(79,172,254,0.3); display:flex; align-items:center; gap:10px;">
                         Ajouter Événement <i class="bi bi-plus-lg"></i>
                     </button>
                 </div>
@@ -188,7 +188,13 @@ export class CalendarView {
                             if (color === langColor) bgColor = 'rgba(255, 152, 0, 0.2)';
                             if (color === lifeColor) bgColor = 'rgba(240, 147, 251, 0.2)';
                             
-                            content += `<div style="background:${bgColor}; border-left:3px solid ${color}; color:#fff; font-size:10px; padding:4px 6px; border-radius:4px; margin-bottom:4px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;" title="${escapeHtml(e.title)} (${escapeHtml(e.startTime)}-${escapeHtml(e.endTime)})">${escapeHtml(e.startTime)} ${escapeHtml(e.title)}</div>`;
+                            content += `<div class="calendar-event-pill" data-id="${escapeHtml(e.id)}" style="background:${bgColor}; border-left:3px solid ${color}; color:#fff; font-size:10px; padding:3px 5px; border-radius:4px; margin-bottom:4px; display:flex; justify-content:space-between; align-items:center;" title="${escapeHtml(e.title)} (${escapeHtml(e.startTime)}-${escapeHtml(e.endTime)})">
+                                <span style="white-space:nowrap; overflow:hidden; text-overflow:ellipsis; flex:1;">${escapeHtml(e.startTime)} ${escapeHtml(e.title)}</span>
+                                <span style="display:inline-flex; gap:3px; margin-left:3px;">
+                                    <button type="button" class="btn-edit-event" data-id="${escapeHtml(e.id)}" title="Modifier" style="background:transparent; border:none; color:white; cursor:pointer; font-size:9px; padding:0; line-height:1;">✏️</button>
+                                    <button type="button" class="btn-delete-event" data-id="${escapeHtml(e.id)}" title="Supprimer" style="background:transparent; border:none; color:#fca5a5; cursor:pointer; font-size:9px; padding:0; line-height:1;">🗑️</button>
+                                </span>
+                            </div>`;
                         });
                         if (dayEvents.length > 4) {
                             content += `<div style="color:rgba(255,255,255,0.5); font-size:10px; text-align:center;">+${dayEvents.length - 4} autres</div>`;
@@ -291,16 +297,19 @@ export class CalendarView {
             if(a.date === b.date) return (a.startTime || '').localeCompare(b.startTime || '');
             return a.date.localeCompare(b.date);
         }).slice(0, 4);
-        
         if (futureLangEvents.length > 0) {
             futureLangEvents.forEach(e => {
                 const day = e.date.split('-')[2];
                 html += `
                         <div style="display:flex; gap:15px; align-items:center;">
                             <div style="width:36px; height:36px; border-radius:50%; background:rgba(255, 152, 0, 0.1); border:1px solid ${langColor}; display:flex; align-items:center; justify-content:center; font-weight:bold; color:${langColor}; font-size:14px;">${day}</div>
-                            <div style="overflow:hidden;">
+                            <div style="overflow:hidden; flex:1;">
                                 <strong style="display:block; color:#fff; font-size:13px; margin-bottom:2px; white-space:nowrap; text-overflow:ellipsis; overflow:hidden;">${escapeHtml(e.title)}</strong>
                                 <span style="font-size:11px; color:rgba(255,255,255,0.4);">${escapeHtml(e.startTime || '')} - ${escapeHtml(e.endTime || '')}</span>
+                            </div>
+                            <div style="display:inline-flex; gap:6px;">
+                                <button type="button" class="btn-edit-event" data-id="${escapeHtml(e.id)}" title="Modifier" style="background:transparent; border:none; color:#00f2fe; cursor:pointer; font-size:12px; padding:0;">✏️</button>
+                                <button type="button" class="btn-delete-event" data-id="${escapeHtml(e.id)}" title="Supprimer" style="background:transparent; border:none; color:#ef4444; cursor:pointer; font-size:12px; padding:0;">🗑️</button>
                             </div>
                         </div>`;
             });
@@ -374,6 +383,37 @@ export class CalendarView {
         this.container.querySelector('#filter-lang')?.addEventListener('click', () => {
             this.filters.lang = !this.filters.lang;
             this.render(state);
+        });
+
+        // CRUD Événements sans IA
+        const btnAdd = this.container.querySelector('#btn-add-event-calendar');
+        if (btnAdd) {
+            btnAdd.addEventListener('click', () => {
+                this.app.openEventEditor({ date: todayStr });
+            });
+        }
+
+        this.container.querySelectorAll('.btn-edit-event').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const eventId = e.currentTarget.getAttribute('data-id');
+                const eventObj = events.find(ev => ev.id === eventId);
+                if (eventObj) {
+                    this.app.openEventEditor(eventObj);
+                }
+            });
+        });
+
+        this.container.querySelectorAll('.btn-delete-event').forEach(btn => {
+            btn.addEventListener('click', async (e) => {
+                e.stopPropagation();
+                const eventId = e.currentTarget.getAttribute('data-id');
+                if (!eventId) return;
+                if (typeof window !== 'undefined' && window.confirm && !window.confirm("Supprimer cet événement ?")) {
+                    return;
+                }
+                await this.app.deleteCalendarEvent(eventId);
+            });
         });
     }
 }
