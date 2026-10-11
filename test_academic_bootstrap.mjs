@@ -58,8 +58,20 @@ async function testBootstrap() {
     console.log(`Présence INF1424 : ${!!subjects1.find(s => s.code === 'INF1424')}`);
     console.log(`Présence ANG1428 : ${!!subjects1.find(s => s.code === 'ANG1428')}`);
     
-    if (subjects1.length !== 16 || s3Count1 !== 8 || s4Count1 !== 8) {
-        console.error("❌ ERREUR: Le premier lancement n'a pas produit exactement 16 matières.");
+    if (subjects1.length !== 0) {
+        console.error("❌ ERREUR: Le premier lancement doit avoir un écran vide (0 matières).");
+        process.exitCode = 1;
+        return;
+    }
+    console.log("✅ Premier lancement vide (0 matières)");
+
+    // Import de l'exemple facultatif
+    await app1.importAcademicExample();
+    const subjectsSeeded = app1.state.academicSubjects;
+    s3Count1 = subjectsSeeded.filter(s => s.semesterId === 'sem_s3_26').length;
+    s4Count1 = subjectsSeeded.filter(s => s.semesterId === 'sem_s4_27').length;
+    if (subjectsSeeded.length !== 16 || s3Count1 !== 8 || s4Count1 !== 8) {
+        console.error("❌ ERREUR: L'import exemple n'a pas produit exactement 16 matières.");
         process.exitCode = 1;
         return;
     }

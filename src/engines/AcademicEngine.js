@@ -30,6 +30,12 @@ export class AcademicEngine {
         let items = await this.getSemesters();
         items = items.filter(i => i.id !== id);
         await this.storage.saveData('acad_semesters', items);
+        let subjects = await this.getSubjects();
+        for (const sub of subjects) {
+            if (sub.semesterId === id) {
+                await this.deleteSubject(sub.id);
+            }
+        }
     }
 
     async getSubjects() { return await this.storage.loadData('acad_subjects') || []; }
@@ -43,6 +49,14 @@ export class AcademicEngine {
         let items = await this.getSubjects();
         items = items.filter(i => i.id !== id);
         await this.storage.saveData('acad_subjects', items);
+        const assessments = await this.getAssessments();
+        const toDeleteAss = assessments.filter(a => a.subjectId === id);
+        const remainingAss = assessments.filter(a => a.subjectId !== id);
+        await this.storage.saveData('acad_assessments', remainingAss);
+        const toDeleteAssIds = new Set(toDeleteAss.map(a => a.id));
+        let grades = await this.getGrades();
+        grades = grades.filter(g => !toDeleteAssIds.has(g.assessmentId));
+        await this.storage.saveData('acad_grades', grades);
     }
 
     async getAssessments() { return await this.storage.loadData('acad_assessments') || []; }
@@ -56,6 +70,9 @@ export class AcademicEngine {
         let items = await this.getAssessments();
         items = items.filter(i => i.id !== id);
         await this.storage.saveData('acad_assessments', items);
+        let grades = await this.getGrades();
+        grades = grades.filter(g => g.assessmentId !== id);
+        await this.storage.saveData('acad_grades', grades);
     }
 
     async getGrades() { return await this.storage.loadData('acad_grades') || []; }

@@ -107,8 +107,18 @@ export class App {
             if (this.chatHistoryEngine && typeof this.chatHistoryEngine.purgeTechnicalErrors === 'function') await this.chatHistoryEngine.purgeTechnicalErrors();
         } catch (e) { AppLogger.error("Nettoyage du chat: " + e.message); }
 
-        const seeder = new AcademicSeeder(this.academicEngine);
-        await seeder.seed();
+        // Initialisation des données académiques : pas de seeder automatique au premier lancement.
+        // L'écran est vide (« Ajouter ta première matière ») et le programme type est importable via « Exemple ».
+        // Pour les installations existantes possédant déjà des données, on applique la migration du cursus.
+        try {
+            const years = await this.academicEngine.getYears();
+            if (years && years.length > 0) {
+                const seeder = new AcademicSeeder(this.academicEngine);
+                await seeder.migrate();
+            }
+        } catch (e) {
+            AppLogger.error("Migration du cursus: " + e.message);
+        }
         await this.refreshAcademicSubjects();
         
         document.getElementById('app-root').innerHTML = '<p style="text-align:center;">Génération du planning... (Etape 2)</p>';
@@ -176,9 +186,16 @@ export class App {
                 });
             } else if (type === 'subject') {
                 const existing = id ? (await this.academicEngine.getSubjects()).find(i => i.id === id) : {};
+                const semesterId = this._pendingSemesterId || existing.semesterId || (this.state.academicSemesters?.[0]?.id || 'sem_s3_26');
                 await this.academicEngine.saveSubject({
-                    ...existing, id: id || `sub_${Date.now()}`, name: baseData.title
+                    ...existing,
+                    id: id || `sub_${Date.now()}`,
+                    name: baseData.title,
+                    semesterId: existing.semesterId || semesterId,
+                    cect: existing.cect || 6
                 });
+                this._pendingSemesterId = null;
+                await this.refreshAcademicSubjects();
             } else if (type === 'goal') {
                 const existing = id ? (await this.projectEngine.getGoals()).find(i => i.id === id) : {};
                 await this.projectEngine.saveGoal({
@@ -198,6 +215,7 @@ export class App {
         const modal = document.getElementById('global-item-editor-modal');
         if (!modal) return;
         
+        this._pendingSemesterId = data.semesterId || null;
         document.getElementById('global-modal-item-id').value = data.id || '';
         document.getElementById('global-modal-item-type-select').value = data.type || 'project';
         document.getElementById('global-modal-item-title').value = data.title || data.name || '';
@@ -1416,6 +1434,9 @@ export class App {
      */
     async refreshAcademicSubjects() {
         if (!this.academicEngine || typeof this.academicEngine.getSubjects !== 'function') return this.state.academicSubjects;
+        this.state.academicSemesters = await this.academicEngine.getSemesters();
+        this.state.academicAssessments = await this.academicEngine.getAssessments();
+        this.state.academicGrades = await this.academicEngine.getGrades();
         const subjects = await this.academicEngine.getSubjects();
         const enriched = [];
         for (const s of subjects) {
@@ -1425,7 +1446,7 @@ export class App {
             } catch (e) { avg = null; }
             enriched.push({
                 ...s,
-                grade: avg && avg.status === 'complete' ? avg.average : null,
+                grade: (avg && avg.status === 'complete' && avg.average !== null) ? avg.average : null,
                 provisionalGrade: avg ? avg.average : null,
                 gradeStatus: avg ? avg.status : null,
                 gradeMethod: avg ? avg.method || null : null,
@@ -1462,6 +1483,99 @@ export class App {
         await this.academicEngine.saveGrade({ ...grade });
         await this.refreshAcademicSubjects();
         return grade;
+    }
+
+    async importAcademicExample() {
+        const seeder = new AcademicSeeder(this.academicEngine);
+        await seeder.seed();
+        await this.refreshAcademicSubjects();
+        if (this.state.currentView === 'academic') {
+            await this.renderView('academic');
+        }
+        return true;
+    }
+
+    async saveSemester(semesterData) {
+        if (!this.academicEngine) return;
+        const id = semesterData.id || `sem_${Date.now()}_${Math.floor(Math.random() * 10000)}`;
+        const sem = {
+            id,
+            yearId: semesterData.yearId || 'year_l2_26_27',
+            name: semesterData.name || 'Nouveau Semestre',
+            status: semesterData.status || 'active',
+            metadata: semesterData.metadata || {}
+        };
+        await this.academicEngine.saveSemester(sem);
+        await this.refreshAcademicSubjects();
+        return sem;
+    }
+
+    async deleteSemester(id) {
+        if (!this.academicEngine) return;
+        await this.academicEngine.deleteSemester(id);
+        await this.refreshAcademicSubjects();
+    }
+
+    async saveAssessment(assessmentData) {
+        if (!this.academicEngine) return;
+        const id = assessmentData.id || `ass_${Date.now()}_${Math.floor(Math.random() * 10000)}`;
+        const ass = {
+            id,
+            subjectId: assessmentData.subjectId,
+            title: assessmentData.title || 'Nouvelle épreuve',
+            type: assessmentData.type || 'Examen',
+            weight: typeof assessmentData.weight === 'number' ? assessmentData.weight : (parseFloat(assessmentData.weight) || 1.0),
+            maxScore: typeof assessmentData.maxScore === 'number' ? assessmentData.maxScore : (parseFloat(assessmentData.maxScore) || 20),
+            targetDate: assessmentData.targetDate || null
+        };
+        await this.academicEngine.saveAssessment(ass);
+        await this.refreshAcademicSubjects();
+        return ass;
+    }
+
+    async deleteAssessment(id) {
+        if (!this.academicEngine) return;
+        await this.academicEngine.deleteAssessment(id);
+        await this.refreshAcademicSubjects();
+    }
+
+    async deleteGrade(id) {
+        if (!this.academicEngine) return;
+        await this.academicEngine.deleteGrade(id);
+        await this.refreshAcademicSubjects();
+    }
+
+    async saveSubjectGrade(subjectId, score) {
+        if (!this.academicEngine) return;
+        const assessments = (await this.academicEngine.getAssessments()).filter(a => a.subjectId === subjectId);
+        let targetAss = assessments[0];
+        if (!targetAss) {
+            targetAss = await this.saveAssessment({
+                subjectId,
+                title: "Note globale",
+                type: "Examen",
+                weight: 1.0,
+                maxScore: 20
+            });
+        }
+        return await this.saveAssessmentGrade({
+            assessmentId: targetAss.id,
+            score: typeof score === 'number' ? score : parseFloat(score),
+            isFinal: true
+        });
+    }
+
+    async deleteSubjectGrade(subjectId) {
+        if (!this.academicEngine) return;
+        const assessments = (await this.academicEngine.getAssessments()).filter(a => a.subjectId === subjectId);
+        const grades = await this.academicEngine.getGrades();
+        for (const ass of assessments) {
+            const assGrades = grades.filter(g => g.assessmentId === ass.id);
+            for (const g of assGrades) {
+                await this.academicEngine.deleteGrade(g.id);
+            }
+        }
+        await this.refreshAcademicSubjects();
     }
 
     /**
