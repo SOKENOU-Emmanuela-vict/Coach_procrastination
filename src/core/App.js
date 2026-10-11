@@ -512,7 +512,7 @@ export class App {
         const groupDesc = (res.groupsFound && res.groupsFound.length > 0)
             ? ` (${res.groupsFound.join(', ')})`
             : (res.group ? ` (${res.group})` : ' (aucun groupe détecté)');
-        const countText = res.count > 0 ? `${res.count} cours ajouté(s) à ton planning` : 'aucun cours ajouté';
+        const countText = res.count > 1 ? `${res.count} cours ajoutés à ton planning` : (res.count === 1 ? '1 cours ajouté à ton planning' : 'aucun cours ajouté');
         const parts = [`Bien reçu : emploi du temps de la semaine du ${d}/${m}${groupDesc}, ${countText}.`];
         if (next) parts.push(`Prochain cours : ${next.title} ${next.date === today ? "aujourd'hui" : this._frDate(next.date)} à ${next.startTime}.`);
         if (progress.length) parts.push(`Avancement : ${progress.join(' ; ')}.`);

@@ -115,7 +115,7 @@ async function run() {
         assert(res.success && res.count === 7, "11. Import appliqué avec 7 cours");
         const historyAfter = await chat.getAllMessages();
         const applyMsg = historyAfter[historyAfter.length - 1];
-        assert(applyMsg.content.includes("7 cours ajouté(s) à ton planning"),
+        assert(applyMsg.content.includes("7 cours ajoutés à ton planning") || applyMsg.content.includes("7 cours ajouté(s) à ton planning"),
             "12. L'annonce finale confirme les 7 cours ajoutés au planning");
         assert(applyMsg.content.includes("Groupe 2"),
             "13. Le groupe est précisé dans l'annonce finale");
