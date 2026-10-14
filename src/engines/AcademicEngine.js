@@ -6,6 +6,14 @@ export class AcademicEngine {
     }
 
     // CRUD Methods
+    async clearAllData() {
+        await this.storage.saveData('acad_years', []);
+        await this.storage.saveData('acad_semesters', []);
+        await this.storage.saveData('acad_subjects', []);
+        await this.storage.saveData('acad_assessments', []);
+        await this.storage.saveData('acad_grades', []);
+    }
+
     async getYears() { return await this.storage.loadData('acad_years') || []; }
     async saveYear(year) {
         let items = await this.getYears();

@@ -1518,6 +1518,24 @@ export class App {
         return true;
     }
 
+    async clearAcademicExample() {
+        if (!this.academicEngine) return false;
+        if (typeof this.academicEngine.clearAllData === 'function') {
+            await this.academicEngine.clearAllData();
+        } else if (this.storage) {
+            await this.storage.saveData('acad_years', []);
+            await this.storage.saveData('acad_semesters', []);
+            await this.storage.saveData('acad_subjects', []);
+            await this.storage.saveData('acad_assessments', []);
+            await this.storage.saveData('acad_grades', []);
+        }
+        await this.refreshAcademicSubjects();
+        if (this.state.currentView === 'academic') {
+            await this.renderView('academic');
+        }
+        return true;
+    }
+
     async saveSemester(semesterData) {
         if (!this.academicEngine) return;
         const id = semesterData.id || `sem_${Date.now()}_${Math.floor(Math.random() * 10000)}`;

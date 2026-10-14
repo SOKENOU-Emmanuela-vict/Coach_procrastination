@@ -205,14 +205,17 @@ export class AcademicView {
         <div style="margin-bottom:30px;">
             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px; flex-wrap:wrap; gap:10px;">
                 <h1 style="font-size: 24px; font-weight: 700; color:var(--text-main); letter-spacing:1px; margin:0;">CURSUS ACADÉMIQUE</h1>
-                <div style="display:flex; gap:10px; align-items:center;">
+                <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+                    <button type="button" id="btn-clear-example" style="background:transparent; color:#ef4444; border:1px solid #ef4444; padding:8px 15px; border-radius:20px; font-weight:bold; cursor:pointer; display:flex; align-items:center; gap:6px; font-size:13px;" title="Effacer les données d'exemple du cursus">
+                        <i class="bi bi-trash"></i> Effacer les données d'exemple
+                    </button>
                     <button type="button" id="btn-import-example" style="background:transparent; color:var(--accent-primary); border:1px solid var(--accent-primary); padding:8px 15px; border-radius:20px; font-weight:bold; cursor:pointer; display:flex; align-items:center; gap:6px; font-size:13px;" title="Importer le programme type (Exemple)">
                         <i class="bi bi-download"></i> Exemple
                     </button>
                     <button type="button" id="btn-add-semester" style="background:var(--bg-card); color:var(--text-main); border:1px solid var(--border-color); padding:8px 15px; border-radius:20px; font-weight:bold; cursor:pointer; display:flex; align-items:center; gap:6px; font-size:13px;">
                         <i class="bi bi-folder-plus"></i> + Semestre
                     </button>
-                    <button type="button" class="btn-open-modal" data-type="subject" style="background:var(--accent-primary); color:white; border:none; padding:8px 15px; border-radius:20px; font-weight:bold; cursor:pointer; display:flex; align-items:center; gap:6px; font-size:13px;">
+                    <button type="button" id="btn-add-subject-top" style="background:var(--accent-primary); color:white; border:none; padding:8px 15px; border-radius:20px; font-weight:bold; cursor:pointer; display:flex; align-items:center; gap:6px; font-size:13px;">
                         <i class="bi bi-plus-circle"></i> + Matière
                     </button>
                 </div>
@@ -326,6 +329,21 @@ export class AcademicView {
         const btnEmptyImport = this.container.querySelector('#btn-empty-import-example');
         if (btnEmptyImport) btnEmptyImport.addEventListener('click', handleImportExample);
 
+        // --- EFFACER LES DONNEES D'EXEMPLE ---
+        const handleClearExample = async () => {
+            if (confirm("Effacer toutes les données d'exemple du cursus (semestres, matières, évaluations et notes) ?")) {
+                if (typeof this.app.clearAcademicExample === 'function') {
+                    await this.app.clearAcademicExample();
+                } else if (this.app.academicEngine) {
+                    await this.app.academicEngine.clearAllData();
+                    await this.app.refreshAcademicSubjects();
+                }
+                this.render(this.app.state);
+            }
+        };
+        const btnClearExample = this.container.querySelector('#btn-clear-example');
+        if (btnClearExample) btnClearExample.addEventListener('click', handleClearExample);
+
         // --- SEMESTRES : AJOUTER / MODIFIER / SUPPRIMER ---
         const openSemesterForm = (sem = null) => {
             const isEdit = sem && sem.id;
@@ -380,20 +398,92 @@ export class AcademicView {
             });
         });
 
+        // --- MATIERES : FORMULAIRE DEDIE (AJOUTER / MODIFIER) ---
+        const openSubjectForm = (sub = null, defaultSemesterId = null) => {
+            const isEdit = sub && sub.id;
+            const currentSemId = sub ? sub.semesterId : (defaultSemesterId || '');
+            const semesters = this.app.state.academicSemesters || [];
+            const semOptions = semesters.map(s => 
+                `<option value="${s.id}" ${s.id === currentSemId ? 'selected' : ''}>${escapeHtml(s.name || s.id)}</option>`
+            ).join('');
+
+            openModal(
+                `<i class="bi bi-book"></i> ${isEdit ? 'Modifier la matière' : 'Nouvelle matière'}`,
+                `
+                <form id="form-subject" style="display:flex; flex-direction:column; gap:12px;">
+                    <div>
+                        <label style="display:block; margin-bottom:4px; font-size:12px; color:var(--text-muted);">Intitulé de la matière</label>
+                        <input type="text" id="sub-name-input" required value="${escapeHtml(sub?.name || '')}" placeholder="Ex: Algèbre Linéaire" style="width:100%; padding:10px; border-radius:8px; background:var(--bg-card); color:var(--text-main); border:1px solid var(--border-color); box-sizing:border-box;">
+                    </div>
+                    <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px;">
+                        <div>
+                            <label style="display:block; margin-bottom:4px; font-size:12px; color:var(--text-muted);">Code matière</label>
+                            <input type="text" id="sub-code-input" value="${escapeHtml(sub?.code || '')}" placeholder="Ex: MATH101" style="width:100%; padding:10px; border-radius:8px; background:var(--bg-card); color:var(--text-main); border:1px solid var(--border-color); box-sizing:border-box;">
+                        </div>
+                        <div>
+                            <label style="display:block; margin-bottom:4px; font-size:12px; color:var(--text-muted);">Crédits (CECT)</label>
+                            <input type="number" step="1" min="0" id="sub-cect-input" value="${sub?.cect ?? 6}" style="width:100%; padding:10px; border-radius:8px; background:var(--bg-card); color:var(--text-main); border:1px solid var(--border-color); box-sizing:border-box;">
+                        </div>
+                    </div>
+                    <div>
+                        <label style="display:block; margin-bottom:4px; font-size:12px; color:var(--text-muted);">Semestre</label>
+                        <select id="sub-sem-input" style="width:100%; padding:10px; border-radius:8px; background:var(--bg-card); color:var(--text-main); border:1px solid var(--border-color); box-sizing:border-box;">
+                            ${semOptions || '<option value="sem_default">Semestre par défaut</option>'}
+                        </select>
+                    </div>
+                    <div style="display:flex; justify-content:flex-end; gap:10px; margin-top:10px;">
+                        <button type="button" id="btn-cancel-sub" style="background:transparent; color:var(--text-muted); border:1px solid var(--border-color); padding:8px 16px; border-radius:6px; cursor:pointer;">Annuler</button>
+                        <button type="submit" style="background:var(--accent-primary); color:white; border:none; padding:8px 20px; border-radius:6px; font-weight:bold; cursor:pointer;">Sauvegarder</button>
+                    </div>
+                </form>
+                `
+            );
+
+            modalContent.querySelector('#btn-cancel-sub')?.addEventListener('click', closeModal);
+            modalContent.querySelector('#form-subject')?.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const name = modalContent.querySelector('#sub-name-input').value.trim();
+                const code = modalContent.querySelector('#sub-code-input').value.trim();
+                const cect = parseInt(modalContent.querySelector('#sub-cect-input').value, 10) || 0;
+                const semesterId = modalContent.querySelector('#sub-sem-input').value;
+                if (!name) return;
+
+                const subjectPayload = {
+                    ...(sub || {}),
+                    id: sub?.id || `sub_${Date.now()}`,
+                    name,
+                    code,
+                    cect,
+                    semesterId: semesterId || (sub ? sub.semesterId : 'sem_s3_26')
+                };
+
+                await this.app.academicEngine.saveSubject(subjectPayload);
+                await this.app.refreshAcademicSubjects();
+                closeModal();
+                this.render(this.app.state);
+            });
+        };
+
+        const btnAddSubjectTop = this.container.querySelector('#btn-add-subject-top');
+        if (btnAddSubjectTop) btnAddSubjectTop.addEventListener('click', () => openSubjectForm());
+
+        const btnEmptyAddSubject = this.container.querySelector('#btn-empty-add-subject');
+        if (btnEmptyAddSubject) btnEmptyAddSubject.addEventListener('click', () => openSubjectForm());
+
         this.container.querySelectorAll('.btn-add-subject-to-sem').forEach(btn => {
             btn.addEventListener('click', () => {
                 const semesterId = btn.getAttribute('data-semester-id');
-                if (this.app.openGlobalItemEditor) {
-                    this.app.openGlobalItemEditor({ type: 'subject', semesterId });
-                }
+                openSubjectForm(null, semesterId);
             });
         });
 
-        // --- MATIERES : AJOUTER / MODIFIER / SUPPRIMER ---
+        // --- MATIERES : MODIFIER / SUPPRIMER ---
         this.container.querySelectorAll('.btn-open-modal').forEach(btn => {
             btn.addEventListener('click', () => {
                 const type = btn.getAttribute('data-type') || 'subject';
-                if (this.app.openGlobalItemEditor) {
+                if (type === 'subject') {
+                    openSubjectForm();
+                } else if (this.app.openGlobalItemEditor) {
                     this.app.openGlobalItemEditor({ type });
                 }
             });
@@ -405,8 +495,8 @@ export class AcademicView {
                 const type = e.currentTarget.getAttribute('data-type');
                 if (type === 'subject') {
                     const item = (this.app.state.academicSubjects || []).find(i => i.id === id);
-                    if (item && this.app.openGlobalItemEditor) {
-                        this.app.openGlobalItemEditor({ ...item, type });
+                    if (item) {
+                        openSubjectForm(item);
                     }
                 }
             });
