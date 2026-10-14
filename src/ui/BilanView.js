@@ -21,6 +21,10 @@ export class BilanView {
         
         const isReadonly = checkIn !== null && checkIn !== undefined;
 
+        const emptyDayNotice = (completedSessions === 0 && actualMinutes === 0 && plannedItems.length === 0)
+            ? `<p style="font-size: 13px; color: #88a7b7; margin-top: 10px;">Aucune session enregistrée pour cette journée.</p>`
+            : '';
+
         let html = `
             <h2>🏆 Bilan de la Journée</h2>
             <div class="stats" style="text-align: center; background: #0e1e26; border-left: 5px solid #00f2fe; padding: 20px; border-radius: 10px; margin-top: 15px; box-shadow: 0 4px 15px rgba(0,0,0,0.4);">
@@ -30,14 +34,18 @@ export class BilanView {
                 <p style="font-size: 16px;">✔ <strong style="color: #fff;">${completedSessions}</strong> sessions terminées</p>
                 <div class="timer" style="font-size: 42px; font-weight: bold; color: #4caf50; margin: 15px 0; text-shadow: 0 0 10px rgba(76,175,80,0.3);">${completionRate}% Complétion</div>
                 <p style="font-size: 16px;">⏱ Temps d'étude actif : <strong style="color: #fff;">${actualMinutes} min</strong></p>
+                ${emptyDayNotice}
             </div>
         `;
 
         if (isReadonly) {
+            const sleepDisplay = (checkIn.sleep && checkIn.sleep.durationMinutes)
+                ? `${Math.round((checkIn.sleep.durationMinutes / 60) * 10) / 10}h`
+                : 'Non renseigné';
             html += `
                 <div style="background: #11222c; border: 1px solid #4caf50; padding: 20px; border-radius: 10px; margin-top: 20px; text-align: center;">
                     <h3 style="color: #4caf50;">✅ Check-in déjà validé !</h3>
-                    <p style="color: #e0e0e0;">Énergie: ${escapeHtml(checkIn.energy)}, Sommeil: ${(checkIn.sleep && checkIn.sleep.durationMinutes) || 0}min</p>
+                    <p style="color: #e0e0e0;">Énergie: ${escapeHtml(checkIn.energy || 'Non renseignée')}, Sommeil: ${sleepDisplay}</p>
                 </div>
             `;
         } else {

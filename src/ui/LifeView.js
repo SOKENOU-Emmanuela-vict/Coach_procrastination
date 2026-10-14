@@ -89,7 +89,7 @@ export class LifeView {
                         </button>
                     </div>
                     <div style="display:flex; flex-direction:column; gap:10px;">
-                        ${habits.map(h => `
+                        ${habits.length > 0 ? habits.map(h => `
                             <div style="display:flex; justify-content:space-between; align-items:center; gap:10px;">
                                 <div style="display:flex; align-items:center; gap:10px;">
                                     <span style="font-size:14px; color:var(--text-main);">${h.title}</span>
@@ -99,7 +99,7 @@ export class LifeView {
                                     <button class="btn-delete-item" data-id="${h.id}" data-type="habit" style="background:transparent; border:none; color:#f44336; cursor:pointer;"><i class="bi bi-trash"></i></button>
                                 </div>
                             </div>
-                        `).join('')}
+                        `).join('') : '<p style="font-size:13px; color:var(--text-muted); margin:0;">Aucune habitude enregistrée.</p>'}
                     </div>
                 </div>
 
@@ -114,24 +114,21 @@ export class LifeView {
                         <h3 style="margin:0; font-size:16px;">Fitness & Bien-être</h3>
                     </div>
                     
-                    <div style="text-align:center; margin-bottom:20px;">
-                        <div style="width:120px; height:120px; border-radius:50%; border:8px solid #f43f5e; display:flex; flex-direction:column; align-items:center; justify-content:center; margin:0 auto;">
-                            <strong style="font-size:24px;">1850</strong>
-                            <span style="font-size:12px; color:var(--text-muted);">kcal brûlées</span>
-                        </div>
-                    </div>
-
                     <div style="display:flex; justify-content:space-between; align-items:center; padding:10px 0; border-bottom:1px solid var(--border-color);">
                         <span style="font-size:14px;">💧 Hydratation</span>
-                        <strong style="font-size:14px;">1.5 / 2L</strong>
+                        <strong style="font-size:14px; color:var(--accent-primary);">${state?.todayCheckIn?.water ? state.todayCheckIn.water + ' L' : 'Non renseigné'}</strong>
                     </div>
                     <div style="display:flex; justify-content:space-between; align-items:center; padding:10px 0; border-bottom:1px solid var(--border-color);">
-                        <span style="font-size:14px;">🏃 Pas</span>
-                        <strong style="font-size:14px;">8,432</strong>
+                        <span style="font-size:14px;">😴 Sommeil</span>
+                        <strong style="font-size:14px; color:var(--accent-primary);">${state?.todayCheckIn?.sleep?.durationMinutes ? (Math.round((state.todayCheckIn.sleep.durationMinutes / 60) * 10) / 10) + ' h' : 'Non renseigné'}</strong>
+                    </div>
+                    <div style="display:flex; justify-content:space-between; align-items:center; padding:10px 0; border-bottom:1px solid var(--border-color);">
+                        <span style="font-size:14px;">⚡ Énergie</span>
+                        <strong style="font-size:14px; color:var(--accent-primary);">${state?.todayCheckIn?.energy ? (state.todayCheckIn.energy === 'high' ? '🟢 Haute' : state.todayCheckIn.energy === 'medium' ? '🟡 Moyenne' : '🔴 Basse') : 'Non renseigné'}</strong>
                     </div>
                     <div style="display:flex; justify-content:space-between; align-items:center; padding:10px 0;">
-                        <span style="font-size:14px;">😴 Sommeil</span>
-                        <strong style="font-size:14px;">7h 30m</strong>
+                        <span style="font-size:14px;">📈 Bilan du jour</span>
+                        <strong style="font-size:14px; color:var(--accent-primary);">${state?.todayCheckIn?.dayAssessment ? state.todayCheckIn.dayAssessment : 'Non renseigné'}</strong>
                     </div>
                 </div>
             </div>
@@ -140,24 +137,16 @@ export class LifeView {
             <div style="display:flex; flex-direction:column; gap:20px;">
                 <!-- Spotify -->
                 <div class="bureau-card" style="background:#1db954; border-radius:12px; padding:20px; color:white;">
-                    <div style="display:flex; align-items:center; gap:10px; margin-bottom:20px;">
+                    <div style="display:flex; align-items:center; gap:10px; margin-bottom:15px;">
                         <i class="bi bi-spotify" style="font-size:24px;"></i>
-                        <h3 style="margin:0; font-size:16px;">Now Playing</h3>
+                        <h3 style="margin:0; font-size:16px;">Ambiance Musicale</h3>
                     </div>
-                    <div style="display:flex; align-items:center; gap:15px;">
-                        <div style="width:60px; height:60px; background:#fff; border-radius:8px; overflow:hidden;">
-                            <img src="https://images.unsplash.com/photo-1614613535308-eb5fbd3d2c17?q=80&w=150" style="width:100%; height:100%; object-fit:cover;">
-                        </div>
-                        <div>
-                            <strong style="display:block; font-size:14px; margin-bottom:5px;">Dark Knight OST</strong>
-                            <span style="font-size:12px; opacity:0.8;">Hans Zimmer</span>
-                        </div>
-                    </div>
-                    <div style="margin-top:20px; display:flex; align-items:center; justify-content:center; gap:20px; font-size:20px;">
-                        <i class="bi bi-skip-backward-fill" style="cursor:pointer;"></i>
-                        <i class="bi bi-pause-circle-fill" style="font-size:32px; cursor:pointer;"></i>
-                        <i class="bi bi-skip-forward-fill" style="cursor:pointer;"></i>
-                    </div>
+                    <p style="font-size:13px; opacity:0.9; margin: 0 0 15px 0; line-height: 1.4;">
+                        Lance ta musique ou playlist de concentration pour accompagner tes sessions de focus.
+                    </p>
+                    <a href="https://open.spotify.com" target="_blank" rel="noopener noreferrer" style="display:inline-flex; align-items:center; gap:8px; background:white; color:#1db954; font-weight:bold; padding:8px 16px; border-radius:20px; text-decoration:none; font-size:13px; box-shadow:0 2px 8px rgba(0,0,0,0.2);">
+                        <i class="bi bi-box-arrow-up-right"></i> Ouvrir Spotify
+                    </a>
                 </div>
 
                 <!-- Objectifs -->

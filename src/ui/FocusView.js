@@ -65,12 +65,17 @@ export class FocusView {
         }
 
         if (!session) {
+            const hasAnyPlanned = this.app?.state?.dailyPlan?.sessions?.length > 0;
+            const message = hasAnyPlanned 
+                ? "Toutes les sessions prévues sont terminées ! 🎉" 
+                : "Aucune session de focus active ou programmée pour aujourd'hui.";
             this.container.innerHTML = `
                 <h2>⏱️ Mode Focus</h2>
                 <div class="stats" style="text-align: center;">
-                    <h3>Toutes les sessions sont terminées ! 🎉</h3>
-                    <button id="btn-focus-bilan" style="width: 100%; margin-top: 15px; background: #2a5268; color: white;">Faire mon Bilan</button>
-                    <button id="btn-focus-back" style="width: 100%; margin-top: 10px; background: transparent; color: #00f2fe; border: 1px solid #00f2fe;">Retour au Planning</button>
+                    <h3 style="color:#00f2fe; margin-bottom:15px;">${message}</h3>
+                    <p style="color:#88a7b7; font-size:14px; margin-bottom:20px;">Sélectionne ou ajoute une tâche dans ton planning pour démarrer un chrono de travail.</p>
+                    <button id="btn-focus-back" style="width: 100%; margin-top: 10px; background: transparent; color: #00f2fe; border: 1px solid #00f2fe; padding:12px; border-radius:8px; cursor:pointer;">📅 Aller au Planning</button>
+                    <button id="btn-focus-bilan" style="width: 100%; margin-top: 10px; background: #2a5268; color: white; border:none; padding:12px; border-radius:8px; cursor:pointer;">Faire mon Bilan</button>
                 </div>
             `;
             const btnBilan = document.getElementById('btn-focus-bilan');

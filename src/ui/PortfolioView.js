@@ -11,10 +11,10 @@ export class PortfolioView {
         const report = state.monthlyReport || {
             month: new Date().getMonth() + 1,
             year: new Date().getFullYear(),
-            summary: "Progression constante sur 4 semaines.",
+            summary: "Aucune activité enregistrée ce mois-ci.",
             totalHours: 0,
             daysActive: 0,
-            avgQuality: 4.0,
+            avgQuality: null,
             proofsGenerated: 0
         };
 
@@ -152,6 +152,8 @@ export class PortfolioView {
                 </div>`;
             });
             domainsHtml += `</div>`;
+        } else {
+            domainsHtml = `<div style="background: #0f2027; border: 1px dashed #2a5268; border-radius: 10px; padding: 25px; text-align: center; color: #88a7b7; margin-bottom: 25px;">Aucune matière ou domaine d'apprentissage enregistré.</div>`;
         }
 
         let totalProofsCount = 0;
@@ -310,17 +312,36 @@ export class PortfolioView {
                         <span style="font-size: 12px; color: #88a7b7;">⏱️ Heures de Vol</span>
                     </div>
                     <div style="background:#0f2027; padding:12px; border-radius:10px; border:1px solid #2a5268;">
-                        <span style="font-size: 22px; font-weight: bold; color: #e1bee7; display: block;">${report.avgQuality || 4.0} / 5</span>
+                        <span style="font-size: 22px; font-weight: bold; color: #e1bee7; display: block;">${typeof report.avgQuality === 'number' ? report.avgQuality.toFixed(1) + ' / 5' : '-- / 5'}</span>
                         <span style="font-size: 12px; color: #88a7b7;">⭐ Qualité Moyenne</span>
                     </div>
                 </div>
 
-                <div style="margin-top: 15px; display:flex; gap:10px; flex-wrap:wrap; justify-content:center;">
-                    <span style="background:#18323f; color:#fff; padding:5px 12px; border-radius:15px; font-size:11px;">🇬🇧 Anglais & Storytelling FR</span>
-                    <span style="background:#18323f; color:#fff; padding:5px 12px; border-radius:15px; font-size:11px;">🛡️ Cybersécurité & TryHackMe</span>
-                    <span style="background:#18323f; color:#fff; padding:5px 12px; border-radius:15px; font-size:11px;">🤖 IA & Code Python</span>
-                    <span style="background:#18323f; color:#fff; padding:5px 12px; border-radius:15px; font-size:11px;">📊 Excel & Analyse de données</span>
-                </div>
+                ${(() => {
+                    const pills = [];
+                    if (state.userLanguages && state.userLanguages.length > 0) {
+                        state.userLanguages.forEach(l => {
+                            pills.push(`${l.icon || '🌐'} ${l.name || l.title}`);
+                        });
+                    }
+                    if (state.academicSubjects && state.academicSubjects.length > 0) {
+                        state.academicSubjects.slice(0, 4).forEach(s => {
+                            pills.push(`📚 ${s.name || s.title}`);
+                        });
+                    }
+                    if (pills.length === 0 && state.learningGraph && state.learningGraph.nodes) {
+                        Object.values(state.learningGraph.nodes).forEach(n => {
+                            pills.push(`🎯 ${n.title || n.name}`);
+                        });
+                    }
+                    if (pills.length === 0) {
+                        return '<div style="margin-top: 15px; color:#88a7b7; font-size:12px; text-align:center;">Aucune matière ou langue enregistrée.</div>';
+                    }
+                    return `
+                    <div style="margin-top: 15px; display:flex; gap:10px; flex-wrap:wrap; justify-content:center;">
+                        ${pills.map(p => `<span style="background:#18323f; color:#fff; padding:5px 12px; border-radius:15px; font-size:11px;">${escapeHtml(p)}</span>`).join('')}
+                    </div>`;
+                })()}
             </div>
 
             <!-- SECTION DOMAINES / MATIÈRES -->

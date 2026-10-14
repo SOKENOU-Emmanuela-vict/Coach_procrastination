@@ -86,6 +86,8 @@ export class WeeklyView {
                     </div>
                 `;
             });
+        } else {
+            dailyHtml = "<p style='color:#88a7b7; font-size:13px;'>Aucun résumé de journée enregistré pour cette semaine.</p>";
         }
 
         const trendSentence = summary.trendSentence || trends?.trendSentence || trends?.snapshotTrends?.sentence || "Données insuffisantes pour établir une tendance fiable : il faut au moins 21 jours de recul.";
@@ -122,7 +124,7 @@ export class WeeklyView {
                 <div style="background: linear-gradient(135deg, #162c38 0%, #0f2027 100%); border:1px solid #ff9800; padding:15px; border-radius:10px; text-align:center; box-shadow: 0 4px 10px rgba(0,0,0,0.3);">
                     <h4 style="color:#ff9800; margin:0 0 10px 0;">Tendances Physiologiques</h4>
                     <div style="font-size:14px; color:#e0e0e0; margin-bottom:8px;">Jours d'énergie faible : <strong style="color:#ff9800;">${trends.lowEnergyDays || 0}</strong></div>
-                    <div style="font-size:14px; color:#e0e0e0;">Sommeil moyen : <strong style="color:#fff;">${trends.averageSleep ? (trends.averageSleep / 60).toFixed(1) : 0} h</strong></div>
+                    <div style="font-size:14px; color:#e0e0e0;">Sommeil moyen : <strong style="color:#fff;">${trends.averageSleep ? (trends.averageSleep / 60).toFixed(1) + ' h' : 'Non renseigné'}</strong></div>
                 </div>
             </div>
 

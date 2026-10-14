@@ -9,7 +9,7 @@ export class DesktopView {
         if (typeof document !== 'undefined' && document.body) {
             document.body.className = 'theme-cyber';
         }
-        const userName = escapeHtml(state.userProfile?.name || 'Mathieu');
+        const userName = state.userProfile?.name ? escapeHtml(state.userProfile.name) : 'Toi';
 
         // Message du coach : première recommandation utile (hors simples créneaux libres)
         const insightsList = Array.isArray(state.coachInsights) ? state.coachInsights : [];
@@ -27,6 +27,12 @@ export class DesktopView {
         const pedaDate = this.app.getPedagogicalDateObject ? this.app.getPedagogicalDateObject() : new Date();
         let dateStr = pedaDate.toLocaleDateString('fr-FR', dateOptions);
         dateStr = dateStr.charAt(0).toUpperCase() + dateStr.slice(1);
+        const currentTimeDisplay = new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+
+        // Langues réelles enregistrées
+        const userLanguages = (this.app.languageEngine && typeof this.app.languageEngine.getAllLanguagesSync === 'function')
+            ? this.app.languageEngine.getAllLanguagesSync()
+            : (state.userLanguages || []);
 
         let html = `
 <div class="bureau">
@@ -80,13 +86,8 @@ export class DesktopView {
             </div>
             <div style="display:flex; align-items:center; gap:20px;">
                 <div style="display:flex; align-items:center; gap:10px; background:var(--bg-card); padding:10px 15px; border-radius:20px;">
-                    <span>⛅</span>
-                    <span style="font-weight:bold;">22°</span>
-                    <span style="color:var(--text-muted);">Paris</span>
-                </div>
-                <div style="display:flex; align-items:center; gap:10px; background:var(--bg-card); padding:10px 15px; border-radius:20px;">
                     <span>🕒</span>
-                    <span style="font-weight:bold;">10:24</span>
+                    <span style="font-weight:bold;">${currentTimeDisplay}</span>
                 </div>
                 <img id="btn-profile" src="assets/profile.jpg" alt="Profile" style="width:40px; height:40px; border-radius:50%; object-fit:cover; cursor:pointer; transition: transform 0.2s; border:2px solid var(--accent-primary);" onmouseover="this.style.transform='scale(1.1)'" onmouseout="this.style.transform='scale(1)'">
             </div>
@@ -187,7 +188,7 @@ export class DesktopView {
                     </div>
                     <div style="background:var(--bg-main); padding:15px; border-radius:8px; display:flex; justify-content:space-between; align-items:center; border: 1px solid var(--border-color);">
                         <strong style="font-size:14px;">Crédits Validés</strong>
-                        <span style="font-size:14px; color:var(--text-muted); font-weight:bold;">${state.academicSummary?.earnedCredits || '--'} / ${targetCredits || '--'}</span>
+                        <span style="font-size:14px; color:var(--text-muted); font-weight:bold;">${state.academicSummary?.earnedCredits ?? '--'} / ${targetCredits || '--'}</span>
                     </div>
                 </div>
             </div>
@@ -229,23 +230,21 @@ export class DesktopView {
                 <h3 style="margin:0 0 20px 0; font-size:16px;">Progrès langues</h3>
                 <div style="display:flex; flex-direction:column; gap:20px; flex-grow:1; justify-content:center;">
                     ${(() => {
-                        const rawNodes = state.learningGraph?.nodes || [];
-                        const nodeList = Array.isArray(rawNodes) ? rawNodes : Object.values(rawNodes);
-                        // LearningGraphEngine expose le nœud 'languages' (pas de champ type/category)
-                        const langNodes = nodeList.filter(n => n && (n.id === 'languages' || n.type === 'language' || n.category === 'language'));
-                        if (langNodes.length === 0) {
-                            return '<div style="color:var(--text-muted); font-size:14px; text-align:center;">Aucune langue suivie.</div>';
+                        if (!userLanguages || userLanguages.length === 0) {
+                            return '<div style="color:var(--text-muted); font-size:14px; text-align:center;">Aucune langue enregistrée.</div>';
                         }
-                        return langNodes.slice(0, 3).map((l, i) => {
+                        return userLanguages.slice(0, 3).map((l, i) => {
                             const colors = ['var(--accent-primary)', '#84a98c', '#f43f5e'];
                             const color = colors[i % colors.length];
-                            const prog = Math.round(l.progress ?? l.level ?? 0);
+                            const completed = l.tracking?.sessionsCompleted || 0;
+                            const target = (l.studyPlan?.sessionsPerWeek || 3) * 4; // cible mensuelle
+                            const prog = target > 0 ? Math.min(100, Math.round((completed / target) * 100)) : 0;
                             return `
                             <div style="display:flex; align-items:center; gap:15px;">
                                 <div style="width:50px; height:50px; border-radius:50%; border:4px solid ${color}; border-top-color:${prog < 50 ? 'transparent' : color}; display:flex; align-items:center; justify-content:center; font-weight:bold; font-size:14px;">${prog}%</div>
                                 <div>
                                     <strong style="display:block; font-size:14px;">${escapeHtml(l.title || l.name)}</strong>
-                                    <span style="font-size:12px; color:var(--text-muted);">Niveau ${l.level || 'Non défini'}</span>
+                                    <span style="font-size:12px; color:var(--text-muted);">${escapeHtml(l.level || 'Non défini')} · ${completed} séance${completed > 1 ? 's' : ''}</span>
                                 </div>
                             </div>`;
                         }).join('');
@@ -278,7 +277,7 @@ export class DesktopView {
                             <i class="bi bi-droplet-fill" style="color:#0ea5e9; font-size:20px;"></i>
                             <span style="font-size:14px; font-weight:bold;">Hydratation</span>
                         </div>
-                        <span style="font-size:14px; font-weight:bold; color:var(--accent-primary);">${state.todayCheckIn?.water ? state.todayCheckIn.water + 'L' : '-- / 2L'}</span>
+                        <span style="font-size:14px; font-weight:bold; color:var(--accent-primary);">${state.todayCheckIn?.water ? state.todayCheckIn.water + 'L' : 'Non renseigné'}</span>
                     </div>
                     <div style="height:6px; background:var(--bg-main); border-radius:3px; overflow:hidden;">
                         <div style="height:100%; width:${state.todayCheckIn?.water ? Math.min(100, (state.todayCheckIn.water/2)*100) : 0}%; background:#0ea5e9; border-radius:3px;"></div>
@@ -289,7 +288,7 @@ export class DesktopView {
                             <i class="bi bi-moon-stars-fill" style="color:#8b5cf6; font-size:20px;"></i>
                             <span style="font-size:14px; font-weight:bold;">Sommeil</span>
                         </div>
-                        <span style="font-size:14px; font-weight:bold; color:var(--accent-primary);">${sleepHours !== null ? sleepHours + 'h' : '--'}</span>
+                        <span style="font-size:14px; font-weight:bold; color:var(--accent-primary);">${sleepHours !== null ? sleepHours + 'h' : 'Non renseigné'}</span>
                     </div>
                     <div style="height:6px; background:var(--bg-main); border-radius:3px; overflow:hidden;">
                         <div style="height:100%; width:${sleepHours !== null ? Math.min(100, (sleepHours/8)*100) : 0}%; background:#8b5cf6; border-radius:3px;"></div>
