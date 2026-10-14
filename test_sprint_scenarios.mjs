@@ -247,17 +247,25 @@ async function runTests() {
         }
     ];
 
+    // Calcul d'un lundi situé à environ 60 jours pour indépendance vis-à-vis de la date courante
+    const monday60 = new Date();
+    monday60.setDate(monday60.getDate() + 60);
+    const dayOfWeek = monday60.getDay();
+    const daysUntilMonday = (1 - dayOfWeek + 7) % 7;
+    monday60.setDate(monday60.getDate() + daysUntilMonday);
+    const targetMonday = monday60.toLocaleDateString('fr-CA');
+
     // Pre-insert an existing non-school event
     await planningEngine.saveEvent({
         id: "ev_perso",
         title: "Sport",
-        date: "2026-09-21", // This is a Monday
+        date: targetMonday,
         startTime: "18:00",
         endTime: "19:00",
         source: "user"
     });
 
-    const importResult = await planningEngine.applyScheduleImport(scheduleEntries, "2026-09-21");
+    const importResult = await planningEngine.applyScheduleImport(scheduleEntries, targetMonday);
     if (importResult.success) {
         console.log(`✅ Import réussi. ${importResult.count} événements générés.`);
         

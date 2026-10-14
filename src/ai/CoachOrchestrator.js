@@ -6,13 +6,7 @@ import { GeminiProvider } from './GeminiProvider.js';
 export class CoachOrchestrator {
     constructor(planningIntelligence, knowledgeRetriever = null, riskEngine = null) {
         this.riskEngine = riskEngine;
-        // Clé offusquée pour la cacher des regards rapides (Base64)
-        const _k = 'QVEuQWI4Uk42SXM0RWEyT0xmM1FxRnZpb0V3U1VGT2RRLUdQTEt6aHQyNzVoZUJKUFFVVUE=';
         let apiKey = null;
-        try {
-            apiKey = typeof atob === 'function' ? atob(_k) : Buffer.from(_k, 'base64').toString();
-        } catch(e) {}
-
         if (typeof window !== 'undefined' && window.localStorage && window.localStorage.getItem('gemini_api_key')) {
             apiKey = window.localStorage.getItem('gemini_api_key');
         } else if (typeof process !== 'undefined' && process.env && process.env.GEMINI_API_KEY) {
