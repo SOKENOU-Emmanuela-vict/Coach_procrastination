@@ -23,6 +23,7 @@ import { SubjectMatcher } from '../engines/SubjectMatcher.js';
 import { ExamRevisionPlanner } from '../ai/ExamRevisionPlanner.js';
 import { parseExamAnnouncement, parseGradeAnswer, parseGradeStatement, isNotYetAnswer, parseBookProgress, parsePersonalTaskCreation, parseTaskCompletion, parseItemUpdate, parseItemDeletion } from '../ai/ChatIntentParser.js';
 import { DailySnapshotEngine } from '../engines/DailySnapshotEngine.js';
+import { LanguageEngine } from '../engines/LanguageEngine.js';
 import { Event } from '../models/Event.js';
 import { EventModal } from '../ui/EventModal.js';
 
@@ -45,6 +46,7 @@ export class App {
         this.academicEngine = new AcademicEngine(storage);
         this.planningEngine = new PlanningEngine(storage);
         this.projectEngine = new ProjectEngine(storage);
+        this.languageEngine = new LanguageEngine(storage);
         this.riskEngine = new RiskEngine(storage);
         this.snapshotEngine = new DailySnapshotEngine(storage);
         if (this.checkInEngine) this.checkInEngine.planningEngine = this.planningEngine;
@@ -78,6 +80,7 @@ export class App {
             // Avancement des cours (emplois du temps importés) : items par ECUE/matière, bySubject, upcomingSessions
             courseProgress: { items: [], bySubject: {}, upcomingSessions: [], lastImport: null },
             timetableStatus: null,
+            userLanguages: [],
             calendarData: {
                 events: [],
                 availabilities: [],
@@ -1324,6 +1327,10 @@ export class App {
         this.state.academicSummary = semesterId ? await this.academicEngine.getSemesterSummary(semesterId, localDate) : null;
         await this.refreshAcademicSubjects();
 
+        if (this.languageEngine) {
+            this.state.userLanguages = await this.languageEngine.getLanguages();
+        }
+
         // Activité réelle transmise au coach (bilans, exécution du jour, régularité)
         this.state.analytics = {
             streak: this.state.userProfile?.streak || 0,
@@ -1975,6 +1982,24 @@ export class App {
             return;
         }
 
+        // Dialogue Coach pour les Langues (une question à la fois : niveau -> objectif -> temps disponible)
+        try {
+            if (await this._handleLanguageChat(text)) {
+                this.renderView('chat', { refresh: false });
+                return;
+            }
+        } catch (e) {
+            console.error(e);
+            await this.chatHistoryEngine.saveMessage({
+                role: 'assistant',
+                content: "Erreur lors du suivi de langue : " + e.message,
+                conversationId: 'default',
+                metadata: { error: true }
+            });
+            this.renderView('chat', { refresh: false });
+            return;
+        }
+
         try {
             // 2. Contexte identique à celui du tableau de bord + mémoire courte de la conversation
             let chatHistory = [];
@@ -2284,6 +2309,169 @@ export class App {
                 } catch (e) {
                     console.warn("refreshUserStats warning after check-in:", e.message);
                 }
+            }
+            return true;
+        }
+
+        return false;
+    }
+
+    async _handleLanguageChat(text) {
+        if (!text) return false;
+        const trimmed = text.trim();
+        const pending = await this.storage.loadData('pending_lang_conv');
+
+        // 1. Déclenchement
+        if (!pending) {
+            const isLangTrigger = /\b(apprendre\s+(une\s+)?langue|plan\s+de\s+langue|coach\s+langue|travailler\s+(l'|mon\s+)?(anglais|espagnol|allemand|italien|japonais|langue)|ameliorer\s+(l'|mon\s+)?(anglais|espagnol|allemand|italien|japonais)|apprendre\s+(l'|le\s+)?(anglais|espagnol|allemand|italien|japonais)|pratiquer\s+(l'|mon\s+)?(anglais|espagnol|allemand|italien|japonais|langue))\b/i.test(trimmed);
+            if (!isLangTrigger) return false;
+
+            let detectedLang = null;
+            if (/anglais|english/i.test(trimmed)) detectedLang = 'Anglais';
+            else if (/espagnol|spanish/i.test(trimmed)) detectedLang = 'Espagnol';
+            else if (/allemand|german/i.test(trimmed)) detectedLang = 'Allemand';
+            else if (/italien|italian/i.test(trimmed)) detectedLang = 'Italien';
+            else if (/japonais|japanese/i.test(trimmed)) detectedLang = 'Japonais';
+
+            const newPending = {
+                step: 'level',
+                langName: detectedLang,
+                data: {}
+            };
+            await this.storage.saveData('pending_lang_conv', newPending);
+
+            const question = detectedLang 
+                ? `Excellente initiative de pratiquer l'${detectedLang} ! Quel est ton niveau actuel (A1, A2, B1, B2, C1, C2...) ?`
+                : `Excellente initiative ! Quelle langue souhaites-tu travailler et quel est ton niveau actuel (par exemple : Anglais B1, Espagnol A2...) ?`;
+
+            await this._sayCoach(question, { intent: null, proactive: 'language_coach', pendingLangStep: 'level' });
+            return true;
+        }
+
+        // 2. Étape 1 : Niveau
+        if (pending.step === 'level') {
+            let level = null;
+            const levelMatch = trimmed.match(/\b(A1|A2|B1|B2|C1|C2|debutant(e)?|intermediaire|avance(e)?)\b/i);
+            if (levelMatch) {
+                level = levelMatch[1].toUpperCase();
+            } else if (trimmed.length <= 15) {
+                level = trimmed;
+            }
+
+            let langName = pending.langName;
+            if (!langName) {
+                if (/anglais|english/i.test(trimmed)) langName = 'Anglais';
+                else if (/espagnol|spanish/i.test(trimmed)) langName = 'Espagnol';
+                else if (/allemand|german/i.test(trimmed)) langName = 'Allemand';
+                else if (/italien|italian/i.test(trimmed)) langName = 'Italien';
+                else if (/japonais|japanese/i.test(trimmed)) langName = 'Japonais';
+                else {
+                    const words = trimmed.split(/\s+/);
+                    if (words.length > 0 && !levelMatch) langName = words[0];
+                }
+            }
+            if (!langName) langName = 'Anglais';
+
+            if (!level) {
+                await this._sayCoach(`Je n'ai pas bien compris ton niveau pour ${langName}. Peux-tu me préciser ton niveau (A1, A2, B1, B2, C1, C2 ou débutant/intermédiaire) ?`, {
+                    intent: null,
+                    proactive: 'language_coach',
+                    pendingLangStep: 'level'
+                });
+                return true;
+            }
+
+            pending.langName = langName;
+            pending.data.level = level;
+            pending.step = 'goal';
+            await this.storage.saveData('pending_lang_conv', pending);
+
+            await this._sayCoach(`C'est bien noté : ${langName} au niveau ${level}. Quel est ton objectif principal avec cette langue (ex: certification TOEIC, voyage, fluidité pro, aisance orale...) ?`, {
+                intent: null,
+                proactive: 'language_coach',
+                pendingLangStep: 'goal'
+            });
+            return true;
+        }
+
+        // 3. Étape 2 : Objectif
+        if (pending.step === 'goal') {
+            const goal = trimmed;
+            if (!goal || goal.length < 2) {
+                await this._sayCoach(`Peux-tu me décrire brièvement ton objectif (par exemple : être à l'aise en réunion, passer le C1, voyager...) ?`, {
+                    intent: null,
+                    proactive: 'language_coach',
+                    pendingLangStep: 'goal'
+                });
+                return true;
+            }
+
+            pending.data.goal = goal;
+            pending.step = 'time';
+            await this.storage.saveData('pending_lang_conv', pending);
+
+            await this._sayCoach(`Super objectif ! Pour terminer la mise en place, quel est ton temps disponible par semaine pour ${pending.langName} (par exemple : 3 séances de 30 minutes, ou 2 heures par semaine) ?`, {
+                intent: null,
+                proactive: 'language_coach',
+                pendingLangStep: 'time'
+            });
+            return true;
+        }
+
+        // 4. Étape 3 : Temps disponible & Sauvegarde
+        if (pending.step === 'time') {
+            let sessions = 3;
+            let duration = 30;
+
+            const sessionsMatch = trimmed.match(/(\d+)\s*(seance|fois|session)/i);
+            if (sessionsMatch) sessions = parseInt(sessionsMatch[1], 10);
+
+            const durationMatch = trimmed.match(/(\d+)\s*(min|minute|h|heure)/i);
+            if (durationMatch) {
+                const val = parseInt(durationMatch[1], 10);
+                if (/h|heure/i.test(durationMatch[2])) duration = val * 60;
+                else duration = val;
+            } else {
+                const numMatch = trimmed.match(/(\d+)/);
+                if (numMatch && parseInt(numMatch[1], 10) >= 15 && parseInt(numMatch[1], 10) <= 120) {
+                    duration = parseInt(numMatch[1], 10);
+                }
+            }
+
+            pending.data.sessionsPerWeek = sessions;
+            pending.data.duration = duration;
+
+            let savedLang = null;
+            if (this.languageEngine) {
+                const existingList = await this.languageEngine.getLanguages();
+                const existing = existingList.find(l => l.name.toLowerCase() === pending.langName.toLowerCase());
+                savedLang = await this.languageEngine.saveLanguage({
+                    id: existing?.id,
+                    name: pending.langName,
+                    level: pending.data.level,
+                    goal: pending.data.goal,
+                    plan: {
+                        sessionsPerWeek: sessions,
+                        duration: duration,
+                        preferredDays: existing?.plan?.preferredDays || ['monday', 'wednesday', 'friday']
+                    }
+                });
+
+                if (this.planningEngine) {
+                    await this.languageEngine.generatePlanningSessions(savedLang.id, this.planningEngine);
+                }
+            }
+
+            await this.storage.saveData('pending_lang_conv', null);
+
+            await this._sayCoach(`Félicitations ! Ton plan d'apprentissage pour ${pending.langName} est prêt :\n• Niveau : ${pending.data.level}\n• Objectif : ${pending.data.goal}\n• Rythme : ${sessions} séances de ${duration} min par semaine.\nTes créneaux ont été intégrés à ton planning et ton espace Langues est à jour !`, {
+                intent: null,
+                proactive: 'language_coach_complete',
+                language: savedLang
+            });
+
+            if (typeof this.refreshUserStats === 'function') {
+                try { await this.refreshUserStats(); } catch(e) {}
             }
             return true;
         }
