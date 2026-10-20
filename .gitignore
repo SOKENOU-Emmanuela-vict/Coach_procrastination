@@ -1,0 +1,4 @@
+# Fichiers générés par les tests
+full_test_results.log
+test_results.log
+*.log
