@@ -14,30 +14,60 @@ const mimeTypes = {
     '.ico': 'image/x-icon'
 };
 
+const ROOT_DIR = path.resolve(__dirname);
+
+const SECURITY_HEADERS = {
+    'X-Content-Type-Options': 'nosniff',
+    'X-Frame-Options': 'DENY',
+    'Referrer-Policy': 'strict-origin-when-cross-origin',
+    'Permissions-Policy': 'camera=(), microphone=(), geolocation=()',
+    'Content-Security-Policy': "default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; font-src 'self' https://cdn.jsdelivr.net; img-src 'self' data: https: blob:; connect-src 'self' https://generativelanguage.googleapis.com; frame-ancestors 'none';"
+};
+
 const server = http.createServer((request, response) => {
-    let filePath = '.' + request.url;
-    if (filePath == './') {
-        filePath = './index.html';
+    // 1. Extraction et décodage du chemin sans query string
+    let rawPath = (request.url || '/').split('?')[0];
+    let decodedPath = '';
+    try {
+        decodedPath = decodeURIComponent(rawPath);
+    } catch (e) {
+        response.writeHead(400, { 'Content-Type': 'text/plain', ...SECURITY_HEADERS });
+        response.end('400 Bad Request: URL malformée', 'utf-8');
+        return;
     }
 
-    // enlever la query string
-    filePath = filePath.split('?')[0];
+    if (decodedPath === '/' || decodedPath === '') {
+        decodedPath = '/index.html';
+    }
 
-    const extname = String(path.extname(filePath)).toLowerCase();
+    // 2. Résolution sécurisée du chemin canonique
+    const safePath = path.resolve(ROOT_DIR, '.' + decodedPath);
+
+    // 3. Prévention stricte du Directory Traversal (Path Traversal)
+    if (!safePath.startsWith(ROOT_DIR)) {
+        response.writeHead(403, { 'Content-Type': 'text/plain', ...SECURITY_HEADERS });
+        response.end('403 Forbidden: Accès non autorisé', 'utf-8');
+        return;
+    }
+
+    const extname = String(path.extname(safePath)).toLowerCase();
     const contentType = mimeTypes[extname] || 'application/octet-stream';
 
-    fs.readFile(filePath, (error, content) => {
+    fs.readFile(safePath, (error, content) => {
         if (error) {
-            if(error.code == 'ENOENT') {
-                response.writeHead(404, { 'Content-Type': 'text/plain' });
+            if (error.code === 'ENOENT' || error.code === 'EISDIR') {
+                response.writeHead(404, { 'Content-Type': 'text/plain', ...SECURITY_HEADERS });
                 response.end('404 Not Found', 'utf-8');
             } else {
-                response.writeHead(500);
-                response.end('Sorry, check with the site admin for error: '+error.code+' ..\n');
+                response.writeHead(500, { 'Content-Type': 'text/plain', ...SECURITY_HEADERS });
+                response.end('500 Internal Server Error: ' + error.code, 'utf-8');
             }
         } else {
-            // no-cache : le navigateur revalide toujours les modules (pas de mélange d'anciennes et de nouvelles versions)
-            response.writeHead(200, { 'Content-Type': contentType, 'Cache-Control': 'no-cache' });
+            response.writeHead(200, {
+                'Content-Type': contentType,
+                'Cache-Control': 'no-cache',
+                ...SECURITY_HEADERS
+            });
             response.end(content, 'utf-8');
         }
     });
