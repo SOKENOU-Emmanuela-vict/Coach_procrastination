@@ -16,15 +16,17 @@
     </div>
 
     <!-- MODAL GLOBAL EDITION ITEM (utilisé par Portfolio, Life, Academic, Langues) -->
-    <div id="global-item-editor-modal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.7); z-index:9999; justify-content:center; align-items:center;">
-        <div style="background:#152b36; border:1px solid #00f2fe; border-radius:12px; padding:25px; width:400px; max-width:90%;">
-            <h3 id="global-modal-item-header" style="color:#00f2fe; margin-top:0;">Éditer l'élément</h3>
+    <div id="global-item-editor-modal" class="modal-backdrop" style="display:none;">
+        <div class="modal-box">
+            <div class="modal-header">
+                <h3 id="global-modal-item-header" class="modal-title">Éditer l'élément</h3>
+            </div>
             
             <input type="hidden" id="global-modal-item-id">
             
-            <div style="margin-bottom:12px;">
-                <label style="color:#88a7b7; font-size:12px;">Type</label>
-                <select id="global-modal-item-type-select" style="width:100%; padding:8px; border-radius:5px; background:#0f2027; color:#e0e0e0; border:1px solid #2a5268;" disabled>
+            <div style="margin-top:16px; margin-bottom:12px;">
+                <label class="form-label" for="global-modal-item-type-select">Type</label>
+                <select id="global-modal-item-type-select" class="form-select" disabled>
                     <option value="project">Projet</option>
                     <option value="book">Livre</option>
                     <option value="task">Tâche</option>
@@ -36,13 +38,13 @@
             </div>
 
             <div style="margin-bottom:12px;">
-                <label style="color:#88a7b7; font-size:12px;">Titre / Nom</label>
-                <input type="text" id="global-modal-item-title" style="width:100%; padding:8px; border-radius:5px; background:#0f2027; color:#e0e0e0; border:1px solid #2a5268;">
+                <label class="form-label" for="global-modal-item-title">Titre / Nom</label>
+                <input type="text" id="global-modal-item-title" class="form-input">
             </div>
 
             <div style="margin-bottom:12px;">
-                <label style="color:#88a7b7; font-size:12px;">Domaine</label>
-                <select id="global-modal-item-domain" style="width:100%; padding:8px; border-radius:5px; background:#0f2027; color:#e0e0e0; border:1px solid #2a5268;">
+                <label class="form-label" for="global-modal-item-domain">Domaine</label>
+                <select id="global-modal-item-domain" class="form-select">
                     <option value="ecole">École</option>
                     <option value="langue">Langues</option>
                     <option value="fitness">Fitness / Bien-être</option>
@@ -52,20 +54,20 @@
                 </select>
             </div>
 
-            <div style="display:flex; gap:10px; margin-bottom:12px;">
+            <div style="display:flex; gap:12px; margin-bottom:12px;">
                 <div style="flex:1;">
-                    <label style="color:#88a7b7; font-size:12px;">Échéance (Optionnel)</label>
-                    <input type="date" id="global-modal-item-dueDate" style="width:100%; padding:8px; border-radius:5px; background:#0f2027; color:#e0e0e0; border:1px solid #2a5268;">
+                    <label class="form-label" for="global-modal-item-dueDate">Échéance (Optionnel)</label>
+                    <input type="date" id="global-modal-item-dueDate" class="form-input">
                 </div>
                 <div style="flex:1;">
-                    <label style="color:#88a7b7; font-size:12px;">Durée (min)</label>
-                    <input type="number" id="global-modal-item-duration" style="width:100%; padding:8px; border-radius:5px; background:#0f2027; color:#e0e0e0; border:1px solid #2a5268;">
+                    <label class="form-label" for="global-modal-item-duration">Durée (min)</label>
+                    <input type="number" id="global-modal-item-duration" class="form-input">
                 </div>
             </div>
 
             <div style="margin-bottom:12px;">
-                <label style="color:#88a7b7; font-size:12px;">Importance</label>
-                <select id="global-modal-item-priority" style="width:100%; padding:8px; border-radius:5px; background:#0f2027; color:#e0e0e0; border:1px solid #2a5268;">
+                <label class="form-label" for="global-modal-item-priority">Importance</label>
+                <select id="global-modal-item-priority" class="form-select">
                     <option value="low">Basse</option>
                     <option value="medium">Moyenne</option>
                     <option value="high">Haute</option>
@@ -73,13 +75,13 @@
             </div>
 
             <div style="margin-bottom:20px;">
-                <label style="color:#88a7b7; font-size:12px;">Cible (pages, séances, score max...)</label>
-                <input type="number" step="any" id="global-modal-item-target" style="width:100%; padding:8px; border-radius:5px; background:#0f2027; color:#e0e0e0; border:1px solid #2a5268;">
+                <label class="form-label" for="global-modal-item-target">Cible (pages, séances, score max...)</label>
+                <input type="number" step="any" id="global-modal-item-target" class="form-input">
             </div>
 
             <div style="display:flex; justify-content:flex-end; gap:10px;">
-                <button type="button" id="global-btn-modal-cancel" style="background:transparent; color:#88a7b7; border:1px solid #2a5268; padding:8px 15px; border-radius:5px; cursor:pointer;">Annuler</button>
-                <button type="button" id="global-btn-modal-save" style="background:#00f2fe; color:#0f2027; border:none; padding:8px 15px; border-radius:5px; cursor:pointer; font-weight:bold;">Sauvegarder</button>
+                <button type="button" id="global-btn-modal-cancel" class="btn btn-ghost">Annuler</button>
+                <button type="button" id="global-btn-modal-save" class="btn btn-primary">Sauvegarder</button>
             </div>
         </div>
     </div>

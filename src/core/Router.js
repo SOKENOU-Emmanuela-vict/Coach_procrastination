@@ -13,6 +13,7 @@ import { LanguageView } from '../ui/LanguageView.js?v=99';
 
 export class Router {
     constructor(containerId, app) {
+        this.containerId = containerId;
         this.app = app;
         this.views = {
             desktop: new DesktopView(containerId, app),
@@ -30,11 +31,31 @@ export class Router {
         };
     }
 
+    _animateViewTransition() {
+        if (typeof window === 'undefined' || !window.gsap) return;
+        const reducedMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+        if (reducedMotion) return;
+
+        const target = document.querySelector('.bureau-content') || document.getElementById(this.containerId || 'app-root');
+        if (target) {
+            window.gsap.fromTo(target,
+                { opacity: 0.85, y: 6 },
+                { opacity: 1, y: 0, duration: 0.25, ease: 'power2.out', clearProps: 'all' }
+            );
+        }
+    }
+
     async render(viewName, state) {
         if (viewName !== 'focus' && this.views.focus && this.views.focus.timerInterval) {
             clearInterval(this.views.focus.timerInterval);
         }
         
+        // Nettoyage préventif des animations GSAP en cours
+        if (typeof window !== 'undefined' && window.gsap) {
+            const target = document.querySelector('.bureau-content') || document.getElementById(this.containerId || 'app-root');
+            if (target) window.gsap.killTweensOf(target);
+        }
+
         const renderToken = Date.now();
         this.currentRenderToken = renderToken;
         
@@ -56,12 +77,14 @@ export class Router {
                 const messages = await this.app.chatHistoryEngine.getConversation('default');
                 if (this.currentRenderToken === renderToken) {
                     await view.render(messages);
+                    this._animateViewTransition();
                 }
                 return;
             }
             
             if (this.currentRenderToken === renderToken) {
                 await view.render(data);
+                this._animateViewTransition();
             }
         } else {
             console.error(`View ${viewName} not found`);
