@@ -1,4 +1,4 @@
-import { escapeHtml } from '../utils/html.js';
+import { escapeHtml, sanitizeUrl } from '../utils/security.js';
 
 export class LanguageView {
     constructor(containerId, app) {
@@ -146,7 +146,7 @@ export class LanguageView {
                                         ${renderResourceBadge(res.type)}
                                         <strong style="font-size:13px; color:var(--text-main); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${escapeHtml(res.title)}</strong>
                                     </div>
-                                    ${res.value ? `<a href="${escapeHtml(res.value)}" target="_blank" rel="noopener noreferrer" style="font-size:11px; color:var(--text-muted); text-decoration:none; display:block; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${escapeHtml(res.value)}</a>` : ''}
+                                    ${res.value ? (sanitizeUrl(res.value) !== '#' ? `<a href="${escapeHtml(sanitizeUrl(res.value))}" target="_blank" rel="noopener noreferrer" style="font-size:11px; color:var(--text-muted); text-decoration:none; display:block; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${escapeHtml(res.value)}</a>` : `<span style="font-size:11px; color:var(--text-muted); display:block; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${escapeHtml(res.value)}</span>`) : ''}
                                 </div>
                                 <div style="display:flex; gap:6px; align-items:center;">
                                     <button class="btn-edit-resource" data-lang-id="${lang.id}" data-res-id="${res.id}" style="background:transparent; border:none; color:var(--text-muted); cursor:pointer; font-size:14px;" title="Modifier">✏️</button>

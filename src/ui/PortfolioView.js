@@ -1,8 +1,10 @@
-import { escapeHtml } from '../utils/html.js';
+import { escapeHtml, sanitizeUrl, sanitizeImageSrc } from '../utils/security.js';
 
 export class PortfolioView {
     constructor(containerId, app) {
-        this.container = document.getElementById(containerId);
+        this.container = typeof containerId === 'string' && typeof document !== 'undefined'
+            ? document.getElementById(containerId)
+            : (containerId || (typeof document !== 'undefined' ? document.getElementById('view-container') : null));
         this.app = app;
         this.activeTab = 'all'; // 'all', 'proofs', 'checkins'
     }
@@ -182,13 +184,13 @@ export class PortfolioView {
                             
                             ${hasImg ? `
                             <div style="margin-top: 12px; text-align: center; background: #071015; padding: 8px; border-radius: 8px; border: 1px solid #1e3f52;">
-                                <img src="${p.image}" alt="Capture d'écran preuve" style="max-width: 100%; max-height: 240px; border-radius: 6px; cursor: pointer; border: 1px solid #00f2fe;" onclick="const win = window.open(); win.document.write('<img src=\\'${p.image}\\' style=\\'max-width:100%;\\'>');">
+                                <img src="${escapeHtml(sanitizeImageSrc(p.image))}" alt="Capture d'écran preuve" class="portfolio-proof-img-click" data-src="${escapeHtml(sanitizeImageSrc(p.image))}" style="max-width: 100%; max-height: 240px; border-radius: 6px; cursor: pointer; border: 1px solid #00f2fe;">
                                 <p style="font-size: 11px; color: #00f2fe; margin: 4px 0 0 0;">🔍 Cliquez sur l'image pour l'agrandir</p>
                             </div>` : ''}
 
                             <div style="margin-top: 10px; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
-                                <span style="font-size: 12px; color: #88a7b7;">Origine : <strong style="color:#e0e0e0;">${p.source || 'Séance'}</strong></span>
-                                ${p.url ? `<a href="${p.url}" target="_blank" style="background: #00f2fe; color: #0f2027; padding: 5px 12px; border-radius: 15px; font-size: 12px; font-weight: bold; text-decoration: none;">🔗 Voir le lien officiel →</a>` : ''}
+                                <span style="font-size: 12px; color: #88a7b7;">Origine : <strong style="color:#e0e0e0;">${escapeHtml(p.source || 'Séance')}</strong></span>
+                                ${p.url && sanitizeUrl(p.url) !== '#' ? `<a href="${escapeHtml(sanitizeUrl(p.url))}" target="_blank" rel="noopener noreferrer" style="background: #00f2fe; color: #0f2027; padding: 5px 12px; border-radius: 15px; font-size: 12px; font-weight: bold; text-decoration: none;">🔗 Voir le lien officiel →</a>` : ''}
                             </div>
                         </div>`;
                     });
@@ -396,6 +398,7 @@ export class PortfolioView {
     }
 
     attachPortfolioTabs() {
+        if (typeof document === 'undefined') return;
         const buttons = document.querySelectorAll('.tab-btn-portfolio');
         const secProofs = document.getElementById('portfolio-section-proofs');
         const secCheckins = document.getElementById('portfolio-section-checkins');
@@ -430,6 +433,26 @@ export class PortfolioView {
                     if (type === 'book') await this.app.projectEngine.deleteBook(id);
                     if (type === 'task') await this.app.projectEngine.deletePersonalTask(id);
                     this.app.renderView('portfolio');
+                }
+            });
+        });
+
+        // Agrandissement sécurisé des captures sans document.write
+        this.container.querySelectorAll('.portfolio-proof-img-click').forEach(img => {
+            img.addEventListener('click', () => {
+                const src = img.getAttribute('data-src');
+                if (src) {
+                    const win = window.open('', '_blank', 'noopener,noreferrer');
+                    if (win) {
+                        win.document.title = 'Preuve de session';
+                        const safeImg = win.document.createElement('img');
+                        safeImg.src = src;
+                        safeImg.style.maxWidth = '100%';
+                        safeImg.style.display = 'block';
+                        safeImg.style.margin = '20px auto';
+                        win.document.body.style.backgroundColor = '#071015';
+                        win.document.body.appendChild(safeImg);
+                    }
                 }
             });
         });

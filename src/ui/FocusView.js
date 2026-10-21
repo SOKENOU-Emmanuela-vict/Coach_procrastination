@@ -1,3 +1,5 @@
+import { sanitizeUrl } from '../utils/security.js';
+
 export class FocusView {
     constructor(containerId, app) {
         this.container = document.getElementById(containerId);
@@ -173,7 +175,10 @@ export class FocusView {
         if (btnOpenResource) {
             btnOpenResource.addEventListener('click', (e) => {
                 const url = e.currentTarget.getAttribute('data-url');
-                this.openedResourceWindow = window.open(url, '_blank');
+                const safeUrl = sanitizeUrl(url);
+                if (safeUrl && safeUrl !== '#') {
+                    this.openedResourceWindow = window.open(safeUrl, '_blank', 'noopener,noreferrer');
+                }
                 if ('Notification' in window && Notification.permission !== 'granted') {
                     try { Notification.requestPermission(); } catch(err) {}
                 }
