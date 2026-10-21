@@ -11,7 +11,9 @@ const mimeTypes = {
     '.jpg': 'image/jpg',
     '.svg': 'image/svg+xml',
     '.webmanifest': 'application/manifest+json',
-    '.ico': 'image/x-icon'
+    '.ico': 'image/x-icon',
+    '.woff': 'font/woff',
+    '.woff2': 'font/woff2'
 };
 
 const ROOT_DIR = path.resolve(__dirname);

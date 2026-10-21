@@ -1,14 +1,27 @@
-// v1.1 - Force cache refresh
+const CACHE_NAME = 'learning-os-v2.0';
+const ASSETS_TO_CACHE = [
+  './',
+  './index.html',
+  './data/manifest.json',
+  './src/ui/styles/main.css',
+  './vendor/gsap/gsap.min.js',
+  './vendor/bootstrap-icons/bootstrap-icons.min.css',
+  './vendor/bootstrap-icons/fonts/bootstrap-icons.woff2'
+];
+
 self.addEventListener('install', (e) => {
   self.skipWaiting();
+  e.waitUntil(
+    caches.open(CACHE_NAME).then((cache) => cache.addAll(ASSETS_TO_CACHE)).catch(() => {})
+  );
 });
 
 self.addEventListener('activate', (e) => {
   e.waitUntil(
-    caches.keys().then((cacheNames) => {
+    caches.keys().then((keys) => {
       return Promise.all(
-        cacheNames.map((cacheName) => {
-          return caches.delete(cacheName);
+        keys.map((key) => {
+          if (key !== CACHE_NAME) return caches.delete(key);
         })
       );
     })
@@ -17,5 +30,9 @@ self.addEventListener('activate', (e) => {
 });
 
 self.addEventListener('fetch', (e) => {
-  e.respondWith(fetch(e.request));
+  e.respondWith(
+    caches.match(e.request).then((cached) => {
+      return cached || fetch(e.request).catch(() => cached);
+    })
+  );
 });

@@ -1,0 +1,360 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Learning OS — UI Kit & Design System</title>
+    <link rel="stylesheet" href="vendor/bootstrap-icons/bootstrap-icons.min.css">
+    <link rel="stylesheet" href="src/ui/styles/main.css">
+    <script src="vendor/gsap/gsap.min.js"></script>
+    <style>
+        .uikit-container {
+            max-width: 1100px;
+            margin: 0 auto;
+            padding: 32px 20px 80px;
+        }
+        .uikit-toolbar {
+            position: sticky;
+            top: 12px;
+            z-index: 100;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 12px;
+            padding: 12px 18px;
+            background: var(--bg-surface);
+            border: 1px solid var(--border-strong);
+            border-radius: var(--card-radius, 8px);
+            box-shadow: var(--shadow-md);
+            margin-bottom: 32px;
+        }
+        .uikit-toolbar-group {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .uikit-section {
+            margin-bottom: 40px;
+            padding: 24px;
+            background: var(--bg-surface);
+            border: 1px solid var(--border-subtle);
+            border-radius: var(--card-radius, 8px);
+            box-shadow: var(--shadow-sm);
+        }
+        .uikit-section-title {
+            font-family: var(--font-heading);
+            font-size: var(--text-xl);
+            margin: 0 0 16px 0;
+            color: var(--text-primary);
+            border-bottom: 1px solid var(--border-subtle);
+            padding-bottom: 8px;
+        }
+        .uikit-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 16px;
+        }
+    </style>
+</head>
+<body data-univers="bureau" data-theme="light">
+
+    <div class="uikit-container">
+        <!-- BARRE DE CONTRÔLE UI KIT -->
+        <header class="uikit-toolbar">
+            <div class="uikit-toolbar-group">
+                <strong style="color:var(--text-primary); font-family:var(--font-heading);">Learning OS UI Kit</strong>
+            </div>
+
+            <!-- Choix Univers -->
+            <div class="uikit-toolbar-group">
+                <span style="font-size:var(--text-xs); color:var(--text-secondary); text-transform:uppercase; letter-spacing:0.5px;">Univers :</span>
+                <button type="button" class="btn btn-secondary btn-sm" onclick="setUnivers('bureau')">
+                    <i class="bi bi-briefcase"></i> Bureau
+                </button>
+                <button type="button" class="btn btn-secondary btn-sm" onclick="setUnivers('ecole')">
+                    <i class="bi bi-mortarboard"></i> École
+                </button>
+                <button type="button" class="btn btn-secondary btn-sm" onclick="setUnivers('vie')">
+                    <i class="bi bi-heart"></i> Vie
+                </button>
+                <button type="button" class="btn btn-secondary btn-sm" onclick="setUnivers('langues')">
+                    <i class="bi bi-translate"></i> Langues
+                </button>
+            </div>
+
+            <!-- Choix Thème -->
+            <div class="uikit-toolbar-group">
+                <span style="font-size:var(--text-xs); color:var(--text-secondary); text-transform:uppercase; letter-spacing:0.5px;">Thème :</span>
+                <button type="button" class="btn btn-ghost btn-sm" id="btn-theme-toggle" onclick="toggleTheme()">
+                    <i class="bi bi-moon"></i> Sombre
+                </button>
+                <button type="button" class="btn btn-primary btn-sm" onclick="triggerGsapDemo()">
+                    <i class="bi bi-play-fill"></i> Animer (GSAP)
+                </button>
+            </div>
+        </header>
+
+        <!-- 1. BOUTONS -->
+        <section class="uikit-section" id="section-buttons">
+            <h2 class="uikit-section-title"><i class="bi bi-hand-index-thumb"></i> Boutons</h2>
+            <div style="display:flex; flex-wrap:wrap; gap:12px; align-items:center;">
+                <button type="button" class="btn btn-primary">
+                    <i class="bi bi-check-lg"></i> Bouton Principal
+                </button>
+                <button type="button" class="btn btn-secondary">
+                    <i class="bi bi-pencil"></i> Bouton Secondaire
+                </button>
+                <button type="button" class="btn btn-ghost">
+                    <i class="bi bi-arrow-left"></i> Bouton Ghost
+                </button>
+                <button type="button" class="btn btn-danger">
+                    <i class="bi bi-trash"></i> Bouton Danger
+                </button>
+                <button type="button" class="btn btn-primary" disabled>
+                    Désactivé
+                </button>
+            </div>
+        </section>
+
+        <!-- 2. FORMULAIRES & CHAMPS -->
+        <section class="uikit-section" id="section-forms">
+            <h2 class="uikit-section-title"><i class="bi bi-input-cursor-text"></i> Champs & Formulaires</h2>
+            <div class="uikit-grid">
+                <div>
+                    <label class="form-label" for="demo-input-text">Titre / Nom du cours</label>
+                    <input type="text" id="demo-input-text" class="form-input" placeholder="ex. Algorithmique Avancée" value="Algèbre Linéaire">
+                </div>
+                <div>
+                    <label class="form-label" for="demo-select">Domaine d'apprentissage</label>
+                    <select id="demo-select" class="form-select">
+                        <option value="ecole">École / Université</option>
+                        <option value="langues">Langues & Vocabulaire</option>
+                        <option value="vie">Vie & Bien-être</option>
+                        <option value="projets">Projets personnels</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="form-label" for="demo-date">Date d'échéance</label>
+                    <input type="date" id="demo-date" class="form-input" value="2026-10-30">
+                </div>
+                <div>
+                    <label class="form-label" for="demo-number">Objectif de séances (heures)</label>
+                    <input type="number" id="demo-number" class="form-input" value="12" min="1" max="100">
+                </div>
+            </div>
+        </section>
+
+        <!-- 3. CARTES & CONTENEURS -->
+        <section class="uikit-section" id="section-cards">
+            <h2 class="uikit-section-title"><i class="bi bi-card-text"></i> Cartes & Blocs</h2>
+            <div class="uikit-grid">
+                <div class="card gsap-card">
+                    <div class="card-header">
+                        <h3 class="card-title">Session en cours</h3>
+                        <span class="badge badge-success">En direct</span>
+                    </div>
+                    <div class="card-body">
+                        <p style="margin:0 0 12px 0; color:var(--text-secondary);">Révision TD3 — Optimisation convexe et descente de gradient.</p>
+                        <div style="display:flex; justify-content:space-between; font-size:var(--text-sm); color:var(--text-tertiary);">
+                            <span>Durée : 45 min</span>
+                            <span>Matière : Mathématiques</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card gsap-card">
+                    <div class="card-header">
+                        <h3 class="card-title">Moyenne Académique</h3>
+                        <span class="badge badge-neutral">Semestre 3</span>
+                    </div>
+                    <div class="card-body">
+                        <div style="font-size:32px; font-weight:700; color:var(--text-primary); font-family:var(--font-heading);">
+                            15.8 <span style="font-size:16px; font-weight:normal; color:var(--text-tertiary);">/ 20</span>
+                        </div>
+                        <p style="margin:8px 0 0 0; font-size:var(--text-sm); color:var(--text-secondary);">30 crédits ECTS visés</p>
+                    </div>
+                </div>
+
+                <div class="card gsap-card">
+                    <div class="card-header">
+                        <h3 class="card-title">Habitude du jour</h3>
+                        <span class="badge badge-warning">À faire</span>
+                    </div>
+                    <div class="card-body">
+                        <p style="margin:0 0 12px 0; color:var(--text-secondary);">Lecture quotidienne — 20 pages de Philosophie des Sciences.</p>
+                        <button type="button" class="btn btn-secondary btn-sm" style="width:100%;">Marquer comme fait</button>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- 4. BADGES -->
+        <section class="uikit-section" id="section-badges">
+            <h2 class="uikit-section-title"><i class="bi bi-tag"></i> Badges & Statuts</h2>
+            <div style="display:flex; flex-wrap:wrap; gap:10px; align-items:center;">
+                <span class="badge badge-neutral">Neutre</span>
+                <span class="badge badge-success"><i class="bi bi-check-circle"></i> Validé</span>
+                <span class="badge badge-warning"><i class="bi bi-clock"></i> En cours</span>
+                <span class="badge badge-danger"><i class="bi bi-exclamation-triangle"></i> Échéance proche</span>
+                <span class="badge" style="background:var(--accent-subtle); color:var(--accent-primary); border-color:var(--accent-primary);">Accent Univers</span>
+            </div>
+        </section>
+
+        <!-- 5. TABLEAU DE DONNÉES / RELEVÉ -->
+        <section class="uikit-section" id="section-table">
+            <h2 class="uikit-section-title"><i class="bi bi-table"></i> Tableau & Relevé</h2>
+            <div class="table-container">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Matière</th>
+                            <th>Code</th>
+                            <th>Coefficient</th>
+                            <th>Note</th>
+                            <th>Statut</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><strong>Intelligence Artificielle</strong></td>
+                            <td>INF-301</td>
+                            <td>4</td>
+                            <td>16.5 / 20</td>
+                            <td><span class="badge badge-success">Validé</span></td>
+                        </tr>
+                        <tr>
+                            <td><strong>Probabilités & Statistiques</strong></td>
+                            <td>MTH-204</td>
+                            <td>3</td>
+                            <td>14.0 / 20</td>
+                            <td><span class="badge badge-success">Validé</span></td>
+                        </tr>
+                        <tr>
+                            <td><strong>Bases de Données Relationnelles</strong></td>
+                            <td>INF-202</td>
+                            <td>3</td>
+                            <td>—</td>
+                            <td><span class="badge badge-warning">Épreuve le 12 nov.</span></td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <!-- 6. ONGLETS -->
+        <section class="uikit-section" id="section-tabs">
+            <h2 class="uikit-section-title"><i class="bi bi-segmented-nav"></i> Onglets de Navigation</h2>
+            <div class="tabs">
+                <button type="button" class="tab-item active" onclick="switchTab(this)">Vue Synthétique</button>
+                <button type="button" class="tab-item" onclick="switchTab(this)">Détail des Matières</button>
+                <button type="button" class="tab-item" onclick="switchTab(this)">Calendrier des Examens</button>
+                <button type="button" class="tab-item" onclick="switchTab(this)">Archives</button>
+            </div>
+        </section>
+
+        <!-- 7. ALERTES -->
+        <section class="uikit-section" id="section-alerts">
+            <h2 class="uikit-section-title"><i class="bi bi-bell"></i> Alertes & Retours</h2>
+            <div style="display:flex; flex-direction:column; gap:12px;">
+                <div class="alert alert-info">
+                    <i class="bi bi-info-circle" style="font-size:18px;"></i>
+                    <div><strong>Rappel du Coach :</strong> Pense à planifier ta session de révision avant 18h pour garder ton rythme.</div>
+                </div>
+                <div class="alert alert-success">
+                    <i class="bi bi-check-circle" style="font-size:18px;"></i>
+                    <div><strong>Semestre validé :</strong> Félicitations, tous les crédits du semestre précédent sont validés !</div>
+                </div>
+                <div class="alert alert-warning">
+                    <i class="bi bi-exclamation-triangle" style="font-size:18px;"></i>
+                    <div><strong>Attention :</strong> L'examen de Programmation Système a lieu dans 48 heures.</div>
+                </div>
+            </div>
+        </section>
+
+        <!-- 8. MODALE DE TEST -->
+        <section class="uikit-section" id="section-modal">
+            <h2 class="uikit-section-title"><i class="bi bi-window"></i> Modale de dialogue</h2>
+            <button type="button" class="btn btn-secondary" onclick="openDemoModal()">
+                <i class="bi bi-box-arrow-up-right"></i> Ouvrir la modale de démonstration
+            </button>
+        </section>
+    </div>
+
+    <!-- MODALE ÉLÉMENT -->
+    <div id="uikit-modal" class="modal-backdrop" style="display:none;" onclick="if(event.target === this) closeDemoModal()">
+        <div class="modal-box">
+            <div class="modal-header">
+                <h3 class="modal-title" style="margin:0; font-family:var(--font-heading);">Éditer le cours</h3>
+                <button type="button" class="btn btn-ghost btn-sm" onclick="closeDemoModal()" style="padding:4px 8px;">✕</button>
+            </div>
+            <div class="modal-body" style="padding:16px 0;">
+                <label class="form-label">Nom du cours</label>
+                <input type="text" class="form-input" value="Algorithmique Avancée" style="margin-bottom:12px;">
+                
+                <label class="form-label">Coefficient</label>
+                <input type="number" class="form-input" value="4">
+            </div>
+            <div class="modal-footer" style="display:flex; justify-content:flex-end; gap:8px;">
+                <button type="button" class="btn btn-ghost" onclick="closeDemoModal()">Annuler</button>
+                <button type="button" class="btn btn-primary" onclick="closeDemoModal()">Enregistrer</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function setUnivers(name) {
+            document.body.setAttribute('data-univers', name);
+            if (window.gsap && !window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+                gsap.fromTo('.uikit-container', { opacity: 0.8, y: 4 }, { opacity: 1, y: 0, duration: 0.25, ease: 'power2.out' });
+            }
+        }
+
+        function toggleTheme() {
+            const current = document.body.getAttribute('data-theme') || 'light';
+            const next = current === 'light' ? 'dark' : 'light';
+            document.body.setAttribute('data-theme', next);
+            const btn = document.getElementById('btn-theme-toggle');
+            if (next === 'dark') {
+                btn.innerHTML = '<i class="bi bi-sun"></i> Clair';
+            } else {
+                btn.innerHTML = '<i class="bi bi-moon"></i> Sombre';
+            }
+        }
+
+        function switchTab(el) {
+            const parent = el.parentElement;
+            parent.querySelectorAll('.tab-item').forEach(t => t.classList.remove('active'));
+            el.classList.add('active');
+        }
+
+        function openDemoModal() {
+            const m = document.getElementById('uikit-modal');
+            m.style.display = 'flex';
+            if (window.gsap && !window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+                gsap.fromTo('.modal-box', { scale: 0.96, opacity: 0 }, { scale: 1, opacity: 1, duration: 0.2, ease: 'power2.out' });
+            }
+        }
+
+        function closeDemoModal() {
+            const m = document.getElementById('uikit-modal');
+            m.style.display = 'none';
+        }
+
+        function triggerGsapDemo() {
+            if (!window.gsap) {
+                alert('GSAP non disponible');
+                return;
+            }
+            if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+                alert('prefers-reduced-motion est actif : animations désactivées conformément aux règles');
+                return;
+            }
+            gsap.fromTo('.gsap-card', 
+                { y: 15, opacity: 0.3 }, 
+                { y: 0, opacity: 1, stagger: 0.08, duration: 0.35, ease: 'power2.out' }
+            );
+        }
+    </script>
+</body>
+</html>

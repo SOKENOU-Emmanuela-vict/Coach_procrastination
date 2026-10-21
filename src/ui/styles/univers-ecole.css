@@ -1,0 +1,59 @@
+/* =========================================================
+   UNIVERS ÉCOLE — ACADÉMIQUE & ENCRE (data-univers="ecole")
+   Style papier vélin, encre d'imprimerie, titres serif
+   ========================================================= */
+
+[data-univers="ecole"] {
+    --bg-page: #fbf9f4;
+    --bg-surface: #ffffff;
+    --bg-surface-alt: #f3efe6;
+    --bg-sidebar: #f5f1e8;
+    
+    --text-primary: #1f272e;
+    --text-secondary: #4b5863;
+    --text-tertiary: #7d8b96;
+    
+    --border-subtle: #e2dbce;
+    --border-strong: #c7beae;
+    
+    --accent-primary: #183d3d; /* Vert bouteille d'encre profond */
+    --accent-primary-hover: #042929;
+    --accent-subtle: #eaf1ed;
+    --accent-text: #ffffff;
+    --accent-deadline: #8a3324; /* Rouge garance / bordeaux sobre */
+    
+    --font-heading: var(--font-serif);
+    --card-radius: 4px;
+    --btn-radius: 4px;
+    --input-radius: 4px;
+    
+    --shadow-sm: 0 1px 2px rgba(60, 50, 40, 0.05);
+    --shadow-md: 0 2px 5px rgba(60, 50, 40, 0.08);
+    --shadow-lg: 0 6px 16px rgba(60, 50, 40, 0.10);
+}
+
+/* Mode sombre de l'univers École (Encre nocturne et ardoise) */
+[data-univers="ecole"][data-theme="dark"],
+[data-theme="dark"] [data-univers="ecole"] {
+    --bg-page: #171b1f;
+    --bg-surface: #1e242a;
+    --bg-surface-alt: #262d34;
+    --bg-sidebar: #15181c;
+    
+    --text-primary: #e8ecf0;
+    --text-secondary: #9aa8b5;
+    --text-tertiary: #6b7782;
+    
+    --border-subtle: #2d3640;
+    --border-strong: #414e5c;
+    
+    --accent-primary: #457b7b;
+    --accent-primary-hover: #5a9696;
+    --accent-subtle: #1c2e2e;
+    --accent-text: #ffffff;
+    --accent-deadline: #c95744;
+    
+    --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
+    --shadow-md: 0 2px 6px rgba(0, 0, 0, 0.5);
+    --shadow-lg: 0 8px 20px rgba(0, 0, 0, 0.6);
+}

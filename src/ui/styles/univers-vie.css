@@ -1,0 +1,59 @@
+/* =========================================================
+   UNIVERS VIE — DOUCEUR & BIEN-ÊTRE (data-univers="vie")
+   Sable chaud, sauge apaisante, terre cuite, formes douces
+   ========================================================= */
+
+[data-univers="vie"] {
+    --bg-page: #fbf8f3;
+    --bg-surface: #ffffff;
+    --bg-surface-alt: #f4eee2;
+    --bg-sidebar: #f7f2e8;
+    
+    --text-primary: #3c342a;
+    --text-secondary: #746757;
+    --text-tertiary: #9e907f;
+    
+    --border-subtle: #ede3d3;
+    --border-strong: #d8caba;
+    
+    --accent-primary: #5c7562; /* Sauge douce */
+    --accent-primary-hover: #485e4d;
+    --accent-subtle: #eff4f0;
+    --accent-text: #ffffff;
+    --accent-warm: #d97d5f; /* Terre cuite douce */
+    
+    --font-heading: var(--font-sans);
+    --card-radius: 14px;
+    --btn-radius: 10px;
+    --input-radius: 10px;
+    
+    --shadow-sm: 0 2px 4px rgba(90, 70, 50, 0.04);
+    --shadow-md: 0 4px 12px rgba(90, 70, 50, 0.06);
+    --shadow-lg: 0 10px 24px rgba(90, 70, 50, 0.08);
+}
+
+/* Mode sombre de l'univers Vie (Nuit d'argile et sauge sombre) */
+[data-univers="vie"][data-theme="dark"],
+[data-theme="dark"] [data-univers="vie"] {
+    --bg-page: #1a1714;
+    --bg-surface: #24201c;
+    --bg-surface-alt: #2e2a24;
+    --bg-sidebar: #181512;
+    
+    --text-primary: #f0eae1;
+    --text-secondary: #b0a495;
+    --text-tertiary: #7d7265;
+    
+    --border-subtle: #3a332a;
+    --border-strong: #4f473c;
+    
+    --accent-primary: #76977e;
+    --accent-primary-hover: #8eaf96;
+    --accent-subtle: #243026;
+    --accent-text: #ffffff;
+    --accent-warm: #e38d72;
+    
+    --shadow-sm: 0 2px 4px rgba(0, 0, 0, 0.4);
+    --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.5);
+    --shadow-lg: 0 10px 24px rgba(0, 0, 0, 0.6);
+}

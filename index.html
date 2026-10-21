@@ -6,7 +6,8 @@
     <title>Learning OS</title>
     <link rel="manifest" href="data/manifest.json">
     <link rel="stylesheet" href="src/ui/styles/main.css?v=6">
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
+    <link rel="stylesheet" href="vendor/bootstrap-icons/bootstrap-icons.min.css">
+    <script src="vendor/gsap/gsap.min.js"></script>
 </head>
 <body>
     <div id="app-root">
@@ -123,7 +124,7 @@
             }
 
             try {
-                await Bootstrap.init();
+                window.app = await Bootstrap.init();
             } catch(e) {
                 console.error(e);
                 document.getElementById('app-root').innerHTML = '<p style="text-align:center;color:red;">Erreur critique au démarrage.</p>';

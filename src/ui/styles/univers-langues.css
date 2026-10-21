@@ -1,0 +1,67 @@
+/* =========================================================
+   UNIVERS LANGUES — ÉDITORIAL & VOYAGE (data-univers="langues")
+   Fiches cartonnées, typographie expressive, accents par langue
+   ========================================================= */
+
+[data-univers="langues"] {
+    --bg-page: #faf8f5;
+    --bg-surface: #ffffff;
+    --bg-surface-alt: #f2eee8;
+    --bg-sidebar: #f5f0e8;
+    
+    --text-primary: #252422;
+    --text-secondary: #57534e;
+    --text-tertiary: #8f8881;
+    
+    --border-subtle: #e6dfd5;
+    --border-strong: #ccc3b6;
+    
+    --accent-primary: #9b2c2c; /* Rouge garance éditorial par défaut */
+    --accent-primary-hover: #7b1d1d;
+    --accent-subtle: #fbf0ee;
+    --accent-text: #ffffff;
+    
+    /* Couleurs par langue */
+    --lang-en: #2b6cb0;
+    --lang-es: #c05621;
+    --lang-de: #4a5568;
+    --lang-ja: #9b2c2c;
+    --lang-zh: #c53030;
+    --lang-it: #2f855a;
+    --lang-ru: #4c51bf;
+    --lang-ar: #234e52;
+    
+    --font-heading: var(--font-sans);
+    --card-radius: 8px;
+    --btn-radius: 6px;
+    --input-radius: 6px;
+    
+    --shadow-sm: 0 1px 3px rgba(40, 30, 20, 0.05);
+    --shadow-md: 0 3px 8px rgba(40, 30, 20, 0.07);
+    --shadow-lg: 0 10px 24px rgba(40, 30, 20, 0.09);
+}
+
+/* Mode sombre de l'univers Langues */
+[data-univers="langues"][data-theme="dark"],
+[data-theme="dark"] [data-univers="langues"] {
+    --bg-page: #191817;
+    --bg-surface: #22201e;
+    --bg-surface-alt: #2c2a27;
+    --bg-sidebar: #171615;
+    
+    --text-primary: #f2efe9;
+    --text-secondary: #a8a29e;
+    --text-tertiary: #78716c;
+    
+    --border-subtle: #383430;
+    --border-strong: #4d4742;
+    
+    --accent-primary: #e53e3e;
+    --accent-primary-hover: #fc8181;
+    --accent-subtle: #2d1818;
+    --accent-text: #ffffff;
+    
+    --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.4);
+    --shadow-md: 0 3px 8px rgba(0, 0, 0, 0.5);
+    --shadow-lg: 0 10px 24px rgba(0, 0, 0, 0.6);
+}
