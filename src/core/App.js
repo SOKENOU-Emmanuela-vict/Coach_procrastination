@@ -24,6 +24,7 @@ import { ExamRevisionPlanner } from '../ai/ExamRevisionPlanner.js';
 import { parseExamAnnouncement, parseGradeAnswer, parseGradeStatement, isNotYetAnswer, parseBookProgress, parsePersonalTaskCreation, parseTaskCompletion, parseItemUpdate, parseItemDeletion } from '../ai/ChatIntentParser.js';
 import { DailySnapshotEngine } from '../engines/DailySnapshotEngine.js';
 import { LanguageEngine } from '../engines/LanguageEngine.js';
+import { Event } from '../models/Event.js';
 import { EventModal } from '../ui/EventModal.js';
 import { deepSanitizeObject } from '../utils/security.js';
 
