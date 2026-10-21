@@ -24,8 +24,8 @@ import { ExamRevisionPlanner } from '../ai/ExamRevisionPlanner.js';
 import { parseExamAnnouncement, parseGradeAnswer, parseGradeStatement, isNotYetAnswer, parseBookProgress, parsePersonalTaskCreation, parseTaskCompletion, parseItemUpdate, parseItemDeletion } from '../ai/ChatIntentParser.js';
 import { DailySnapshotEngine } from '../engines/DailySnapshotEngine.js';
 import { LanguageEngine } from '../engines/LanguageEngine.js';
-import { Event } from '../models/Event.js';
 import { EventModal } from '../ui/EventModal.js';
+import { deepSanitizeObject } from '../utils/security.js';
 
 // Disponibilités par défaut tant qu'aucune n'a été saisie (seulement après un premier import d'emploi du temps)
 export const DEFAULT_STUDY_WINDOW = { startTime: '08:00', endTime: '21:00' };
@@ -1653,13 +1653,16 @@ export class App {
         if (!importedData || typeof importedData !== 'object' || Array.isArray(importedData)) {
             throw new Error('format');
         }
-        const keys = Object.keys(importedData).filter(k => k !== '_meta');
+        // Éliminer les clés de métadonnées et toute tentative d'injection de prototype de premier niveau
+        const keys = Object.keys(importedData).filter(k => k !== '_meta' && k !== '__proto__' && k !== 'constructor' && k !== 'prototype');
         const knownKeys = ['study_history', 'user_profile', 'daily_checkins', 'events', 'availabilities', 'acad_subjects', 'acad_assessments', 'acad_grades', 'chat_history'];
         if (keys.length === 0 || !keys.some(k => knownKeys.includes(k)) || keys.some(k => !/^[A-Za-z0-9_\-]+$/.test(k))) {
             throw new Error('format');
         }
         for (const key of keys) {
-            await this.storage.saveData(key, importedData[key]);
+            // Nettoyage récursif en profondeur contre la Prototype Pollution
+            const cleanData = deepSanitizeObject(importedData[key]);
+            await this.storage.saveData(key, cleanData);
         }
         // Sauvegarde antérieure au cursus officiel actuel (matières sans année à jour) : on réaligne les
         // métadonnées officielles des matières (CECT, intitulés, enseignants) sans toucher aux notes ni aux liens.
