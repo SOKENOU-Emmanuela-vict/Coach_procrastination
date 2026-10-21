@@ -11,13 +11,13 @@ export class AcademicView {
     
     render(state) {
         if (!this.container) return;
-        if (typeof document !== 'undefined' && document.body) {
-            document.body.className = 'theme-light';
+        if (typeof document !== 'undefined' && document.body && typeof document.body.setAttribute === 'function') {
+            document.body.setAttribute('data-univers', 'ecole');
         }
 
         const blocks = [
-            { id: 0, title: "L2 IA 2026-2027", icon: '<i class="bi bi-mortarboard"></i>', img: "https://images.unsplash.com/photo-1551288049-bebda4e38f71?w=400&q=80" },
-            { id: 1, title: "Projets & Stages", icon: '<i class="bi bi-briefcase"></i>', img: "https://images.unsplash.com/photo-1461749280684-dccba630e2f6?w=400&q=80" }
+            { id: 0, title: "L2 IA 2026-2027", icon: '<i class="bi bi-mortarboard"></i>' },
+            { id: 1, title: "Projets & Stages", icon: '<i class="bi bi-briefcase"></i>' }
         ];
 
         const allSubjects = state.academicSubjects || [];
@@ -63,68 +63,72 @@ export class AcademicView {
             const subAssessments = allAssessments.filter(a => a.subjectId === sub.id);
             const hasGrade = sub.grade !== null && sub.grade !== undefined;
             return `
-            <div class="bureau-card" style="background:var(--bg-card); border-radius:12px; border:1px solid var(--border-color); padding:20px; position:relative; margin-bottom:15px; display:flex; flex-direction:column; gap:15px;">
+            <article class="academic-subject-card">
                 <!-- Edit & Delete buttons -->
-                <div style="position:absolute; top:15px; right:15px; display:flex; gap:8px;">
-                    <button class="btn-edit-item" data-id="${sub.id}" data-type="subject" style="background:transparent; border:none; color:var(--text-muted); cursor:pointer;" title="Modifier la matière">
-                        <i class="bi bi-pencil-square" style="font-size:16px;"></i>
+                <div class="academic-card-tools">
+                    <button class="academic-btn-icon btn-edit-item" data-id="${sub.id}" data-type="subject" title="Modifier la matière">
+                        <i class="bi bi-pencil-square"></i>
                     </button>
-                    <button class="btn-delete-item" data-id="${sub.id}" data-type="subject" style="background:transparent; border:none; color:#f44336; cursor:pointer;" title="Supprimer la matière">
-                        <i class="bi bi-trash" style="font-size:16px;"></i>
+                    <button class="academic-btn-icon danger btn-delete-item" data-id="${sub.id}" data-type="subject" title="Supprimer la matière">
+                        <i class="bi bi-trash"></i>
                     </button>
                 </div>
                 
-                <h4 style="margin:0; font-size:16px; color:var(--text-main); padding-right:60px;">
-                    <span style="font-size:12px; color:var(--text-muted); display:block; margin-bottom:4px;">${escapeHtml(sub.code || '')} • ${sub.cect || 0} CECT</span>
-                    ${escapeHtml(sub.name || '')}
-                </h4>
+                <div>
+                    <span class="academic-subject-meta">${escapeHtml(sub.code || '')} • ${sub.cect || 0} CECT</span>
+                    <h4 class="academic-subject-title">${escapeHtml(sub.name || '')}</h4>
+                </div>
                 
                 <!-- Central Grade / ADD / EDIT / DELETE NOTE -->
-                <div style="display:flex; justify-content:center; align-items:center; gap:10px; padding:15px 0;">
+                <div class="academic-grade-area">
                     ${hasGrade ? `
-                        <div style="display:flex; align-items:center; gap:10px;">
-                            <span style="font-size:24px; font-weight:bold; color:var(--accent-primary);">${sub.grade} <span style="font-size:14px; color:var(--text-muted);">/ 20</span></span>
-                            <button class="btn-edit-grade" data-subject-id="${sub.id}" data-grade="${sub.grade}" style="background:transparent; border:none; color:var(--text-muted); cursor:pointer; font-size:15px;" title="Modifier la note">✏️</button>
-                            <button class="btn-delete-grade" data-subject-id="${sub.id}" style="background:transparent; border:none; color:#f44336; cursor:pointer; font-size:15px;" title="Supprimer la note">🗑️</button>
+                        <div class="academic-grade-display">
+                            <span class="academic-grade-value">${sub.grade} <span class="academic-semester-cect">/ 20</span></span>
+                            <button class="academic-btn-icon btn-edit-grade" data-subject-id="${sub.id}" data-grade="${sub.grade}" title="Modifier la note">
+                                <i class="bi bi-pencil"></i>
+                            </button>
+                            <button class="academic-btn-icon danger btn-delete-grade" data-subject-id="${sub.id}" title="Supprimer la note">
+                                <i class="bi bi-trash"></i>
+                            </button>
                         </div>
                     ` : `
-                        <button class="btn-add-grade" data-id="${sub.id}" style="background:var(--accent-primary); color:white; border:none; padding:10px 20px; border-radius:8px; font-weight:bold; cursor:pointer; display:flex; align-items:center; gap:8px;">
+                        <button class="btn btn-primary btn-sm btn-add-grade" data-id="${sub.id}">
                             <i class="bi bi-plus-circle"></i> + NOTE
                         </button>
                     `}
                 </div>
                 
                 <!-- Action Buttons Grid -->
-                <div style="display:grid; grid-template-columns: 1fr 1fr 1fr; gap:10px;">
-                    <button class="btn-action-subject" data-action="ressources" data-id="${sub.id}" style="background:var(--bg-main); border:1px solid var(--border-color); padding:10px; border-radius:8px; cursor:pointer; display:flex; flex-direction:column; align-items:center; gap:5px; color:var(--text-main);">
-                        <i class="bi bi-folder2-open" style="font-size:18px; color:#eab308;"></i>
-                        <span style="font-size:11px; font-weight:bold;">Ressources</span>
+                <div class="academic-subject-actions">
+                    <button class="academic-action-btn btn-action-subject" data-action="ressources" data-id="${sub.id}">
+                        <i class="bi bi-folder2-open"></i>
+                        <span>Ressources</span>
                     </button>
-                    <button class="btn-action-subject" data-action="notebook" data-id="${sub.id}" style="background:var(--bg-main); border:1px solid var(--border-color); padding:10px; border-radius:8px; cursor:pointer; display:flex; flex-direction:column; align-items:center; gap:5px; color:var(--text-main);">
-                        <i class="bi bi-robot" style="font-size:18px; color:#0ea5e9;"></i>
-                        <span style="font-size:11px; font-weight:bold;">Notebook LM</span>
+                    <button class="academic-action-btn btn-action-subject" data-action="notebook" data-id="${sub.id}">
+                        <i class="bi bi-robot"></i>
+                        <span>Notebook LM</span>
                     </button>
-                    <button class="btn-action-subject" data-action="epreuves" data-id="${sub.id}" style="background:var(--bg-main); border:1px solid var(--border-color); padding:10px; border-radius:8px; cursor:pointer; display:flex; flex-direction:column; align-items:center; gap:5px; color:var(--text-main);">
-                        <i class="bi bi-ui-checks" style="font-size:18px; color:#10b981;"></i>
-                        <span style="font-size:11px; font-weight:bold;">Épreuves (${subAssessments.length})</span>
+                    <button class="academic-action-btn btn-action-subject" data-action="epreuves" data-id="${sub.id}">
+                        <i class="bi bi-ui-checks"></i>
+                        <span>Épreuves (${subAssessments.length})</span>
                     </button>
                 </div>
-            </div>
+            </article>
             `;
         };
 
         const renderEmptyState = () => `
-            <div id="academic-empty-state" style="text-align:center; padding:60px 20px; background:var(--bg-card); border-radius:16px; border:2px dashed var(--border-color); margin-top:20px;">
-                <div style="font-size:48px; margin-bottom:15px;">🎓</div>
-                <h3 style="font-size:20px; color:var(--text-main); margin-bottom:10px;">Ton cursus est vide</h3>
-                <p style="color:var(--text-muted); font-size:14px; max-width:500px; margin:0 auto 25px auto;">
+            <div id="academic-empty-state" class="academic-empty-container">
+                <div class="academic-empty-icon">🎓</div>
+                <h3 class="academic-empty-title">Ton cursus est vide</h3>
+                <p class="academic-empty-desc">
                     Commence par ajouter tes matières et semestres, ou charge le programme officiel à titre d'exemple.
                 </p>
-                <div style="display:flex; justify-content:center; gap:15px; flex-wrap:wrap;">
-                    <button id="btn-empty-add-subject" class="btn-open-modal" data-type="subject" style="background:var(--accent-primary); color:white; border:none; padding:12px 24px; border-radius:10px; font-weight:bold; cursor:pointer; font-size:14px; display:inline-flex; align-items:center; gap:8px;">
+                <div class="academic-empty-actions">
+                    <button id="btn-empty-add-subject" class="btn btn-primary btn-open-modal" data-type="subject">
                         <i class="bi bi-plus-circle"></i> Ajouter ta première matière
                     </button>
-                    <button id="btn-empty-import-example" style="background:transparent; color:var(--accent-primary); border:2px solid var(--accent-primary); padding:12px 24px; border-radius:10px; font-weight:bold; cursor:pointer; font-size:14px; display:inline-flex; align-items:center; gap:8px;">
+                    <button id="btn-empty-import-example" class="btn btn-outline">
                         <i class="bi bi-download"></i> Exemple
                     </button>
                 </div>
@@ -138,94 +142,95 @@ export class AcademicView {
             return semestersToDisplay.map(sem => {
                 const totalCect = sem.subjects.reduce((acc, sub) => acc + (sub.cect || 0), 0);
                 return `
-                <div class="semester-section" style="margin-bottom:35px;">
-                    <div style="display:flex; justify-content:space-between; align-items:center; padding-bottom:10px; border-bottom:2px solid var(--accent-primary); margin-bottom:15px;">
-                        <h3 style="font-size:16px; margin:0; color:var(--text-main); display:flex; align-items:center; gap:10px;">
+                <section class="academic-semester-section">
+                    <header class="academic-semester-header">
+                        <h3 class="academic-semester-title">
                             <span>${escapeHtml(sem.name)}</span>
-                            <span style="font-size:12px; color:var(--text-muted); font-weight:normal;">— ${totalCect} CECT</span>
+                            <span class="academic-semester-cect">— ${totalCect} CECT</span>
                         </h3>
-                        <div style="display:flex; gap:8px; align-items:center;">
-                            <button class="btn-add-subject-to-sem" data-semester-id="${sem.id}" style="background:rgba(14, 165, 233, 0.1); border:1px solid var(--accent-primary); color:var(--accent-primary); padding:4px 10px; border-radius:6px; cursor:pointer; font-size:12px; font-weight:600;" title="Ajouter une matière dans ce semestre">
+                        <div class="academic-header-actions">
+                            <button class="btn btn-sm btn-outline btn-add-subject-to-sem" data-semester-id="${sem.id}" title="Ajouter une matière dans ce semestre">
                                 + Matière
                             </button>
-                            <button class="btn-edit-semester" data-id="${sem.id}" data-name="${escapeHtml(sem.name)}" style="background:transparent; border:none; color:var(--text-muted); cursor:pointer; font-size:15px;" title="Modifier le semestre">
-                                ✏️
+                            <button class="academic-btn-icon btn-edit-semester" data-id="${sem.id}" data-name="${escapeHtml(sem.name)}" title="Modifier le semestre">
+                                <i class="bi bi-pencil"></i>
                             </button>
-                            <button class="btn-delete-semester" data-id="${sem.id}" style="background:transparent; border:none; color:#f44336; cursor:pointer; font-size:15px;" title="Supprimer le semestre">
-                                🗑️
+                            <button class="academic-btn-icon danger btn-delete-semester" data-id="${sem.id}" title="Supprimer le semestre">
+                                <i class="bi bi-trash"></i>
                             </button>
                         </div>
+                    </header>
+                    <div class="academic-subjects-grid">
+                        ${sem.subjects.length > 0 ? sem.subjects.map(renderSubjectCard).join('') : '<p class="academic-empty-desc">Aucune matière dans ce semestre.</p>'}
                     </div>
-                    <div>
-                        ${sem.subjects.length > 0 ? sem.subjects.map(renderSubjectCard).join('') : '<p style="color:var(--text-muted); font-size:13px; font-style:italic;">Aucune matière dans ce semestre.</p>'}
-                    </div>
-                </div>
+                </section>
                 `;
             }).join('');
         };
 
         let html = `
-<div class="bureau" style="display:flex; height:100vh;">
+<div class="bureau" data-univers="ecole">
     <!-- SIDEBAR -->
-    <div class="bureau-sidebar" style="width: 250px; background: var(--bg-sidebar); border-right: 1px solid var(--border-color); padding: 20px; display: flex; flex-direction: column;">
-        <div style="font-size:24px; font-weight:bold; margin-bottom:40px; display:flex; align-items:center; gap:10px;">
-            <div style="width:30px; height:30px; border-radius:8px; background:var(--bg-main); border:1px solid var(--border-color); display:flex; align-items:center; justify-content:center; color:var(--text-main);">
+    <aside class="bureau-sidebar">
+        <div class="bureau-brand">
+            <div class="bureau-brand-icon">
                 <i class="bi bi-book"></i>
             </div>
-            Learning OS
+            <span>Learning OS</span>
         </div>
         
-        <div style="display:flex; flex-direction:column; gap:5px; flex-grow:1; padding-right:15px;">
-            <div class="bureau-nav-item" data-view="desktop" style="display:flex; align-items:center; gap:12px; cursor:pointer; padding:12px 15px; color:var(--text-muted); font-weight:500;">
-                <i class="bi bi-house-door" style="font-size:18px;"></i> Bureau
+        <nav class="bureau-nav">
+            <div class="bureau-nav-item" data-view="desktop">
+                <i class="bi bi-house-door"></i> <span>Bureau</span>
             </div>
-            <div class="bureau-nav-item" data-view="planning" style="display:flex; align-items:center; gap:12px; cursor:pointer; padding:12px 15px; color:var(--text-muted); font-weight:500;">
-                <i class="bi bi-calendar3" style="font-size:18px;"></i> Planning
+            <div class="bureau-nav-item" data-view="planning">
+                <i class="bi bi-calendar3"></i> <span>Planning</span>
             </div>
-            <div class="bureau-nav-item active" data-view="academic" style="display:flex; align-items:center; gap:12px; cursor:pointer; background:rgba(14, 165, 233, 0.1); border-left:4px solid var(--accent-primary); border-radius:0 8px 8px 0; padding:12px 15px 12px 11px; color:var(--text-main); font-weight:600;">
-                <i class="bi bi-mortarboard" style="font-size:18px; color:var(--accent-primary);"></i> School
+            <div class="bureau-nav-item active" data-view="academic">
+                <i class="bi bi-mortarboard"></i> <span>School</span>
             </div>
-            <div class="bureau-nav-item" data-view="languages" style="display:flex; align-items:center; gap:12px; cursor:pointer; padding:12px 15px; color:var(--text-muted); font-weight:500;">
-                <i class="bi bi-globe" style="font-size:18px;"></i> Langues
+            <div class="bureau-nav-item" data-view="languages">
+                <i class="bi bi-globe"></i> <span>Langues</span>
             </div>
-            <div class="bureau-nav-item" data-view="life" style="display:flex; align-items:center; gap:12px; cursor:pointer; padding:12px 15px; color:var(--text-muted); font-weight:500;">
-                <i class="bi bi-star" style="font-size:18px;"></i> Life
+            <div class="bureau-nav-item" data-view="life">
+                <i class="bi bi-star"></i> <span>Life</span>
             </div>
-            <div class="bureau-nav-item" data-view="portfolio" style="display:flex; align-items:center; gap:12px; cursor:pointer; padding:12px 15px; color:var(--text-muted); font-weight:500;">
-                <i class="bi bi-kanban" style="font-size:18px;"></i> Projets
+            <div class="bureau-nav-item" data-view="portfolio">
+                <i class="bi bi-kanban"></i> <span>Projets</span>
             </div>
-            <div class="bureau-nav-item" data-view="chat" style="display:flex; align-items:center; gap:12px; cursor:pointer; padding:12px 15px; color:var(--text-muted); font-weight:500;">
-                <i class="bi bi-robot" style="font-size:18px;"></i> Coach
+            <div class="bureau-nav-item" data-view="chat">
+                <i class="bi bi-robot"></i> <span>Coach</span>
             </div>
-        </div>
-    </div>
+        </nav>
+    </aside>
 
     <!-- MAIN CONTENT -->
-    <div class="bureau-content" style="flex: 1; padding: 30px 40px; overflow-y: auto; background: var(--bg-main);">
-        <div style="margin-bottom:30px;">
-            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px; flex-wrap:wrap; gap:10px;">
-                <h1 style="font-size: 24px; font-weight: 700; color:var(--text-main); letter-spacing:1px; margin:0;">CURSUS ACADÉMIQUE</h1>
-                <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
-                    <button type="button" id="btn-clear-example" style="background:transparent; color:#ef4444; border:1px solid #ef4444; padding:8px 15px; border-radius:20px; font-weight:bold; cursor:pointer; display:flex; align-items:center; gap:6px; font-size:13px;" title="Effacer les données d'exemple du cursus">
+    <main class="bureau-content">
+        <div>
+            <header class="academic-topbar">
+                <h1 class="academic-title">CURSUS ACADÉMIQUE</h1>
+                <div class="academic-header-actions">
+                    <button type="button" id="btn-clear-example" class="btn btn-outline btn-sm" title="Effacer les données d'exemple du cursus">
                         <i class="bi bi-trash"></i> Effacer les données d'exemple
                     </button>
-                    <button type="button" id="btn-import-example" style="background:transparent; color:var(--accent-primary); border:1px solid var(--accent-primary); padding:8px 15px; border-radius:20px; font-weight:bold; cursor:pointer; display:flex; align-items:center; gap:6px; font-size:13px;" title="Importer le programme type (Exemple)">
+                    <button type="button" id="btn-import-example" class="btn btn-secondary btn-sm" title="Importer le programme type (Exemple)">
                         <i class="bi bi-download"></i> Exemple
                     </button>
-                    <button type="button" id="btn-add-semester" style="background:var(--bg-card); color:var(--text-main); border:1px solid var(--border-color); padding:8px 15px; border-radius:20px; font-weight:bold; cursor:pointer; display:flex; align-items:center; gap:6px; font-size:13px;">
+                    <button type="button" id="btn-add-semester" class="btn btn-secondary btn-sm">
                         <i class="bi bi-folder-plus"></i> + Semestre
                     </button>
-                    <button type="button" id="btn-add-subject-top" style="background:var(--accent-primary); color:white; border:none; padding:8px 15px; border-radius:20px; font-weight:bold; cursor:pointer; display:flex; align-items:center; gap:6px; font-size:13px;">
+                    <button type="button" id="btn-add-subject-top" class="btn btn-primary btn-sm">
                         <i class="bi bi-plus-circle"></i> + Matière
                     </button>
                 </div>
-            </div>
-            <div style="display:flex; gap:20px; overflow-x:auto; padding-bottom:10px;">
+            </header>
+            
+            <div class="academic-blocks-row">
                 ${blocks.map(b => `
-                    <div class="block-tab ${this.selectedBlock === b.id ? 'active' : ''}" data-id="${b.id}" style="min-width:280px; height:120px; border-radius:12px; overflow:hidden; position:relative; cursor:pointer; border: ${this.selectedBlock === b.id ? '3px solid var(--accent-primary)' : '1px solid var(--border-color)'}; box-shadow: ${this.selectedBlock === b.id ? '0 8px 20px rgba(14,165,233,0.3)' : 'none'}; transition: all 0.2s;">
-                        <img src="${b.img}" style="width:100%; height:100%; object-fit:cover; opacity: ${this.selectedBlock === b.id ? '0.8' : '0.5'};">
-                        <div style="position:absolute; bottom:0; left:0; right:0; padding:15px; background:linear-gradient(to top, rgba(0,0,0,0.9), transparent);">
-                            <strong style="color:white; font-size:16px;">${b.icon} ${b.title}</strong>
+                    <div class="academic-block-tab ${this.selectedBlock === b.id ? 'active' : ''}" data-id="${b.id}">
+                        <div class="academic-block-icon">${b.icon}</div>
+                        <div>
+                            <h3 class="academic-block-title">${b.title}</h3>
                         </div>
                     </div>
                 `).join('')}
@@ -233,32 +238,32 @@ export class AcademicView {
         </div>
 
         <div>
-            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
-                <h2 style="font-size:20px; margin:0; display:flex; align-items:center; gap:10px;">
-                    <i class="bi bi-journal-bookmark" style="color:var(--accent-primary);"></i>
-                    Détails du ${blocks[this.selectedBlock].title}
+            <div class="academic-section-subhead">
+                <h2 class="academic-semester-title">
+                    <i class="bi bi-journal-bookmark"></i>
+                    <span>Détails du ${escapeHtml(blocks[this.selectedBlock].title)}</span>
                 </h2>
-                <div style="width:40px; height:40px; border-radius:50%; background:var(--accent-primary); display:flex; align-items:center; justify-content:center; color:white; font-weight:bold; font-size:18px; cursor:pointer;" id="btn-profile">
+                <div id="btn-profile" class="bureau-profile-btn" title="Voir mon portfolio">
                     ${(state.userProfile?.name || 'E').charAt(0).toUpperCase()}
                 </div>
             </div>
 
             <!-- Liste dynamique des semestres et matières -->
-            <div style="display:grid; grid-template-columns: 1fr; gap:20px;">
+            <div>
                 ${renderSemestersList()}
             </div>
         </div>
-    </div>
+    </main>
 </div>
 
 <!-- MODAL ACADEMIQUE (Semestres, Épreuves, Notes) -->
-<div id="academic-modal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.7); z-index:9999; align-items:center; justify-content:center;">
-    <div style="background:var(--bg-main); width:90%; max-width:600px; max-height:85vh; border-radius:12px; border:1px solid var(--border-color); display:flex; flex-direction:column; overflow:hidden; box-shadow:0 10px 30px rgba(0,0,0,0.5);">
-        <div style="padding:15px 20px; border-bottom:1px solid var(--border-color); display:flex; justify-content:space-between; align-items:center; background:var(--bg-card);">
-            <h3 id="academic-modal-title" style="margin:0; font-size:18px; color:var(--text-main);">Titre</h3>
-            <button id="academic-modal-close" style="background:transparent; border:none; color:var(--text-muted); font-size:22px; cursor:pointer; line-height:1;">&times;</button>
+<div id="academic-modal" class="academic-modal-overlay hidden">
+    <div class="academic-modal-window">
+        <div class="academic-modal-header">
+            <h3 id="academic-modal-title" class="academic-modal-title">Titre</h3>
+            <button id="academic-modal-close" class="academic-modal-close-btn" aria-label="Fermer">&times;</button>
         </div>
-        <div id="academic-modal-content" style="padding:20px; overflow-y:auto; flex-grow:1; color:var(--text-main);">
+        <div id="academic-modal-content" class="academic-modal-body">
             <!-- Contenu dynamique -->
         </div>
     </div>
@@ -282,7 +287,7 @@ export class AcademicView {
             });
         });
 
-        this.container.querySelectorAll('.block-tab').forEach(tab => {
+        this.container.querySelectorAll('.academic-block-tab').forEach(tab => {
             tab.addEventListener('click', (e) => {
                 const id = parseInt(e.currentTarget.getAttribute('data-id'), 10);
                 this.selectedBlock = id;
@@ -302,7 +307,7 @@ export class AcademicView {
         const modalContent = this.container.querySelector('#academic-modal-content');
         const btnClose = this.container.querySelector('#academic-modal-close');
 
-        const closeModal = () => { if (modal) modal.style.display = 'none'; };
+        const closeModal = () => { if (modal) modal.classList.add('hidden'); };
         if (btnClose) btnClose.addEventListener('click', closeModal);
         if (modal) modal.addEventListener('click', (e) => { if (e.target === modal) closeModal(); });
 
@@ -310,7 +315,7 @@ export class AcademicView {
             if (!modal) return;
             modalTitle.innerHTML = title;
             modalContent.innerHTML = contentHtml;
-            modal.style.display = 'flex';
+            modal.classList.remove('hidden');
         };
 
         // --- IMPORT PROGRAMME TYPE (EXEMPLE) ---
@@ -348,16 +353,16 @@ export class AcademicView {
         const openSemesterForm = (sem = null) => {
             const isEdit = sem && sem.id;
             openModal(
-                `<i class="bi bi-folder-plus"></i> ${isEdit ? 'Modifier le semestre' : 'Nouveau semestre'}`,
+                `<i class="bi bi-folder-plus"></i> <span>${isEdit ? 'Modifier le semestre' : 'Nouveau semestre'}</span>`,
                 `
-                <form id="form-semester" style="display:flex; flex-direction:column; gap:15px;">
-                    <div>
-                        <label style="display:block; margin-bottom:5px; font-size:12px; color:var(--text-muted);">Nom du semestre</label>
-                        <input type="text" id="sem-name-input" required value="${escapeHtml(sem ? sem.name : '')}" placeholder="Ex: Semestre 1 (S1)" style="width:100%; padding:10px; border-radius:8px; background:var(--bg-card); color:var(--text-main); border:1px solid var(--border-color); box-sizing:border-box;">
+                <form id="form-semester" class="academic-form">
+                    <div class="form-group">
+                        <label class="form-label">Nom du semestre</label>
+                        <input type="text" id="sem-name-input" required value="${escapeHtml(sem ? sem.name : '')}" placeholder="Ex: Semestre 1 (S1)" class="form-input">
                     </div>
-                    <div style="display:flex; justify-content:flex-end; gap:10px; margin-top:10px;">
-                        <button type="button" id="btn-cancel-sem" style="background:transparent; color:var(--text-muted); border:1px solid var(--border-color); padding:8px 16px; border-radius:6px; cursor:pointer;">Annuler</button>
-                        <button type="submit" style="background:var(--accent-primary); color:white; border:none; padding:8px 20px; border-radius:6px; font-weight:bold; cursor:pointer;">Sauvegarder</button>
+                    <div class="academic-form-actions">
+                        <button type="button" id="btn-cancel-sem" class="btn btn-secondary btn-sm">Annuler</button>
+                        <button type="submit" class="btn btn-primary btn-sm">Sauvegarder</button>
                     </div>
                 </form>
                 `
@@ -408,32 +413,32 @@ export class AcademicView {
             ).join('');
 
             openModal(
-                `<i class="bi bi-book"></i> ${isEdit ? 'Modifier la matière' : 'Nouvelle matière'}`,
+                `<i class="bi bi-book"></i> <span>${isEdit ? 'Modifier la matière' : 'Nouvelle matière'}</span>`,
                 `
-                <form id="form-subject" style="display:flex; flex-direction:column; gap:12px;">
-                    <div>
-                        <label style="display:block; margin-bottom:4px; font-size:12px; color:var(--text-muted);">Intitulé de la matière</label>
-                        <input type="text" id="sub-name-input" required value="${escapeHtml(sub?.name || '')}" placeholder="Ex: Algèbre Linéaire" style="width:100%; padding:10px; border-radius:8px; background:var(--bg-card); color:var(--text-main); border:1px solid var(--border-color); box-sizing:border-box;">
+                <form id="form-subject" class="academic-form">
+                    <div class="form-group">
+                        <label class="form-label">Intitulé de la matière</label>
+                        <input type="text" id="sub-name-input" required value="${escapeHtml(sub?.name || '')}" placeholder="Ex: Algèbre Linéaire" class="form-input">
                     </div>
-                    <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px;">
-                        <div>
-                            <label style="display:block; margin-bottom:4px; font-size:12px; color:var(--text-muted);">Code matière</label>
-                            <input type="text" id="sub-code-input" value="${escapeHtml(sub?.code || '')}" placeholder="Ex: MATH101" style="width:100%; padding:10px; border-radius:8px; background:var(--bg-card); color:var(--text-main); border:1px solid var(--border-color); box-sizing:border-box;">
+                    <div class="academic-form-grid">
+                        <div class="form-group">
+                            <label class="form-label">Code matière</label>
+                            <input type="text" id="sub-code-input" value="${escapeHtml(sub?.code || '')}" placeholder="Ex: MATH101" class="form-input">
                         </div>
-                        <div>
-                            <label style="display:block; margin-bottom:4px; font-size:12px; color:var(--text-muted);">Crédits (CECT)</label>
-                            <input type="number" step="1" min="0" id="sub-cect-input" value="${sub?.cect ?? 6}" style="width:100%; padding:10px; border-radius:8px; background:var(--bg-card); color:var(--text-main); border:1px solid var(--border-color); box-sizing:border-box;">
+                        <div class="form-group">
+                            <label class="form-label">Crédits (CECT)</label>
+                            <input type="number" step="1" min="0" id="sub-cect-input" value="${sub?.cect ?? 6}" class="form-input">
                         </div>
                     </div>
-                    <div>
-                        <label style="display:block; margin-bottom:4px; font-size:12px; color:var(--text-muted);">Semestre</label>
-                        <select id="sub-sem-input" style="width:100%; padding:10px; border-radius:8px; background:var(--bg-card); color:var(--text-main); border:1px solid var(--border-color); box-sizing:border-box;">
+                    <div class="form-group">
+                        <label class="form-label">Semestre</label>
+                        <select id="sub-sem-input" class="form-select">
                             ${semOptions || '<option value="sem_default">Semestre par défaut</option>'}
                         </select>
                     </div>
-                    <div style="display:flex; justify-content:flex-end; gap:10px; margin-top:10px;">
-                        <button type="button" id="btn-cancel-sub" style="background:transparent; color:var(--text-muted); border:1px solid var(--border-color); padding:8px 16px; border-radius:6px; cursor:pointer;">Annuler</button>
-                        <button type="submit" style="background:var(--accent-primary); color:white; border:none; padding:8px 20px; border-radius:6px; font-weight:bold; cursor:pointer;">Sauvegarder</button>
+                    <div class="academic-form-actions">
+                        <button type="button" id="btn-cancel-sub" class="btn btn-secondary btn-sm">Annuler</button>
+                        <button type="submit" class="btn btn-primary btn-sm">Sauvegarder</button>
                     </div>
                 </form>
                 `
@@ -578,36 +583,44 @@ export class AcademicView {
 
             const renderAssessmentsListHtml = () => {
                 if (assessments.length === 0) {
-                    return `<p style="text-align:center; color:var(--text-muted); padding:20px 0;">Aucune évaluation ou examen configuré pour cette matière.</p>`;
+                    return `<p class="academic-empty-desc">Aucune évaluation ou examen configuré pour cette matière.</p>`;
                 }
                 return assessments.map(ass => {
                     const grade = grades.find(g => g.assessmentId === ass.id && g.isFinal !== false) || grades.find(g => g.assessmentId === ass.id);
                     return `
-                    <div style="background:var(--bg-card); border:1px solid var(--border-color); border-radius:10px; padding:15px; margin-bottom:12px; display:flex; justify-content:space-between; align-items:center; gap:10px;">
+                    <div class="academic-assessment-card">
                         <div>
-                            <div style="font-weight:bold; font-size:15px; color:var(--text-main); margin-bottom:4px;">${escapeHtml(ass.title)}</div>
-                            <div style="font-size:12px; color:var(--text-muted); display:flex; gap:10px; flex-wrap:wrap;">
-                                <span style="background:rgba(14,165,233,0.15); color:var(--accent-primary); padding:2px 6px; border-radius:4px;">${escapeHtml(ass.type || 'Examen')}</span>
+                            <div class="academic-assessment-title">${escapeHtml(ass.title)}</div>
+                            <div class="academic-assessment-meta">
+                                <span class="academic-assessment-badge">${escapeHtml(ass.type || 'Examen')}</span>
                                 <span>Coeff : <strong>${ass.weight || 1}</strong></span>
                                 <span>Max : <strong>${ass.maxScore || 20}</strong></span>
                                 ${ass.targetDate ? `<span>📅 ${escapeHtml(ass.targetDate)}</span>` : ''}
                             </div>
                         </div>
-                        <div style="display:flex; align-items:center; gap:10px;">
+                        <div class="academic-grade-display">
                             ${grade ? `
-                                <div style="display:flex; align-items:center; gap:6px;">
-                                    <span style="font-weight:bold; color:var(--accent-primary); font-size:15px;">${grade.score}/${ass.maxScore || 20}</span>
-                                    <button class="btn-edit-ass-grade" data-ass-id="${ass.id}" data-grade-id="${grade.id}" data-score="${grade.score}" style="background:transparent; border:none; color:var(--text-muted); cursor:pointer;" title="Modifier la note">✏️</button>
-                                    <button class="btn-delete-ass-grade" data-grade-id="${grade.id}" style="background:transparent; border:none; color:#f44336; cursor:pointer;" title="Supprimer la note">🗑️</button>
+                                <div class="academic-grade-display">
+                                    <span class="academic-assessment-title">${grade.score}/${ass.maxScore || 20}</span>
+                                    <button class="academic-btn-icon btn-edit-ass-grade" data-ass-id="${ass.id}" data-grade-id="${grade.id}" data-score="${grade.score}" title="Modifier la note">
+                                        <i class="bi bi-pencil"></i>
+                                    </button>
+                                    <button class="academic-btn-icon danger btn-delete-ass-grade" data-grade-id="${grade.id}" title="Supprimer la note">
+                                        <i class="bi bi-trash"></i>
+                                    </button>
                                 </div>
                             ` : `
-                                <button class="btn-add-ass-grade" data-ass-id="${ass.id}" style="background:transparent; color:var(--accent-primary); border:1px solid var(--accent-primary); padding:4px 10px; border-radius:6px; font-size:12px; font-weight:bold; cursor:pointer;">
+                                <button class="btn btn-outline btn-sm btn-add-ass-grade" data-ass-id="${ass.id}">
                                     + Note
                                 </button>
                             `}
-                            <div style="border-left:1px solid var(--border-color); height:24px; margin:0 4px;"></div>
-                            <button class="btn-edit-assessment" data-ass-id="${ass.id}" style="background:transparent; border:none; color:var(--text-muted); cursor:pointer;" title="Modifier l'épreuve">✏️</button>
-                            <button class="btn-delete-assessment" data-ass-id="${ass.id}" style="background:transparent; border:none; color:#f44336; cursor:pointer;" title="Supprimer l'épreuve">🗑️</button>
+                            <div class="academic-divider-v"></div>
+                            <button class="academic-btn-icon btn-edit-assessment" data-ass-id="${ass.id}" title="Modifier l'épreuve">
+                                <i class="bi bi-pencil"></i>
+                            </button>
+                            <button class="academic-btn-icon danger btn-delete-assessment" data-ass-id="${ass.id}" title="Supprimer l'épreuve">
+                                <i class="bi bi-trash"></i>
+                            </button>
                         </div>
                     </div>
                     `;
@@ -615,9 +628,9 @@ export class AcademicView {
             };
 
             const fullContent = `
-                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
-                    <span style="font-size:13px; color:var(--text-muted);">${assessments.length} épreuve(s)</span>
-                    <button id="btn-add-assessment-in-modal" style="background:var(--accent-primary); color:white; border:none; padding:8px 15px; border-radius:6px; font-weight:bold; cursor:pointer; font-size:13px; display:inline-flex; align-items:center; gap:6px;">
+                <div class="academic-section-subhead">
+                    <span class="academic-semester-cect">${assessments.length} épreuve(s)</span>
+                    <button id="btn-add-assessment-in-modal" class="btn btn-primary btn-sm">
                         <i class="bi bi-plus-circle"></i> + Ajouter une épreuve
                     </button>
                 </div>
@@ -626,7 +639,7 @@ export class AcademicView {
                 </div>
             `;
 
-            openModal(`<i class="bi bi-ui-checks" style="color:#10b981;"></i> Épreuves : ${escapeHtml(sub.name)}`, fullContent);
+            openModal(`<i class="bi bi-ui-checks"></i> <span>Épreuves : ${escapeHtml(sub.name)}</span>`, fullContent);
 
             // Add Assessment Form Handler
             modalContent.querySelector('#btn-add-assessment-in-modal')?.addEventListener('click', () => {
@@ -692,17 +705,17 @@ export class AcademicView {
         const openAssessmentForm = (subjectId, existing = null) => {
             const isEdit = existing && existing.id;
             openModal(
-                `<i class="bi bi-ui-checks"></i> ${isEdit ? 'Modifier l\'épreuve' : 'Nouvelle épreuve / examen'}`,
+                `<i class="bi bi-ui-checks"></i> <span>${isEdit ? 'Modifier l\'épreuve' : 'Nouvelle épreuve / examen'}</span>`,
                 `
-                <form id="form-assessment" style="display:flex; flex-direction:column; gap:12px;">
-                    <div>
-                        <label style="display:block; margin-bottom:4px; font-size:12px; color:var(--text-muted);">Intitulé de l'épreuve</label>
-                        <input type="text" id="ass-title-input" required value="${escapeHtml(existing?.title || '')}" placeholder="Ex: Examen Final, Partiel, CC1..." style="width:100%; padding:10px; border-radius:8px; background:var(--bg-card); color:var(--text-main); border:1px solid var(--border-color); box-sizing:border-box;">
+                <form id="form-assessment" class="academic-form">
+                    <div class="form-group">
+                        <label class="form-label">Intitulé de l'épreuve</label>
+                        <input type="text" id="ass-title-input" required value="${escapeHtml(existing?.title || '')}" placeholder="Ex: Examen Final, Partiel, CC1..." class="form-input">
                     </div>
-                    <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px;">
-                        <div>
-                            <label style="display:block; margin-bottom:4px; font-size:12px; color:var(--text-muted);">Type</label>
-                            <select id="ass-type-input" style="width:100%; padding:10px; border-radius:8px; background:var(--bg-card); color:var(--text-main); border:1px solid var(--border-color); box-sizing:border-box;">
+                    <div class="academic-form-grid">
+                        <div class="form-group">
+                            <label class="form-label">Type</label>
+                            <select id="ass-type-input" class="form-select">
                                 <option value="Examen" ${existing?.type === 'Examen' ? 'selected' : ''}>Examen</option>
                                 <option value="Partiel" ${existing?.type === 'Partiel' ? 'selected' : ''}>Partiel</option>
                                 <option value="CC" ${existing?.type === 'CC' ? 'selected' : ''}>Contrôle Continu (CC)</option>
@@ -710,24 +723,24 @@ export class AcademicView {
                                 <option value="Projet" ${existing?.type === 'Projet' ? 'selected' : ''}>Projet / Soutenance</option>
                             </select>
                         </div>
-                        <div>
-                            <label style="display:block; margin-bottom:4px; font-size:12px; color:var(--text-muted);">Date prévue</label>
-                            <input type="date" id="ass-date-input" value="${escapeHtml(existing?.targetDate || '')}" style="width:100%; padding:10px; border-radius:8px; background:var(--bg-card); color:var(--text-main); border:1px solid var(--border-color); box-sizing:border-box;">
+                        <div class="form-group">
+                            <label class="form-label">Date prévue</label>
+                            <input type="date" id="ass-date-input" value="${escapeHtml(existing?.targetDate || '')}" class="form-input">
                         </div>
                     </div>
-                    <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px;">
-                        <div>
-                            <label style="display:block; margin-bottom:4px; font-size:12px; color:var(--text-muted);">Coefficient (Poids)</label>
-                            <input type="number" step="0.1" min="0.1" id="ass-weight-input" value="${existing?.weight ?? 1.0}" style="width:100%; padding:10px; border-radius:8px; background:var(--bg-card); color:var(--text-main); border:1px solid var(--border-color); box-sizing:border-box;">
+                    <div class="academic-form-grid">
+                        <div class="form-group">
+                            <label class="form-label">Coefficient (Poids)</label>
+                            <input type="number" step="0.1" min="0.1" id="ass-weight-input" value="${existing?.weight ?? 1.0}" class="form-input">
                         </div>
-                        <div>
-                            <label style="display:block; margin-bottom:4px; font-size:12px; color:var(--text-muted);">Note maximale</label>
-                            <input type="number" step="1" min="1" id="ass-max-input" value="${existing?.maxScore ?? 20}" style="width:100%; padding:10px; border-radius:8px; background:var(--bg-card); color:var(--text-main); border:1px solid var(--border-color); box-sizing:border-box;">
+                        <div class="form-group">
+                            <label class="form-label">Note maximale</label>
+                            <input type="number" step="1" min="1" id="ass-max-input" value="${existing?.maxScore ?? 20}" class="form-input">
                         </div>
                     </div>
-                    <div style="display:flex; justify-content:flex-end; gap:10px; margin-top:10px;">
-                        <button type="button" id="btn-back-epreuves" style="background:transparent; color:var(--text-muted); border:1px solid var(--border-color); padding:8px 16px; border-radius:6px; cursor:pointer;">Retour</button>
-                        <button type="submit" style="background:var(--accent-primary); color:white; border:none; padding:8px 20px; border-radius:6px; font-weight:bold; cursor:pointer;">Sauvegarder</button>
+                    <div class="academic-form-actions">
+                        <button type="button" id="btn-back-epreuves" class="btn btn-secondary btn-sm">Retour</button>
+                        <button type="submit" class="btn btn-primary btn-sm">Sauvegarder</button>
                     </div>
                 </form>
                 `
@@ -770,12 +783,12 @@ export class AcademicView {
                     openEpreuvesModal(subjectId);
                 } else if (actionName === 'ressources') {
                     openModal(
-                        `<i class="bi bi-folder2-open" style="color:#eab308;"></i> Ressources pour ${escapeHtml(sub.name)}`,
+                        `<i class="bi bi-folder2-open"></i> <span>Ressources pour ${escapeHtml(sub.name)}</span>`,
                         `
-                        <div style="text-align:center; padding:20px; color:var(--text-muted);">
-                            <i class="bi bi-cloud-arrow-up" style="font-size:40px; color:var(--accent-primary); margin-bottom:10px; display:block;"></i>
-                            <p>Aucune ressource disponible pour l'instant.</p>
-                            <button style="background:var(--bg-card); color:var(--text-main); border:1px dashed var(--border-color); padding:10px 20px; border-radius:8px; cursor:pointer; margin-top:10px;">
+                        <div class="academic-resource-box">
+                            <i class="bi bi-cloud-arrow-up academic-resource-icon"></i>
+                            <p class="academic-empty-desc">Aucune ressource disponible pour l'instant.</p>
+                            <button class="btn btn-secondary btn-sm">
                                 <i class="bi bi-plus-lg"></i> Ajouter un fichier ou lien
                             </button>
                         </div>
@@ -783,15 +796,15 @@ export class AcademicView {
                     );
                 } else if (actionName === 'notebook') {
                     openModal(
-                        `<i class="bi bi-robot" style="color:#0ea5e9;"></i> Notebook LM : ${escapeHtml(sub.name)}`,
+                        `<i class="bi bi-robot"></i> <span>Notebook LM : ${escapeHtml(sub.name)}</span>`,
                         `
-                        <div style="display:flex; flex-direction:column; height:300px;">
-                            <div style="flex-grow:1; background:var(--bg-card); border-radius:8px; padding:15px; overflow-y:auto; margin-bottom:10px; border:1px solid var(--border-color);">
-                                <div style="color:var(--text-muted); font-size:12px; text-align:center;">L'IA est prête à répondre à vos questions sur <strong>${escapeHtml(sub.name)}</strong> en se basant sur vos ressources.</div>
+                        <div class="academic-notebook-chat-box">
+                            <div class="academic-notebook-messages">
+                                L'IA est prête à répondre à vos questions sur <strong>${escapeHtml(sub.name)}</strong> en se basant sur vos ressources.
                             </div>
-                            <div style="display:flex; gap:10px;">
-                                <input type="text" placeholder="Posez une question sur le cours..." style="flex-grow:1; padding:10px; background:var(--bg-card); color:var(--text-main); border:1px solid var(--border-color); border-radius:8px;">
-                                <button style="background:#0ea5e9; color:white; border:none; padding:10px 20px; border-radius:8px; cursor:pointer;"><i class="bi bi-send"></i></button>
+                            <div class="academic-notebook-input-row">
+                                <input type="text" placeholder="Posez une question sur le cours..." class="form-input">
+                                <button class="btn btn-primary btn-sm"><i class="bi bi-send"></i></button>
                             </div>
                         </div>
                         `

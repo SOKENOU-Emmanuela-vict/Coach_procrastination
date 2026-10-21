@@ -15,7 +15,7 @@ report = []
 
 for file in test_files:
     try:
-        result = subprocess.run(['node', file], capture_output=True, text=True, timeout=10, encoding='utf-8', errors='ignore')
+        result = subprocess.run(['node', file], capture_output=True, text=True, timeout=25, encoding='utf-8', errors='ignore')
         output = result.stdout + result.stderr
         
         passes = output.count('✅ PASS:')

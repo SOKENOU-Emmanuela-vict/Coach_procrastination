@@ -43,7 +43,11 @@
 
 /* Mode sombre de l'univers Langues */
 [data-univers="langues"][data-theme="dark"],
-[data-theme="dark"] [data-univers="langues"] {
+[data-theme="dark"] [data-univers="langues"],
+body.theme-dark[data-univers="langues"],
+body.theme-dark [data-univers="langues"],
+.theme-dark [data-univers="langues"],
+[data-univers="langues"].theme-dark {
     --bg-page: #191817;
     --bg-surface: #22201e;
     --bg-surface-alt: #2c2a27;

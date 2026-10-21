@@ -34,7 +34,11 @@
 
 /* Mode sombre de l'univers Vie (Nuit d'argile et sauge sombre) */
 [data-univers="vie"][data-theme="dark"],
-[data-theme="dark"] [data-univers="vie"] {
+[data-theme="dark"] [data-univers="vie"],
+body.theme-dark[data-univers="vie"],
+body.theme-dark [data-univers="vie"],
+.theme-dark [data-univers="vie"],
+[data-univers="vie"].theme-dark {
     --bg-page: #1a1714;
     --bg-surface: #24201c;
     --bg-surface-alt: #2e2a24;

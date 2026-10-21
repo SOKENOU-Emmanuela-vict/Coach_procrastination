@@ -1,13 +1,17 @@
 import { escapeHtml } from '../utils/html.js';
+
 export class DesktopView {
     constructor(containerId, app) {
-        this.container = document.getElementById(containerId);
+        this.container = typeof containerId === 'string' && typeof document !== 'undefined'
+            ? document.getElementById(containerId)
+            : (containerId || (typeof document !== 'undefined' ? document.getElementById('app-root') : null));
         this.app = app;
     }
 
     render(state) {
-        if (typeof document !== 'undefined' && document.body) {
-            document.body.className = 'theme-cyber';
+        if (!this.container) return;
+        if (typeof document !== 'undefined' && document.body && typeof document.body.setAttribute === 'function') {
+            document.body.setAttribute('data-univers', 'bureau');
         }
         const userName = state.userProfile?.name ? escapeHtml(state.userProfile.name) : 'Toi';
 
@@ -22,7 +26,7 @@ export class DesktopView {
         const average = state.academicSummary?.average?.value;
         const targetCredits = state.academicSummary?.cectStatus?.officialTotal;
         
-        // Obtenir la date en format long (ex: Lundi 23 Juin 2026) basée sur la date pédagogique (cut-off 4h)
+        // Date pédagogique en format long (ex: Lundi 23 Juin 2026)
         const dateOptions = { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' };
         const pedaDate = this.app.getPedagogicalDateObject ? this.app.getPedagogicalDateObject() : new Date();
         let dateStr = pedaDate.toLocaleDateString('fr-FR', dateOptions);
@@ -34,74 +38,78 @@ export class DesktopView {
             ? this.app.languageEngine.getAllLanguagesSync()
             : (state.userLanguages || []);
 
+        const xpPercent = Math.min(100, ((state.userProfile?.gamification?.xp || 0) / (state.userProfile?.gamification?.nextLevelXp || 1000)) * 100);
+
         let html = `
-<div class="bureau">
+<div class="bureau" data-univers="bureau">
     <!-- SIDEBAR -->
-    <div class="bureau-sidebar">
-        <div style="font-size:24px; font-weight:bold; margin-bottom:40px; display:flex; align-items:center; gap:10px;">
-            <div style="width:30px; height:30px; border-radius:8px; background:var(--accent-primary); display:flex; align-items:center; justify-content:center; color:#fff;">⚡</div>
-            Learning OS
+    <aside class="bureau-sidebar">
+        <div class="bureau-brand">
+            <div class="bureau-brand-icon">⚡</div>
+            <span>Learning OS</span>
         </div>
         
-        <!-- ONGLETS -->
-        <div style="display:flex; flex-direction:column; gap:5px; flex-grow:1; padding-right:15px;">
-            <div class="bureau-nav-item active" data-view="desktop" style="display:flex; align-items:center; gap:12px; cursor:pointer; background:rgba(14, 165, 233, 0.1); border-left:4px solid var(--accent-primary); border-radius:0 8px 8px 0; padding:12px 15px 12px 11px; color:var(--text-main); font-weight:600;">
-                <i class="bi bi-house-door" style="font-size:18px; color:var(--accent-primary);"></i> Bureau
+        <!-- ONGLETS NAVIGATION -->
+        <nav class="bureau-nav">
+            <div class="bureau-nav-item active" data-view="desktop">
+                <i class="bi bi-house-door"></i> Bureau
             </div>
-            <div class="bureau-nav-item" data-view="planning" style="display:flex; align-items:center; gap:12px; cursor:pointer; padding:12px 15px; color:var(--text-muted); font-weight:500;">
-                <i class="bi bi-calendar3" style="font-size:18px;"></i> Planning
+            <div class="bureau-nav-item" data-view="planning">
+                <i class="bi bi-calendar3"></i> Planning
             </div>
-            <div class="bureau-nav-item" data-view="academic" style="display:flex; align-items:center; gap:12px; cursor:pointer; padding:12px 15px; color:var(--text-muted); font-weight:500;">
-                <i class="bi bi-mortarboard" style="font-size:18px;"></i> School
+            <div class="bureau-nav-item" data-view="academic">
+                <i class="bi bi-mortarboard"></i> School
             </div>
-            <div class="bureau-nav-item" data-view="languages" style="display:flex; align-items:center; gap:12px; cursor:pointer; padding:12px 15px; color:var(--text-muted); font-weight:500;">
-                <i class="bi bi-globe" style="font-size:18px;"></i> Langues
+            <div class="bureau-nav-item" data-view="languages">
+                <i class="bi bi-globe"></i> Langues
             </div>
-            <div class="bureau-nav-item" data-view="life" style="display:flex; align-items:center; gap:12px; cursor:pointer; padding:12px 15px; color:var(--text-muted); font-weight:500;">
-                <i class="bi bi-star" style="font-size:18px;"></i> Life
+            <div class="bureau-nav-item" data-view="life">
+                <i class="bi bi-heart"></i> Life
             </div>
-            <div class="bureau-nav-item" data-view="chat" style="display:flex; align-items:center; gap:12px; cursor:pointer; padding:12px 15px; color:var(--text-muted); font-weight:500;">
-                <i class="bi bi-robot" style="font-size:18px;"></i> Coach
+            <div class="bureau-nav-item" data-view="chat">
+                <i class="bi bi-robot"></i> Coach
             </div>
-        </div>
-        <!-- WIDGET XP -->
-        <div style="background:var(--bg-card); padding:15px; border-radius:12px; margin-top:20px;">
-            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
-                <span style="font-size:12px; font-weight:bold;">Niveau ${state.userProfile?.gamification?.level || 1}</span>
-                <span style="font-size:10px; color:var(--text-muted);">${state.userProfile?.gamification?.xp || 0} / ${state.userProfile?.gamification?.nextLevelXp || 1000} XP</span>
-            </div>
-            <div style="height:6px; background:var(--border-color); border-radius:3px; overflow:hidden;">
-                <div style="height:100%; width:${Math.min(100, ((state.userProfile?.gamification?.xp || 0) / (state.userProfile?.gamification?.nextLevelXp || 1000)) * 100)}%; background:var(--accent-primary); border-radius:3px;"></div>
-            </div>
-        </div>
-    </div>
+        </nav>
 
-    <!-- MAIN CONTENT -->
-    <div class="bureau-content">
+        <!-- WIDGET XP / NIVEAU -->
+        <div class="bureau-xp-box">
+            <div class="bureau-xp-header">
+                <span>Niveau ${state.userProfile?.gamification?.level || 1}</span>
+                <span class="bureau-xp-count">${state.userProfile?.gamification?.xp || 0} / ${state.userProfile?.gamification?.nextLevelXp || 1000} XP</span>
+            </div>
+            <div class="bureau-progress-bar">
+                <div class="bureau-progress-fill" data-progress="${xpPercent}"></div>
+            </div>
+        </div>
+    </aside>
+
+    <!-- CONTENU PRINCIPAL -->
+    <main class="bureau-content">
         <!-- TOPBAR -->
-        <div class="bureau-topbar">
+        <header class="bureau-topbar-wrapper">
             <div>
-                <span style="font-size:14px; color:var(--text-muted);">${dateStr}</span>
-                <h1 style="margin:5px 0 0 0; font-size:24px;">Bonjour, ${userName}</h1>
+                <span class="bureau-date-display">${dateStr}</span>
+                <h1 class="bureau-greeting-title">Bonjour, ${userName}</h1>
             </div>
-            <div style="display:flex; align-items:center; gap:20px;">
-                <div style="display:flex; align-items:center; gap:10px; background:var(--bg-card); padding:10px 15px; border-radius:20px;">
-                    <span>🕒</span>
-                    <span style="font-weight:bold;">${currentTimeDisplay}</span>
+            <div class="bureau-topbar-actions">
+                <div class="bureau-clock-pill">
+                    <i class="bi bi-clock"></i>
+                    <span>${currentTimeDisplay}</span>
                 </div>
-                <img id="btn-profile" src="assets/profile.jpg" alt="Profile" style="width:40px; height:40px; border-radius:50%; object-fit:cover; cursor:pointer; transition: transform 0.2s; border:2px solid var(--accent-primary);" onmouseover="this.style.transform='scale(1.1)'" onmouseout="this.style.transform='scale(1)'">
+                <div id="btn-profile" class="bureau-profile-btn" title="Voir mon portfolio">
+                    ${(state.userProfile?.name || 'T').charAt(0).toUpperCase()}
+                </div>
             </div>
-        </div>
+        </header>
 
-        <!-- GRID PRINCIPALE -->
-        <div style="display:grid; grid-template-columns: repeat(3, 1fr); grid-auto-rows: minmax(180px, auto); gap:20px;">
+        <!-- GRILLE PRINCIPALE (NOTION STYLE) -->
+        <div class="bureau-grid">
             
-            <!-- ROW 1 -->
-            <!-- Session en cours -->
-            <div class="bureau-card" style="background: linear-gradient(135deg, var(--accent-primary), #0a1128); color:white; display:flex; flex-direction:column; justify-content:space-between;">
+            <!-- 1. SESSION EN COURS -->
+            <div class="bureau-session-card">
                 ${(() => {
                     const now = new Date();
-                    const currentDateStr = this.app.getPedagogicalDate(now);
+                    const currentDateStr = this.app.getPedagogicalDate ? this.app.getPedagogicalDate(now) : '';
                     const currentTimeStr = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
                     const todayEvents = (state.calendarData?.events || []).filter(e => e.date === currentDateStr);
                     let currentEvent = null;
@@ -127,202 +135,222 @@ export class DesktopView {
                     if (currentEvent) {
                         return `
                         <div>
-                            <span style="font-size:12px; text-transform:uppercase; letter-spacing:1px; opacity:0.8;">Session en cours</span>
-                            <h3 style="margin:10px 0 5px 0; font-size:20px;">${escapeHtml(currentEvent.title || currentEvent.type)}</h3>
-                            <span style="font-size:14px; opacity:0.8;">${currentEvent.startTime} - ${currentEvent.endTimeStr}</span>
+                            <span class="bureau-eyebrow">Session en cours</span>
+                            <h3 class="bureau-session-title">${escapeHtml(currentEvent.title || currentEvent.type)}</h3>
+                            <span class="bureau-session-time">${currentEvent.startTime} — ${currentEvent.endTimeStr}</span>
                         </div>
-                        <div style="display:flex; align-items:center; gap:15px; margin-top:20px;">
-                            <button id="btn-desktop-course" style="background:white; color:var(--accent-primary); border:none; padding:10px 20px; border-radius:8px; font-weight:bold; cursor:pointer; flex-grow:1;">
+                        <div class="bureau-session-btn-wrap">
+                            <button type="button" id="btn-desktop-course" class="btn btn-secondary bureau-btn-full">
                                 Voir le cours
                             </button>
                         </div>`;
                     }
                     return `
                         <div>
-                            <span style="font-size:12px; text-transform:uppercase; letter-spacing:1px; opacity:0.8;">Repos</span>
-                            <h3 style="margin:10px 0 5px 0; font-size:20px;">Aucune session en cours</h3>
+                            <span class="bureau-eyebrow">Repos</span>
+                            <h3 class="bureau-session-empty-title">Aucune session en cours</h3>
                         </div>
                     `;
                 })()}
             </div>
 
-            <!-- Prochains rendez-vous -->
-            <div class="bureau-card">
-                <h3 style="margin:0 0 20px 0; font-size:16px;">Prochains événements</h3>
-                <div style="display:flex; flex-direction:column; gap:15px;">
-                    ${(() => {
-                        const now = new Date();
-                        const currentDateStr = this.app.getPedagogicalDate(now);
-                        const currentTimeStr = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
-                        const todayEvents = (state.calendarData?.events || []).filter(e => e.date === currentDateStr && e.startTime > currentTimeStr);
-                        todayEvents.sort((a, b) => (a.startTime || '').localeCompare(b.startTime || ''));
-                        
-                        if (todayEvents.length === 0) return '<div style="color:var(--text-muted); font-size:14px;">Aucun événement prévu.</div>';
-                        
-                        return todayEvents.slice(0, 3).map((e, i) => {
-                            const colors = ['var(--accent-primary)', '#84a98c', '#ef4444'];
-                            const color = colors[i % colors.length];
-                            return `
-                            <div style="display:flex; gap:15px;">
-                                <div style="display:flex; flex-direction:column; align-items:center; min-width:40px;">
-                                    <strong style="font-size:14px;">${e.startTime}</strong>
+            <!-- 2. PROCHAINS ÉVÉNEMENTS -->
+            <div class="card">
+                <div class="card-header">
+                    <h3 class="card-title">Prochains événements</h3>
+                </div>
+                <div class="card-body">
+                    <div class="bureau-event-list">
+                        ${(() => {
+                            const now = new Date();
+                            const currentDateStr = this.app.getPedagogicalDate ? this.app.getPedagogicalDate(now) : '';
+                            const currentTimeStr = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
+                            const todayEvents = (state.calendarData?.events || []).filter(e => e.date === currentDateStr && e.startTime > currentTimeStr);
+                            todayEvents.sort((a, b) => (a.startTime || '').localeCompare(b.startTime || ''));
+                            
+                            if (todayEvents.length === 0) return '<div class="bureau-empty">Aucun événement prévu.</div>';
+                            
+                            return todayEvents.slice(0, 3).map((e) => `
+                                <div class="bureau-event-item">
+                                    <div class="bureau-event-time">${e.startTime}</div>
+                                    <div class="bureau-event-details">
+                                        <strong>${escapeHtml(e.title || e.type)}</strong>
+                                    </div>
                                 </div>
-                                <div style="border-left:2px solid ${color}; padding-left:15px;">
-                                    <strong style="font-size:14px;">${escapeHtml(e.title || e.type)}</strong>
-                                </div>
-                            </div>`;
-                        }).join('');
-                    })()}
-                </div>
-            </div>
-
-            <!-- Résumé Académique -->
-            <div class="bureau-card">
-                <h3 style="margin:0 0 20px 0; font-size:16px; display:flex; align-items:center; gap:8px; color:var(--accent-primary);">
-                    <i class="bi bi-mortarboard"></i> Résumé Académique
-                </h3>
-                <div style="display:flex; flex-direction:column; gap:15px;">
-                    <div style="background:var(--bg-main); padding:15px; border-radius:8px; display:flex; justify-content:space-between; align-items:center; border: 1px solid var(--border-color);">
-                        <strong style="font-size:14px;">Moyenne Générale</strong>
-                        <span style="font-size:14px; color:var(--text-muted); font-weight:bold;">${typeof average === 'number' ? average.toFixed(1) : '--'} / 20</span>
-                    </div>
-                    <div style="background:var(--bg-main); padding:15px; border-radius:8px; display:flex; justify-content:space-between; align-items:center; border: 1px solid var(--border-color);">
-                        <strong style="font-size:14px;">Crédits Validés</strong>
-                        <span style="font-size:14px; color:var(--text-muted); font-weight:bold;">${state.academicSummary?.earnedCredits ?? '--'} / ${targetCredits || '--'}</span>
+                            `).join('');
+                        })()}
                     </div>
                 </div>
             </div>
 
-            <!-- ROW 2 -->
-            <!-- Raccourcis -->
-            <div class="bureau-card" style="grid-column: 1 / 3;">
-                <h3 style="margin:0 0 20px 0; font-size:16px;">Raccourcis</h3>
-                <div style="display:grid; grid-template-columns: repeat(4, 1fr); gap:15px;">
-                    <a href="https://github.com" target="_blank" style="text-decoration:none; color:inherit;">
-                        <div style="display:flex; flex-direction:column; align-items:center; gap:8px; cursor:pointer; padding:15px; background:var(--bg-main); border-radius:12px; border:1px solid var(--border-color); transition:all 0.2s;">
-                            <i class="bi bi-github" style="font-size:24px;"></i>
-                            <span style="font-size:12px; font-weight:bold;">GitHub</span>
-                        </div>
-                    </a>
-                    <a href="https://youtube.com" target="_blank" style="text-decoration:none; color:inherit;">
-                        <div style="display:flex; flex-direction:column; align-items:center; gap:8px; cursor:pointer; padding:15px; background:var(--bg-main); border-radius:12px; border:1px solid var(--border-color); transition:all 0.2s;">
-                            <i class="bi bi-youtube" style="font-size:24px; color:#ff0000;"></i>
-                            <span style="font-size:12px; font-weight:bold;">YouTube</span>
-                        </div>
-                    </a>
-                    <a href="https://google.com" target="_blank" style="text-decoration:none; color:inherit;">
-                        <div style="display:flex; flex-direction:column; align-items:center; gap:8px; cursor:pointer; padding:15px; background:var(--bg-main); border-radius:12px; border:1px solid var(--border-color); transition:all 0.2s;">
-                            <i class="bi bi-browser-chrome" style="font-size:24px; color:#4285F4;"></i>
-                            <span style="font-size:12px; font-weight:bold;">Chrome</span>
-                        </div>
-                    </a>
-                    <a href="https://open.spotify.com" target="_blank" style="text-decoration:none; color:inherit;">
-                        <div style="display:flex; flex-direction:column; align-items:center; gap:8px; cursor:pointer; padding:15px; background:var(--bg-main); border-radius:12px; border:1px solid var(--border-color); transition:all 0.2s;">
-                            <i class="bi bi-spotify" style="font-size:24px; color:#1DB954;"></i>
-                            <span style="font-size:12px; font-weight:bold;">Spotify</span>
-                        </div>
-                    </a>
+            <!-- 3. RÉSUMÉ ACADÉMIQUE -->
+            <div class="card">
+                <div class="card-header">
+                    <h3 class="card-title bureau-card-title-icon">
+                        <i class="bi bi-mortarboard"></i> Résumé Académique
+                    </h3>
                 </div>
-            </div>
-
-            <!-- Progrès langues -->
-            <div class="bureau-card">
-                <h3 style="margin:0 0 20px 0; font-size:16px;">Progrès langues</h3>
-                <div style="display:flex; flex-direction:column; gap:20px; flex-grow:1; justify-content:center;">
-                    ${(() => {
-                        if (!userLanguages || userLanguages.length === 0) {
-                            return '<div style="color:var(--text-muted); font-size:14px; text-align:center;">Aucune langue enregistrée.</div>';
-                        }
-                        return userLanguages.slice(0, 3).map((l, i) => {
-                            const colors = ['var(--accent-primary)', '#84a98c', '#f43f5e'];
-                            const color = colors[i % colors.length];
-                            const completed = l.tracking?.sessionsCompleted || 0;
-                            const target = (l.studyPlan?.sessionsPerWeek || 3) * 4; // cible mensuelle
-                            const prog = target > 0 ? Math.min(100, Math.round((completed / target) * 100)) : 0;
-                            return `
-                            <div style="display:flex; align-items:center; gap:15px;">
-                                <div style="width:50px; height:50px; border-radius:50%; border:4px solid ${color}; border-top-color:${prog < 50 ? 'transparent' : color}; display:flex; align-items:center; justify-content:center; font-weight:bold; font-size:14px;">${prog}%</div>
-                                <div>
-                                    <strong style="display:block; font-size:14px;">${escapeHtml(l.title || l.name)}</strong>
-                                    <span style="font-size:12px; color:var(--text-muted);">${escapeHtml(l.level || 'Non défini')} · ${completed} séance${completed > 1 ? 's' : ''}</span>
-                                </div>
-                            </div>`;
-                        }).join('');
-                    })()}
-                </div>
-            </div>
-
-            <!-- ROW 3 -->
-            <!-- Aujourd'hui -->
-            <div class="bureau-card">
-                <h3 style="margin:0 0 20px 0; font-size:16px;">Aujourd'hui</h3>
-                <div style="display:flex; gap:20px;">
-                    <div style="background:var(--bg-main); padding:20px; border-radius:12px; flex:1; text-align:center; border:1px solid var(--border-color);">
-                        <strong style="font-size:32px; color:var(--accent-primary); display:block;">${state.dailyPlan?.sessions?.length || 0}</strong>
-                        <span style="font-size:12px; color:var(--text-muted); text-transform:uppercase;">Sessions</span>
-                    </div>
-                    <div style="background:var(--bg-main); padding:20px; border-radius:12px; flex:1; text-align:center; border:1px solid var(--border-color);">
-                        <strong style="font-size:32px; color:#10b981; display:block;">${(state.dailyPlan?.sessions || []).filter(s => s.completed).length}</strong>
-                        <span style="font-size:12px; color:var(--text-muted); text-transform:uppercase;">Complétées</span>
+                <div class="card-body">
+                    <div class="bureau-stat-list">
+                        <div class="bureau-stat-row">
+                            <span class="bureau-stat-row-label">Moyenne Générale</span>
+                            <strong class="bureau-stat-row-val">${typeof average === 'number' ? average.toFixed(1) : '--'} / 20</strong>
+                        </div>
+                        <div class="bureau-stat-row">
+                            <span class="bureau-stat-row-label">Crédits Validés</span>
+                            <strong class="bureau-stat-row-val">${state.academicSummary?.earnedCredits ?? '--'} / ${targetCredits || '--'}</strong>
+                        </div>
                     </div>
                 </div>
             </div>
 
-            <!-- Life & Bien-être -->
-            <div class="bureau-card">
-                <h3 style="margin:0 0 20px 0; font-size:16px;">Life & Bien-être</h3>
-                <div style="display:flex; flex-direction:column; gap:15px;">
-                    <div style="display:flex; justify-content:space-between; align-items:center;">
-                        <div style="display:flex; align-items:center; gap:10px;">
-                            <i class="bi bi-droplet-fill" style="color:#0ea5e9; font-size:20px;"></i>
-                            <span style="font-size:14px; font-weight:bold;">Hydratation</span>
-                        </div>
-                        <span style="font-size:14px; font-weight:bold; color:var(--accent-primary);">${state.todayCheckIn?.water ? state.todayCheckIn.water + 'L' : 'Non renseigné'}</span>
-                    </div>
-                    <div style="height:6px; background:var(--bg-main); border-radius:3px; overflow:hidden;">
-                        <div style="height:100%; width:${state.todayCheckIn?.water ? Math.min(100, (state.todayCheckIn.water/2)*100) : 0}%; background:#0ea5e9; border-radius:3px;"></div>
-                    </div>
-                    
-                    <div style="display:flex; justify-content:space-between; align-items:center; margin-top:10px;">
-                        <div style="display:flex; align-items:center; gap:10px;">
-                            <i class="bi bi-moon-stars-fill" style="color:#8b5cf6; font-size:20px;"></i>
-                            <span style="font-size:14px; font-weight:bold;">Sommeil</span>
-                        </div>
-                        <span style="font-size:14px; font-weight:bold; color:var(--accent-primary);">${sleepHours !== null ? sleepHours + 'h' : 'Non renseigné'}</span>
-                    </div>
-                    <div style="height:6px; background:var(--bg-main); border-radius:3px; overflow:hidden;">
-                        <div style="height:100%; width:${sleepHours !== null ? Math.min(100, (sleepHours/8)*100) : 0}%; background:#8b5cf6; border-radius:3px;"></div>
+            <!-- 4. RACCOURCIS (SPAN 2) -->
+            <div class="card bureau-grid-span-2">
+                <div class="card-header">
+                    <h3 class="card-title">Raccourcis</h3>
+                </div>
+                <div class="card-body">
+                    <div class="bureau-shortcut-grid">
+                        <a href="https://github.com" target="_blank" rel="noopener noreferrer" class="bureau-shortcut-item">
+                            <i class="bi bi-github bureau-shortcut-icon"></i>
+                            <span class="bureau-shortcut-label">GitHub</span>
+                        </a>
+                        <a href="https://youtube.com" target="_blank" rel="noopener noreferrer" class="bureau-shortcut-item">
+                            <i class="bi bi-youtube bureau-shortcut-icon youtube"></i>
+                            <span class="bureau-shortcut-label">YouTube</span>
+                        </a>
+                        <a href="https://google.com" target="_blank" rel="noopener noreferrer" class="bureau-shortcut-item">
+                            <i class="bi bi-browser-chrome bureau-shortcut-icon chrome"></i>
+                            <span class="bureau-shortcut-label">Chrome</span>
+                        </a>
+                        <a href="https://open.spotify.com" target="_blank" rel="noopener noreferrer" class="bureau-shortcut-item">
+                            <i class="bi bi-spotify bureau-shortcut-icon spotify"></i>
+                            <span class="bureau-shortcut-label">Spotify</span>
+                        </a>
                     </div>
                 </div>
             </div>
 
-            <!-- Le Coach -->
-            <div class="bureau-card" style="background: linear-gradient(to right, var(--bg-card), rgba(16,185,129,0.05)); border: 1px solid rgba(16,185,129,0.2);">
-                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
-                    <h3 style="margin:0; font-size:16px;">Le Coach</h3>
-                    <span style="font-size:20px;">🤖</span>
+            <!-- 5. PROGRÈS LANGUES -->
+            <div class="card">
+                <div class="card-header">
+                    <h3 class="card-title">Progrès langues</h3>
                 </div>
-                <div style="background:var(--bg-main); padding:15px; border-radius:12px; border-bottom-left-radius:2px; font-size:14px; line-height:1.5; color:var(--text-main); margin-bottom:15px; border:1px solid var(--border-color);">
+                <div class="card-body">
+                    <div class="bureau-lang-list">
+                        ${(() => {
+                            if (!userLanguages || userLanguages.length === 0) {
+                                return '<div class="bureau-empty">Aucune langue enregistrée.</div>';
+                            }
+                            return userLanguages.slice(0, 3).map((l) => {
+                                const completed = l.tracking?.sessionsCompleted || 0;
+                                const target = (l.studyPlan?.sessionsPerWeek || 3) * 4;
+                                const prog = target > 0 ? Math.min(100, Math.round((completed / target) * 100)) : 0;
+                                return `
+                                <div class="bureau-lang-item">
+                                    <div class="bureau-lang-circle">
+                                        ${prog}%
+                                    </div>
+                                    <div>
+                                        <strong class="bureau-lang-title">${escapeHtml(l.title || l.name)}</strong>
+                                        <span class="bureau-lang-sub">${escapeHtml(l.level || 'Non défini')} · ${completed} séance${completed > 1 ? 's' : ''}</span>
+                                    </div>
+                                </div>`;
+                            }).join('');
+                        })()}
+                    </div>
+                </div>
+            </div>
+
+            <!-- 6. AUJOURD'HUI -->
+            <div class="card">
+                <div class="card-header">
+                    <h3 class="card-title">Aujourd'hui</h3>
+                </div>
+                <div class="card-body">
+                    <div class="bureau-stat-pair">
+                        <div class="bureau-stat-box">
+                            <div class="bureau-stat-num">${state.dailyPlan?.sessions?.length || 0}</div>
+                            <div class="bureau-stat-label">Sessions</div>
+                        </div>
+                        <div class="bureau-stat-box">
+                            <div class="bureau-stat-num bureau-stat-num-success">${(state.dailyPlan?.sessions || []).filter(s => s.completed).length}</div>
+                            <div class="bureau-stat-label">Complétées</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 7. LIFE & BIEN-ÊTRE -->
+            <div class="card">
+                <div class="card-header">
+                    <h3 class="card-title">Life & Bien-être</h3>
+                </div>
+                <div class="card-body">
+                    <div class="bureau-life-list">
+                        <div>
+                            <div class="bureau-life-row">
+                                <span class="bureau-life-label"><i class="bi bi-droplet"></i> Hydratation</span>
+                                <strong class="bureau-life-val">${state.todayCheckIn?.water ? state.todayCheckIn.water + 'L' : 'Non renseigné'}</strong>
+                            </div>
+                            <div class="bureau-progress-bar">
+                                <div class="bureau-progress-fill" data-progress="${state.todayCheckIn?.water ? Math.min(100, (state.todayCheckIn.water/2)*100) : 0}"></div>
+                            </div>
+                        </div>
+                        <div>
+                            <div class="bureau-life-row">
+                                <span class="bureau-life-label"><i class="bi bi-moon"></i> Sommeil</span>
+                                <strong class="bureau-life-val">${sleepHours !== null ? sleepHours + 'h' : 'Non renseigné'}</strong>
+                            </div>
+                            <div class="bureau-progress-bar">
+                                <div class="bureau-progress-fill" data-progress="${sleepHours !== null ? Math.min(100, (sleepHours/8)*100) : 0}"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 8. LE COACH -->
+            <div class="bureau-coach-card">
+                <div class="bureau-coach-header">
+                    <h3 class="card-title"><i class="bi bi-chat-quote"></i> Le Coach</h3>
+                </div>
+                <div class="bureau-coach-bubble">
                     "${coachMessage}"
                 </div>
-                <div style="display:flex; gap:10px;">
-                    <input type="text" id="desktop-ask-coach" placeholder="Demander conseil..." style="flex:1; padding:10px 15px; border-radius:8px; border:1px solid var(--border-color); background:var(--bg-main); color:var(--text-main);">
-                    <button class="bureau-nav-item" data-view="chat" style="background:var(--accent-primary); color:white; border:none; padding:0 20px; border-radius:8px; cursor:pointer;">➔</button>
+                <div class="bureau-coach-input-group">
+                    <input type="text" id="desktop-ask-coach" class="form-input" placeholder="Demander conseil...">
+                    <button type="button" class="btn btn-primary bureau-nav-item bureau-btn-send" data-view="chat" title="Envoyer au coach">
+                        <i class="bi bi-arrow-right"></i>
+                    </button>
                 </div>
             </div>
+
         </div>
-    </div>
+    </main>
 </div>
         `;
         
         this.container.innerHTML = html;
+        this.attachEvents();
+    }
+
+    attachEvents() {
+        if (!this.container) return;
+
+        // Dynamic progress fills
+        this.container.querySelectorAll('[data-progress]').forEach(el => {
+            const val = parseFloat(el.getAttribute('data-progress')) || 0;
+            if (el.style) {
+                el.style.width = `${Math.min(100, Math.max(0, val))}%`;
+            }
+        });
 
         // "Demander conseil..." : le texte saisi est envoyé au coach (sinon le bouton ouvre simplement le chat)
         const askInput = this.container.querySelector('#desktop-ask-coach');
         const askBtn = askInput && askInput.parentElement ? askInput.parentElement.querySelector('button[data-view="chat"]') : null;
         const askText = () => (askInput && typeof askInput.value === 'string' ? askInput.value.trim() : '');
         if (askBtn && typeof askBtn.addEventListener === 'function') {
-            // Enregistré avant le gestionnaire de navigation : s'il y a une question, on l'envoie au lieu de naviguer seulement
             askBtn.addEventListener('click', (e) => {
                 const text = askText();
                 if (text && typeof this.app.sendChatMessage === 'function') {
@@ -344,7 +372,7 @@ export class DesktopView {
         this.container.querySelectorAll('.bureau-nav-item').forEach(btn => {
             btn.addEventListener('click', (e) => {
                 const viewName = e.currentTarget.getAttribute('data-view');
-                if (viewName) {
+                if (viewName && this.app.renderView) {
                     this.app.renderView(viewName);
                 }
             });
@@ -353,10 +381,7 @@ export class DesktopView {
         const btnCourse = this.container.querySelector('#btn-desktop-course');
         if (btnCourse) {
             btnCourse.addEventListener('click', () => {
-                // Pour la maquette : La session est "Anglais", on redirige vers l'espace Langues
                 if (this.app.renderView) {
-                    this.app.renderView('languages');
-                } else if (this.app.router) {
                     this.app.renderView('languages');
                 }
             });
@@ -366,8 +391,6 @@ export class DesktopView {
         if (btnProfile) {
             btnProfile.addEventListener('click', () => {
                 if (this.app.renderView) {
-                    this.app.renderView('portfolio');
-                } else if (this.app.router) {
                     this.app.renderView('portfolio');
                 }
             });

@@ -493,6 +493,13 @@ h1, h2, h3, h4, h5, h6 {
     font-size: 14px;
 }
 
+.bureau-nav {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    flex-grow: 1;
+}
+
 .bureau-nav-item {
     display: flex;
     align-items: center;
@@ -534,10 +541,9 @@ h1, h2, h3, h4, h5, h6 {
     }
     .bureau-sidebar {
         width: 100%;
-        padding: 10px 16px;
+        padding: 8px 12px;
         flex-direction: row;
         align-items: center;
-        justify-content: space-between;
         overflow-x: auto;
         position: sticky;
         top: 0;
@@ -546,13 +552,21 @@ h1, h2, h3, h4, h5, h6 {
         border-right: none;
         border-bottom: 1px solid var(--border-subtle);
     }
-    .bureau-brand {
-        display: none;
+    .bureau-brand,
+    .bureau-xp-box {
+        display: none !important;
+    }
+    .bureau-nav {
+        flex-direction: row;
+        overflow-x: auto;
+        gap: 4px;
+        width: 100%;
     }
     .bureau-nav-item {
         padding: 8px 10px;
         font-size: var(--text-xs);
         white-space: nowrap;
+        gap: 6px;
     }
     .bureau-content {
         padding: 20px 16px;
