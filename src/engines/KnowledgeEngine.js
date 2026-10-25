@@ -38,44 +38,150 @@ export class KnowledgeEngine {
         return doc;
     }
 
-    async ingestDocument(source, metadata = {}, linkedTo = {}) {
-        // 1. Extraction
-        const rawText = await DocumentExtractor.extractText(source);
-        
-        // 2. Normalisation
-        const normalizedText = TextNormalizer.normalize(rawText);
-        
+    /**
+     * Recherche d'un doublon par empreinte, nom + taille
+     */
+    async findDuplicate({ title, size, fingerprint }) {
+        const docs = await this.getDocuments();
+        for (const doc of docs) {
+            if (fingerprint && doc.metadata && doc.metadata.fingerprint === fingerprint) {
+                return doc;
+            }
+            if (title && size && doc.title === title && doc.metadata && doc.metadata.size === size) {
+                return doc;
+            }
+            if (title && doc.title === title && !size && (!doc.metadata || !doc.metadata.size)) {
+                return doc;
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Supprime un document et TOUS ses chunks associés (aucun orphelin)
+     */
+    async deleteDocument(documentId) {
+        if (!documentId) return false;
+
+        const docs = await this.getDocuments();
+        const updatedDocs = docs.filter(d => d.id !== documentId);
+        await this.storage.saveData(this.DOCUMENTS_KEY, updatedDocs);
+
+        const chunks = await this.getChunks();
+        const updatedChunks = chunks.filter(c => c.documentId !== documentId);
+        await this.storage.saveData(this.CHUNKS_KEY, updatedChunks);
+
+        return true;
+    }
+
+    /**
+     * Modifie la matière associée à un document
+     */
+    async updateDocumentSubject(documentId, newSubjectId) {
+        const doc = await this.getDocumentById(documentId);
+        if (!doc) return null;
+        doc.linkedTo = { ...(doc.linkedTo || {}), subjectId: newSubjectId || null };
+        await this.saveDocument(doc);
+        return doc;
+    }
+
+    async ingestDocument(source, metadata = {}, linkedTo = {}, options = {}) {
+        const replace = options.replace || metadata.replace || false;
+        const subjectId = linkedTo.subjectId || metadata.subjectId || null;
+        const title = metadata.title || (source && source.name) || "Document Inconnu";
+        const size = metadata.size || (source && source.size) || null;
+
+        // 1. Extraction détaillée
+        const extraction = await DocumentExtractor.extractText(source, {
+            detailed: true,
+            llmProvider: metadata.llmProvider || this.llmProvider
+        });
+
+        const rawText = typeof extraction === 'string' ? extraction : extraction.text;
+        const pages = (extraction && Array.isArray(extraction.pages)) ? extraction.pages : null;
+        const fingerprint = metadata.fingerprint || (extraction && extraction.fingerprint) || null;
+
+        // 2. Vérification anti-doublon
+        const duplicate = await this.findDuplicate({ title, size, fingerprint });
+        if (duplicate) {
+            if (!replace) {
+                const err = new Error(`Ce document a déjà été importé ("${duplicate.title}").`);
+                err.isDuplicate = true;
+                err.existingDocument = duplicate;
+                throw err;
+            }
+            await this.deleteDocument(duplicate.id);
+        }
+
         // 3. Document
         const doc = new Document({
-            title: metadata.title || "Document Inconnu",
-            type: metadata.type || "other",
-            sourceUrl: typeof source === 'string' ? null : source.url,
+            id: (replace && duplicate) ? duplicate.id : undefined,
+            title: title,
+            type: metadata.type || (source && source.name ? DocumentExtractor.detectFormat(source) : "other") || "other",
+            sourceUrl: typeof source === 'string' ? null : (source.url || null),
             status: "indexed",
-            linkedTo: linkedTo,
-            metadata: metadata
+            linkedTo: {
+                ...linkedTo,
+                subjectId: subjectId
+            },
+            metadata: {
+                ...metadata,
+                size: size,
+                fingerprint: fingerprint,
+                pageCount: extraction && extraction.pageCount ? extraction.pageCount : (pages ? pages.length : 1),
+                chunkCount: 0
+            }
         });
-        
-        await this.saveDocument(doc);
-        
-        // 4. Chunking
+
+        // 4. Chunking (page par page si paginé, sinon bloc entier)
         const chunkOptions = metadata.chunkOptions || { maxLength: 1000 };
-        const rawChunks = DocumentChunker.chunk(normalizedText, chunkOptions);
-        
         const savedChunks = [];
-        for (const rc of rawChunks) {
-            const chunk = new DocumentChunk({
-                documentId: doc.id,
-                index: rc.index,
-                content: rc.content,
-                // Page info not supported for raw string ingestion yet, but structure allows it
-                pageStart: metadata.pageStart || null,
-                pageEnd: metadata.pageEnd || null,
-                sectionTitle: metadata.sectionTitle || null
-            });
-            await this.saveChunk(chunk);
-            savedChunks.push(chunk);
+        let chunkIndex = 0;
+
+        const hasExplicitPages = metadata.pageStart != null || metadata.pageEnd != null;
+
+        if (pages && pages.length > 0 && !(pages.length === 1 && hasExplicitPages)) {
+            for (const page of pages) {
+                const normalizedPageText = TextNormalizer.normalize(page.text);
+                if (!normalizedPageText.trim()) continue;
+                const pageChunks = DocumentChunker.chunk(normalizedPageText, chunkOptions);
+                for (const rc of pageChunks) {
+                    const chunk = new DocumentChunk({
+                        documentId: doc.id,
+                        index: chunkIndex++,
+                        content: rc.content,
+                        pageStart: page.pageNumber,
+                        pageEnd: page.pageNumber,
+                        sectionTitle: metadata.sectionTitle || null,
+                        metadata: { page: page.pageNumber }
+                    });
+                    await this.saveChunk(chunk);
+                    savedChunks.push(chunk);
+                }
+            }
+        } else {
+            const normalizedText = TextNormalizer.normalize(rawText);
+            const rawChunks = DocumentChunker.chunk(normalizedText, chunkOptions);
+            const defaultPage = (pages && pages[0] && pages[0].pageNumber) ? pages[0].pageNumber : 1;
+            const pStart = metadata.pageStart != null ? metadata.pageStart : defaultPage;
+            const pEnd = metadata.pageEnd != null ? metadata.pageEnd : defaultPage;
+            for (const rc of rawChunks) {
+                const chunk = new DocumentChunk({
+                    documentId: doc.id,
+                    index: chunkIndex++,
+                    content: rc.content,
+                    pageStart: pStart,
+                    pageEnd: pEnd,
+                    sectionTitle: metadata.sectionTitle || null
+                });
+                await this.saveChunk(chunk);
+                savedChunks.push(chunk);
+            }
         }
-        
+
+        doc.metadata.chunkCount = savedChunks.length;
+        await this.saveDocument(doc);
+
         return { document: doc, chunks: savedChunks };
     }
 
