@@ -1,0 +1,14 @@
+{
+  "name": "learning-os",
+  "version": "2.0.0",
+  "private": true,
+  "scripts": {
+    "start": "node server.js",
+    "test": "echo \"Runner de tests global prevu au chantier W\""
+  },
+  "devDependencies": {
+    "mammoth": "1.13.0",
+    "pdfjs-dist": "3.11.174",
+    "xlsx": "0.18.5"
+  }
+}
