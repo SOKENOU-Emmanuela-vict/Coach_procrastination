@@ -7,7 +7,7 @@ import { FocusView } from '../ui/FocusView.js?v=10';
 import { BilanView } from '../ui/BilanView.js?v=4';
 import { PortfolioView } from '../ui/PortfolioView.js?v=5';
 import { WeeklyView } from '../ui/WeeklyView.js';
-import { CoachChatView } from '../ui/CoachChatView.js?v=2';
+import { CoachChatView } from '../ui/CoachChatView.js?v=3';
 import { LifeView } from '../ui/LifeView.js?v=99';
 import { LanguageView } from '../ui/LanguageView.js?v=99';
 

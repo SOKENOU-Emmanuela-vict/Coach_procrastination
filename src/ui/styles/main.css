@@ -450,6 +450,40 @@ h1, h2, h3, h4, h5, h6 {
     font-weight: 600;
 }
 
+.modal-backdrop[hidden],
+.alert[hidden] {
+    display: none !important;
+}
+
+.modal-body {
+    padding-top: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.modal-hint {
+    margin: 0;
+    font-size: var(--text-sm);
+    color: var(--text-secondary);
+    line-height: 1.5;
+}
+
+.modal-actions {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    flex-wrap: wrap;
+    gap: 8px;
+    padding-top: 16px;
+    margin-top: 16px;
+    border-top: 1px solid var(--border-subtle);
+}
+
+.modal-actions-left {
+    margin-right: auto;
+}
+
 /* =========================================================
    4. STRUCTURE DE NAVIGATION & COQUILLE RESPONSIVE
    ========================================================= */

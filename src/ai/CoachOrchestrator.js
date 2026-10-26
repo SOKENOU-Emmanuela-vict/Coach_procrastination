@@ -7,10 +7,10 @@ export class CoachOrchestrator {
     constructor(planningIntelligence, knowledgeRetriever = null, riskEngine = null) {
         this.riskEngine = riskEngine;
         let apiKey = null;
-        if (typeof window !== 'undefined' && window.localStorage && window.localStorage.getItem('gemini_api_key')) {
-            apiKey = window.localStorage.getItem('gemini_api_key');
+        if (typeof window !== 'undefined' && window.localStorage && typeof window.localStorage.getItem === 'function' && window.localStorage.getItem('gemini_api_key')) {
+            apiKey = String(window.localStorage.getItem('gemini_api_key')).trim() || null;
         } else if (typeof process !== 'undefined' && process.env && process.env.GEMINI_API_KEY) {
-            apiKey = process.env.GEMINI_API_KEY;
+            apiKey = String(process.env.GEMINI_API_KEY).trim() || null;
         }
 
         const llmProvider = apiKey ? new GeminiProvider(apiKey) : null;

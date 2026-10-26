@@ -2,7 +2,7 @@ import { IndexedDBProvider } from '../services/IndexedDBProvider.js';
 import { SchedulerEngine } from '../engines/SchedulerEngine.js?v=11';
 import { StudyRecordEngine } from '../engines/StudyRecordEngine.js';
 import { CheckInEngine } from '../engines/CheckInEngine.js';
-import { App } from './App.js?v=20';
+import { App } from './App.js?v=21';
 import { AppLogger } from '../utils/AppLogger.js';
 import { WeeklyReviewEngine } from '../engines/WeeklyReviewEngine.js';
 import { ChatHistoryEngine } from '../engines/ChatHistoryEngine.js';

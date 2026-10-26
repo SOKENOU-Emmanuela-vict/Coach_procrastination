@@ -12,6 +12,10 @@ export class CoachChatView {
             document.body.className = 'theme-cyber';
         }
         messages = messages || [];
+        this._lastMessages = messages;
+        const maskedApiKey = (this.app && typeof this.app.getMaskedGeminiApiKey === 'function')
+            ? this.app.getMaskedGeminiApiKey()
+            : null;
 
         // Contexte réel lu dans l'état de l'App (mêmes libellés que la maquette)
         const st = (this.app && this.app.state) || {};
@@ -73,6 +77,10 @@ export class CoachChatView {
                 <p style="color: var(--text-muted); font-size:14px; margin:5px 0 0 0;">Il est temps de faire le point.</p>
             </div>
             <div class="bureau-topbar-actions" style="display:flex; gap:15px; align-items:center;">
+                <button type="button" id="btn-coach-api-key" class="btn btn-sm ${maskedApiKey ? 'btn-secondary' : 'btn-primary'}">
+                    <i class="bi ${maskedApiKey ? 'bi-key-fill' : 'bi-key'}"></i>
+                    ${maskedApiKey ? `Clé IA active (${escapeHtml(maskedApiKey)})` : 'Configurer ma clé IA'}
+                </button>
                 <div style="display:flex; align-items:center; gap:10px; background:var(--bg-card); border: 1px solid var(--border-color); padding:10px 15px; border-radius:20px;">
                     <span>⛅</span>
                     <span style="font-weight:bold; font-size:14px;">18°C</span>
@@ -225,6 +233,32 @@ export class CoachChatView {
         </div>
     </div>
 </div>
+
+<div id="coach-api-key-modal" class="modal-backdrop" hidden>
+    <div class="modal-box" role="dialog" aria-modal="true" aria-labelledby="coach-api-key-modal-title">
+        <div class="modal-header">
+            <h3 id="coach-api-key-modal-title" class="modal-title">Clé IA du Coach</h3>
+            <button type="button" id="btn-coach-key-close" class="btn btn-ghost btn-sm" aria-label="Fermer">✕</button>
+        </div>
+        <div class="modal-body">
+            <p class="modal-hint">
+                Colle ta clé Google (Google AI Studio ou Vertex AI Express <code>AQ.…</code>).
+                Elle reste stockée uniquement dans ce navigateur et n'est jamais enregistrée dans le projet.
+            </p>
+            ${maskedApiKey ? `<div class="badge badge-success"><i class="bi bi-check-circle-fill"></i> Clé enregistrée (${escapeHtml(maskedApiKey)})</div>` : ''}
+            <div>
+                <label class="form-label" for="coach-api-key-input">Clé API Google</label>
+                <input type="password" id="coach-api-key-input" class="form-input" placeholder="Colle ici ta clé Google (ex. AQ....)" autocomplete="off" spellcheck="false">
+            </div>
+            <div id="coach-api-key-warning" class="alert alert-warning" hidden></div>
+        </div>
+        <div class="modal-actions">
+            ${maskedApiKey ? `<button type="button" id="btn-coach-key-clear" class="btn btn-danger btn-sm modal-actions-left">Supprimer la clé</button>` : ''}
+            <button type="button" id="btn-coach-key-cancel" class="btn btn-ghost">Annuler</button>
+            <button type="button" id="btn-coach-key-save" class="btn btn-primary">Enregistrer</button>
+        </div>
+    </div>
+</div>
         `;
 
         this.container.innerHTML = html;
@@ -323,5 +357,91 @@ export class CoachChatView {
                 actionsDiv.innerHTML = `<div style="text-align: center; color: var(--text-muted); font-size: 13px; width: 100%;">❌ Proposition ignorée</div>`;
             });
         });
+
+        // Modale de configuration de la clé IA (Google AI Studio ou Vertex AI Express AQ.…)
+        const btnOpenKey = this.container.querySelector('#btn-coach-api-key');
+        const keyModal = this.container.querySelector('#coach-api-key-modal');
+        const keyInput = this.container.querySelector('#coach-api-key-input');
+        const keyWarning = this.container.querySelector('#coach-api-key-warning');
+        const btnCloseKey = this.container.querySelector('#btn-coach-key-close');
+        const btnCancelKey = this.container.querySelector('#btn-coach-key-cancel');
+        const btnSaveKey = this.container.querySelector('#btn-coach-key-save');
+        const btnClearKey = this.container.querySelector('#btn-coach-key-clear');
+
+        const closeKeyModal = () => {
+            if (!keyModal) return;
+            keyModal.hidden = true;
+            if (keyInput) keyInput.value = '';
+            if (keyWarning) {
+                keyWarning.hidden = true;
+                keyWarning.textContent = '';
+            }
+        };
+
+        if (btnOpenKey && keyModal) {
+            btnOpenKey.addEventListener('click', () => {
+                keyModal.hidden = false;
+                if (keyWarning) {
+                    keyWarning.hidden = true;
+                    keyWarning.textContent = '';
+                }
+                if (keyInput && typeof keyInput.focus === 'function') keyInput.focus();
+            });
+        }
+        if (btnCloseKey) btnCloseKey.addEventListener('click', closeKeyModal);
+        if (btnCancelKey) btnCancelKey.addEventListener('click', closeKeyModal);
+        if (keyModal) {
+            keyModal.addEventListener('click', (e) => {
+                if (e.target === keyModal) closeKeyModal();
+            });
+        }
+
+        const saveApiKey = () => {
+            if (!keyInput) return;
+            const val = String(keyInput.value || '').trim();
+            if (!val) {
+                if (keyWarning) {
+                    keyWarning.textContent = "Colle ta clé API avant d'enregistrer.";
+                    keyWarning.hidden = false;
+                }
+                return;
+            }
+            if (/^sk-/i.test(val)) {
+                if (keyWarning) {
+                    keyWarning.textContent = "Cette clé commence par « sk- » (clé OpenAI/ChatGPT). Colle plutôt ta clé Google (AI Studio ou Vertex AI « AQ.… »).";
+                    keyWarning.hidden = false;
+                }
+                return;
+            }
+            if (this.app && typeof this.app.setGeminiApiKey === 'function') {
+                this.app.setGeminiApiKey(val);
+            } else if (typeof window !== 'undefined' && window.localStorage) {
+                window.localStorage.setItem('gemini_api_key', val);
+            }
+            keyInput.value = '';
+            this.render(this._lastMessages || []);
+        };
+
+        if (btnSaveKey) btnSaveKey.addEventListener('click', saveApiKey);
+        if (keyInput) {
+            keyInput.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    saveApiKey();
+                } else if (e.key === 'Escape') {
+                    closeKeyModal();
+                }
+            });
+        }
+        if (btnClearKey) {
+            btnClearKey.addEventListener('click', () => {
+                if (this.app && typeof this.app.setGeminiApiKey === 'function') {
+                    this.app.setGeminiApiKey('');
+                } else if (typeof window !== 'undefined' && window.localStorage) {
+                    window.localStorage.removeItem('gemini_api_key');
+                }
+                this.render(this._lastMessages || []);
+            });
+        }
     }
 }

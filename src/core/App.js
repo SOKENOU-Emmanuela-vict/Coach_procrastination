@@ -1,4 +1,4 @@
-import { Router } from './Router.js?v=10';
+import { Router } from './Router.js?v=11';
 import { AppLogger } from '../utils/AppLogger.js';
 import { LearningGraphEngine } from '../engines/LearningGraphEngine.js?v=2';
 import { ReflectionEngine } from '../engines/ReflectionEngine.js';
@@ -89,6 +89,33 @@ export class App {
             }
         };
         this.router = new Router('app-root', this);
+    }
+
+    /** Retourne les 4 derniers caractères de la clé IA active (ex. « ••••1234 »), ou null si aucune clé n'est configurée. */
+    getMaskedGeminiApiKey() {
+        const key = this.coachEngine && this.coachEngine.llmProvider && this.coachEngine.llmProvider.apiKey
+            ? String(this.coachEngine.llmProvider.apiKey).trim()
+            : '';
+        if (!key) return null;
+        const tail = key.length >= 4 ? key.slice(-4) : key;
+        return `••••${tail}`;
+    }
+
+    /** Enregistre (ou efface si vide) la clé IA dans localStorage et met à jour immédiatement le Coach et l'import d'emploi du temps. */
+    setGeminiApiKey(rawKey) {
+        const clean = typeof rawKey === 'string' ? rawKey.trim() : '';
+        if (typeof window !== 'undefined' && window.localStorage) {
+            if (clean && typeof window.localStorage.setItem === 'function') {
+                window.localStorage.setItem('gemini_api_key', clean);
+            } else if (!clean && typeof window.localStorage.removeItem === 'function') {
+                window.localStorage.removeItem('gemini_api_key');
+            }
+        }
+        this.coachEngine = new CoachOrchestrator(this.planningIntelligence, this.knowledgeRetriever, this.riskEngine);
+        if (this.timetableImporter) {
+            this.timetableImporter.llmProvider = this.coachEngine.llmProvider || null;
+        }
+        return Boolean(this.coachEngine.llmProvider);
     }
     
     getPedagogicalDateObject(dateObj = new Date()) {

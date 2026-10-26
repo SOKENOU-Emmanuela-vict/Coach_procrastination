@@ -8,4 +8,5 @@
 | 2026-10-25 | Phase 0.2 — Conservation de `metadata.pageStart`/`pageEnd` et découpage PDF paginé dans `KnowledgeEngine` + chargement autonome `vendor/` dans `DocumentExtractor` | fait |
 | 2026-10-25 | Phase 0.5 — Génération des fixtures (`scripts/make_fixtures.mjs` -> `tests/fixtures/`) et suite de tests dédiée T1 (`test_v1_t1_documents.mjs`) sans `node_modules` | fait |
 | 2026-10-25 | Phase 0.4 — Service Worker `sw.js` (106 ressources précachées via `scripts/update_sw_assets.mjs`, réseau d'abord + cache dynamique `vendor/`), test `test_sw_precache.mjs` et vérification Chrome hors-ligne / mise à jour en ligne | fait |
-| 2026-10-25 | Chantier V1 (T2, T3, T4) — En attente du contenu de `ORDRE_V1_IMPORT_DOCUMENTS_COACH.md` | suite |
+| 2026-10-26 | Compatibilité clés Vertex AI Express Mode (`AQ.…`) dans `GeminiProvider` + CSP `server.js` + bouton/modale « Clé IA » dans `CoachChatView` + tests `test_vertex_express_key.mjs` | fait |
+| 2026-10-26 | Chantier V1 (T2, T3, T4) — En attente du contenu de `ORDRE_V1_IMPORT_DOCUMENTS_COACH.md` | suite |

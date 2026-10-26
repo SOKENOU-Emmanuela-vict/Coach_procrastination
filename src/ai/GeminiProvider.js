@@ -1,8 +1,8 @@
 import { LLMProvider } from './LLMProvider.js';
 
-/** Modèle principal puis modèles de secours, essayés dans l'ordre quand Gemini est saturé (503/429/500/504). */
+/** Modèle principal puis modèles de secours, essayés dans l'ordre quand Gemini est saturé (503/429/500/504) ou absent (404). */
 export const GEMINI_PRIMARY_MODEL = "gemini-3.8-flash";
-export const GEMINI_FALLBACK_MODELS = ["gemini-3.5-flash", "gemini-3.7-flash"];
+export const GEMINI_FALLBACK_MODELS = ["gemini-3.5-flash", "gemini-3.7-flash", "gemini-2.5-flash"];
 const RETRYABLE_STATUS = [429, 500, 502, 503, 504];
 
 /**
@@ -23,6 +23,7 @@ export class GeminiError extends Error {
 /** Code court + explication en français selon le status HTTP (ou l'absence de réponse). */
 export function describeGeminiFailure(status, rawMessage = '') {
     const raw = String(rawMessage || '');
+    if (/sk-|openai/i.test(raw)) return { code: 'AUTH', text: 'cette clé commence par « sk- » (clé OpenAI) ; utilise une clé Google (AI Studio ou Vertex AI « AQ.… »)' };
     if (status === 503 || /high demand|overloaded|unavailable/i.test(raw)) return { code: 'OVERLOADED', text: 'les serveurs de Gemini sont saturés' };
     if (status === 429 || /quota|rate limit|resource.?exhausted/i.test(raw)) return { code: 'QUOTA', text: 'le quota gratuit de la clé est épuisé pour le moment' };
     if (status === 401 || status === 403 || /api key|permission|unauthori[sz]ed/i.test(raw)) return { code: 'AUTH', text: 'la clé Gemini est refusée (invalide ou révoquée)' };
@@ -42,7 +43,7 @@ export class GeminiProvider extends LLMProvider {
      */
     constructor(apiKey) {
         super();
-        this.apiKey = apiKey;
+        this.apiKey = typeof apiKey === 'string' ? apiKey.trim() : apiKey;
         // Réglages de résilience (modifiables dans les tests)
         this.fallbackModels = GEMINI_FALLBACK_MODELS.slice();
         this.retryDelayMs = 1500;
@@ -51,9 +52,17 @@ export class GeminiProvider extends LLMProvider {
         this.lastModelUsed = null;
     }
 
+    /** Détecte une clé Google Cloud Vertex AI Express Mode (préfixe « AQ. »). */
+    isVertexExpressKey() {
+        return typeof this.apiKey === 'string' && this.apiKey.startsWith('AQ.');
+    }
+
     _url(model) {
-        const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${this.apiKey}`;
-        return url;
+        const keyParam = encodeURIComponent(this.apiKey);
+        if (this.isVertexExpressKey()) {
+            return `https://aiplatform.googleapis.com/v1/publishers/google/models/${model}:generateContent?key=${keyParam}`;
+        }
+        return `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${keyParam}`;
     }
 
     /**
@@ -98,8 +107,15 @@ export class GeminiProvider extends LLMProvider {
     }
 
     _safe(text) {
-        const s = String(text || '');
-        return this.apiKey ? s.split(this.apiKey).join('[HIDDEN_API_KEY]') : s;
+        let s = String(text || '');
+        if (this.apiKey) {
+            s = s.split(this.apiKey).join('[HIDDEN_API_KEY]');
+            const encoded = encodeURIComponent(this.apiKey);
+            if (encoded !== this.apiKey) {
+                s = s.split(encoded).join('[HIDDEN_API_KEY]');
+            }
+        }
+        return s;
     }
 
     /**
@@ -107,6 +123,10 @@ export class GeminiProvider extends LLMProvider {
      * Les erreurs non transitoires (clé refusée, requête invalide) arrêtent tout de suite.
      */
     async _callWithFallback(body, { model = null, timeoutMs }) {
+        if (typeof this.apiKey === 'string' && /^sk-/i.test(this.apiKey)) {
+            const d = describeGeminiFailure(401, 'sk- openai key');
+            throw this._finalError(new GeminiError(d.text, { status: 401, code: d.code }));
+        }
         const models = [model || GEMINI_PRIMARY_MODEL].concat(model ? [] : this.fallbackModels)
             .filter((m, i, a) => m && a.indexOf(m) === i);
         let lastError = null;
@@ -148,7 +168,7 @@ export class GeminiProvider extends LLMProvider {
         if (!this.apiKey) {
             throw new Error("Erreur GeminiProvider : Clé API manquante.");
         }
-        return this._callWithFallback({ contents: [{ parts: [{ text: prompt }] }] },
+        return this._callWithFallback({ contents: [{ role: 'user', parts: [{ text: prompt }] }] },
             { model: options.model || null, timeoutMs: options.timeoutMs || this.timeoutMs });
     }
 
