@@ -1,8 +1,8 @@
 import { LLMProvider } from './LLMProvider.js';
 
 /** Modèle principal puis modèles de secours, essayés dans l'ordre quand Gemini est saturé (503/429/500/504) ou absent (404). */
-export const GEMINI_PRIMARY_MODEL = "gemini-3.8-flash";
-export const GEMINI_FALLBACK_MODELS = ["gemini-3.5-flash", "gemini-3.7-flash", "gemini-2.5-flash"];
+export const GEMINI_PRIMARY_MODEL = "gemini-2.5-flash";
+export const GEMINI_FALLBACK_MODELS = ["gemini-2.0-flash", "gemini-1.5-flash"];
 const RETRYABLE_STATUS = [429, 500, 502, 503, 504];
 
 /**

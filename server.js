@@ -46,6 +46,37 @@ const server = http.createServer((request, response) => {
         return;
     }
 
+    // 2.5 Endpoint de configuration locale (clé API lue depuis api_key.txt, .env ou GEMINI_API_KEY)
+    if (decodedPath === '/api/config/key') {
+        let apiKey = null;
+        if (process.env.GEMINI_API_KEY) {
+            apiKey = process.env.GEMINI_API_KEY.trim();
+        } else {
+            const keyFilePath = path.join(ROOT_DIR, 'api_key.txt');
+            const envFilePath = path.join(ROOT_DIR, '.env');
+            if (fs.existsSync(keyFilePath)) {
+                try {
+                    const txt = fs.readFileSync(keyFilePath, 'utf8').trim();
+                    if (txt) apiKey = txt;
+                } catch (_) {}
+            } else if (fs.existsSync(envFilePath)) {
+                try {
+                    const envTxt = fs.readFileSync(envFilePath, 'utf8');
+                    const match = envTxt.match(/GEMINI_API_KEY\s*=\s*["']?([^"'\r\n]+)["']?/);
+                    if (match) apiKey = match[1].trim();
+                } catch (_) {}
+            }
+        }
+
+        response.writeHead(200, {
+            'Content-Type': 'application/json',
+            'Cache-Control': 'no-store',
+            ...SECURITY_HEADERS
+        });
+        response.end(JSON.stringify({ apiKey: apiKey || null }), 'utf-8');
+        return;
+    }
+
     if (decodedPath === '/' || decodedPath === '') {
         decodedPath = '/index.html';
     }
@@ -71,6 +102,7 @@ const server = http.createServer((request, response) => {
         relNorm === 'docs' || relNorm.startsWith('docs/') ||
         relNorm === 'server.js' ||
         relNorm === 'agents.md' ||
+        relNorm === 'api_key.txt' || relNorm.endsWith('.key') || relNorm.includes('.env') ||
         (relNorm.startsWith('test_') && relNorm.endsWith('.mjs')) ||
         (relNorm.startsWith('package') && relNorm.endsWith('.json')) ||
         relNorm.split('/').some(segment => segment.startsWith('.'));

@@ -107,7 +107,21 @@ async function run() {
         const resAgents = await makeRequest(serverPort, '/AGENTS.md');
         assert.strictEqual(resAgents.statusCode, 403, "2i. Accès à /AGENTS.md bloqué avec 403");
 
-        console.log("✅ PASS: 2. Blocage des dossiers/fichiers système (.git, node_modules, server.js, tests, scripts, package.json, AGENTS.md)");
+        // 3.7 /api_key.txt, /.env, *.key
+        const resKeyTxt = await makeRequest(serverPort, '/api_key.txt');
+        assert.strictEqual(resKeyTxt.statusCode, 403, "2j. Accès direct à /api_key.txt bloqué avec 403");
+
+        const resEnv = await makeRequest(serverPort, '/.env');
+        assert.strictEqual(resEnv.statusCode, 403, "2k. Accès direct à /.env bloqué avec 403");
+
+        // 3.8 Endpoint JSON local /api/config/key
+        const resConfigKey = await makeRequest(serverPort, '/api/config/key');
+        assert.strictEqual(resConfigKey.statusCode, 200, "2l. Endpoint /api/config/key répond 200");
+        assert(resConfigKey.headers['content-type']?.includes('application/json'), "2m. Content-Type application/json");
+        const configParsed = JSON.parse(resConfigKey.body);
+        assert('apiKey' in configParsed, "2n. Objet JSON contient le champ apiKey");
+
+        console.log("✅ PASS: 2. Blocage des dossiers/fichiers système (.git, node_modules, server.js, tests, scripts, package.json, AGENTS.md, api_key.txt, .env) et endpoint /api/config/key");
 
         // 4. Tentatives de Path Traversal
         const resTraversal1 = await makeRequest(serverPort, '/../server.js');

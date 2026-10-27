@@ -3,3 +3,9 @@ full_test_results.log
 test_results.log
 *.log
 node_modules/
+
+# Clés d'API et configuration locale (strictement ignorées par git)
+.env
+.env.*
+api_key.txt
+*.key

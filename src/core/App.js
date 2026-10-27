@@ -91,6 +91,29 @@ export class App {
         this.router = new Router('app-root', this);
     }
 
+    /**
+     * Tente de synchroniser la clé IA depuis le fichier local (endpoint /api/config/key).
+     * Si une clé est renvoyée et différente de la clé en cours, met à jour localStorage et les moteurs IA.
+     */
+    async syncApiKeyFromFile() {
+        try {
+            if (typeof window !== 'undefined' && window.localStorage && typeof fetch === 'function') {
+                const res = await fetch('/api/config/key');
+                if (res.ok) {
+                    const data = await res.json();
+                    if (data && data.apiKey) {
+                        const currentKey = window.localStorage.getItem('gemini_api_key');
+                        if (currentKey !== data.apiKey) {
+                            this.setGeminiApiKey(data.apiKey);
+                            return true;
+                        }
+                    }
+                }
+            }
+        } catch (_) {}
+        return false;
+    }
+
     /** Retourne les 4 derniers caractères de la clé IA active (ex. « ••••1234 »), ou null si aucune clé n'est configurée. */
     getMaskedGeminiApiKey() {
         const key = this.coachEngine && this.coachEngine.llmProvider && this.coachEngine.llmProvider.apiKey
@@ -131,6 +154,9 @@ export class App {
         document.getElementById('app-root').innerHTML = '<p style="text-align:center;">Génération du planning... (Etape 1)</p>';
         // document.getElementById('bottom-nav').style.display = 'none';
         this.setupNavigation();
+        
+        // Auto-chargement de la clé depuis le fichier local (/api/config/key) si fourni
+        await this.syncApiKeyFromFile();
         
         // Initialisation des données académiques
         // Anciennes erreurs techniques enregistrées dans la conversation (« Erreur lors de l'analyse… ») : retirées

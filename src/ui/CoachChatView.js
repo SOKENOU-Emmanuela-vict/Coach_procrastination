@@ -259,13 +259,13 @@ export class CoachChatView {
         </div>
         <div class="modal-body">
             <p class="modal-hint">
-                Colle ta clé Google (Google AI Studio ou Vertex AI Express <code>AQ.…</code>).
-                Elle reste stockée uniquement dans ce navigateur et n'est jamais enregistrée dans le projet.
+                Colle ta clé Google (Google AI Studio <code>AIzaSy…</code> ou Vertex AI Express <code>AQ.…</code>).
+                Tu peux aussi la coller directement dans le fichier <code>api_key.txt</code> à la racine du projet.
             </p>
             ${maskedApiKey ? `<div class="badge badge-success"><i class="bi bi-check-circle-fill"></i> Clé enregistrée (${escapeHtml(maskedApiKey)})</div>` : ''}
             <div>
                 <label class="form-label" for="coach-api-key-input">Clé API Google</label>
-                <input type="password" id="coach-api-key-input" class="form-input" placeholder="Colle ici ta clé Google (ex. AQ....)" autocomplete="off" spellcheck="false">
+                <input type="password" id="coach-api-key-input" class="form-input" placeholder="Colle ici ta clé Google (ex. AIzaSy... ou AQ....)" autocomplete="off" spellcheck="false">
             </div>
             <div id="coach-api-key-warning" class="alert alert-warning" hidden></div>
         </div>
