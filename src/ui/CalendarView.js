@@ -60,7 +60,7 @@ export class CalendarView {
                     R
                 </div>
                 <div style="color:#fff; font-weight:800; letter-spacing:1px; font-size:14px; line-height:1.2;">
-                    RSK CALENDAR<br><span style="color:#4facfe;">${this.currentYear}</span>
+                    CALENDRIER<br><span style="color:#4facfe;">${this.currentYear}</span>
                 </div>
             </div>
 
@@ -114,7 +114,7 @@ export class CalendarView {
                 <div id="filter-life" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px; cursor:pointer; opacity:${this.filters.life ? '1' : '0.5'};">
                     <div style="display:flex; align-items:center; gap:10px; color:#fff; font-size:13px;">
                         <div style="width:8px; height:8px; border-radius:50%; background:${lifeColor};"></div>
-                        Life
+                        Vie
                     </div>
                     <div style="width:36px; height:20px; background:${this.filters.life ? lifeColor : 'rgba(255,255,255,0.2)'}; border-radius:10px; position:relative; transition:all 0.2s;">
                         <div style="width:16px; height:16px; background:#fff; border-radius:50%; position:absolute; top:2px; ${this.filters.life ? 'right:2px;' : 'left:2px;'}"></div>
@@ -256,7 +256,7 @@ export class CalendarView {
                 <!-- COLONNE 2: Life (Project Tasks) -->
                 <div style="background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.1); border-radius:16px; padding:20px;">
                     <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
-                        <h3 style="margin:0; font-size:12px; color:rgba(255,255,255,0.6); text-transform:uppercase; letter-spacing:1px;">Échéances Life</h3>
+                        <h3 style="margin:0; font-size:12px; color:rgba(255,255,255,0.6); text-transform:uppercase; letter-spacing:1px;">Échéances Vie</h3>
                         <span style="font-size:11px; color:#f093fb; cursor:pointer;">Voir tout</span>
                     </div>
                     <div style="display:flex; flex-direction:column; gap:12px;">`;

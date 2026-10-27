@@ -244,7 +244,6 @@ export class PlanningView {
                 <input type="file" id="input-import-timetable" accept="application/pdf,image/*" style="display:none;">
                 <div style="text-align:right;">
                     <strong style="display:block; font-size:14px; color:var(--text-main);">${escapeHtml(state.userProfile?.name || 'Étudiant')}</strong>
-                    <span style="color:var(--text-muted); font-size:12px; cursor:pointer;">Déconnexion</span>
                 </div>
                 <div class="bureau-profile-avatar" style="width:40px; height:40px; border-radius:12px; background:var(--accent-primary); display:flex; align-items:center; justify-content:center; font-weight:bold; color:white; font-size:18px;">
                     É

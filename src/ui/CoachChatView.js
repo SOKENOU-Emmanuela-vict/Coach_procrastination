@@ -11,7 +11,7 @@ export class CoachChatView {
         if (typeof document !== 'undefined' && document.body) {
             document.body.className = 'theme-cyber';
         }
-        messages = messages || [];
+        messages = Array.isArray(messages) ? messages : (messages && Array.isArray(messages.messages) ? messages.messages : []);
         this._lastMessages = messages;
         const maskedApiKey = (this.app && typeof this.app.getMaskedGeminiApiKey === 'function')
             ? this.app.getMaskedGeminiApiKey()
@@ -93,11 +93,6 @@ export class CoachChatView {
                     <i class="bi ${maskedApiKey ? 'bi-key-fill' : 'bi-key'}"></i>
                     ${maskedApiKey ? `Clé IA active (${escapeHtml(maskedApiKey)})` : 'Configurer ma clé IA'}
                 </button>
-                <div style="display:flex; align-items:center; gap:10px; background:var(--bg-card); border: 1px solid var(--border-color); padding:10px 15px; border-radius:20px;">
-                    <span>⛅</span>
-                    <span style="font-weight:bold; font-size:14px;">18°C</span>
-                    <span style="color:var(--text-muted); font-size:14px;">Paris</span>
-                </div>
                 <div class="bureau-profile-avatar" style="width:40px; height:40px; border-radius:12px; background:var(--accent-primary); display:flex; align-items:center; justify-content:center; font-weight:bold; color:#000; font-size:18px;">
                     É
                 </div>
@@ -216,8 +211,8 @@ export class CoachChatView {
                     <div style="font-size:12px; font-weight:bold; color:var(--text-muted); text-transform:uppercase; letter-spacing:1px; margin-bottom:15px;">Tes Objectifs</div>
                     
                     <div style="display:flex; flex-direction:column; gap:15px;">
-                        ${(this.app.state.academicSubjects && this.app.state.academicSubjects.length > 0) 
-                            ? this.app.state.academicSubjects.slice(0, 3).map(sub => `
+                        ${(st.academicSubjects && st.academicSubjects.length > 0) 
+                            ? st.academicSubjects.slice(0, 3).map(sub => `
                                 <div>
                                     <div style="display:flex; justify-content:space-between; font-size:14px; margin-bottom:8px;">
                                         <strong>${escapeHtml(sub.name.substring(0, 20))}${sub.name.length > 20 ? '...' : ''}</strong>

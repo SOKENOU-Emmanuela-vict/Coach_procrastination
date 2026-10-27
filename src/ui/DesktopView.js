@@ -303,7 +303,7 @@ export class DesktopView {
             <!-- 7. LIFE & BIEN-ÊTRE -->
             <div class="card">
                 <div class="card-header">
-                    <h3 class="card-title">Life & Bien-être</h3>
+                    <h3 class="card-title">Vie & Bien-être</h3>
                 </div>
                 <div class="card-body">
                     <div class="bureau-life-list">

@@ -65,7 +65,7 @@ export class EventModal {
                         <option value="project">Projet</option>
                         <option value="language">Langue</option>
                         <option value="sport">Sport / Bien-être</option>
-                        <option value="personal">Personnel / Life</option>
+                        <option value="personal">Personnel / Vie quotidienne</option>
                         <option value="other">Autre</option>
                     </select>
                 </div>
