@@ -72,10 +72,17 @@ export class FocusView {
                 ? "Toutes les sessions prévues sont terminées ! 🎉" 
                 : "Aucune session de focus active ou programmée pour aujourd'hui.";
             this.container.innerHTML = `
-                <h2>⏱️ Mode Focus</h2>
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px; flex-wrap:wrap; gap:10px;">
+                <h2 style="margin:0;">⏱️ Mode Focus</h2>
+                <div style="display:flex; gap:8px;">
+                    <button id="btn-focus-quit-desktop" style="background:transparent; color:#88a7b7; border:1px solid #2a5268; padding:8px 14px; border-radius:20px; cursor:pointer; font-size:13px;">🏠 Quitter (Bureau)</button>
+                    <button id="btn-focus-quit-plan" style="background:transparent; color:#88a7b7; border:1px solid #2a5268; padding:8px 14px; border-radius:20px; cursor:pointer; font-size:13px;">📅 Quitter (Planning)</button>
+                </div>
+            </div>
                 <div class="stats" style="text-align: center;">
                     <h3 style="color:#00f2fe; margin-bottom:15px;">${message}</h3>
                     <p style="color:#88a7b7; font-size:14px; margin-bottom:20px;">Sélectionne ou ajoute une tâche dans ton planning pour démarrer un chrono de travail.</p>
+                    <button id="btn-focus-desktop" style="width: 100%; margin-top: 10px; background: transparent; color: #88a7b7; border: 1px solid #2a5268; padding:12px; border-radius:8px; cursor:pointer;">🏠 Retour au Bureau</button>
                     <button id="btn-focus-back" style="width: 100%; margin-top: 10px; background: transparent; color: #00f2fe; border: 1px solid #00f2fe; padding:12px; border-radius:8px; cursor:pointer;">📅 Aller au Planning</button>
                     <button id="btn-focus-bilan" style="width: 100%; margin-top: 10px; background: #2a5268; color: white; border:none; padding:12px; border-radius:8px; cursor:pointer;">Faire mon Bilan</button>
                 </div>
@@ -83,6 +90,13 @@ export class FocusView {
             const btnBilan = document.getElementById('btn-focus-bilan');
             if (btnBilan) btnBilan.addEventListener('click', () => this.app.showBilan());
             
+            const btnDesktop = document.getElementById('btn-focus-desktop');
+            if (btnDesktop) btnDesktop.addEventListener('click', () => {
+                if (this.timerInterval) clearInterval(this.timerInterval);
+                if (this.app.state) this.app.state.activeFocusSession = null;
+                this.app.renderView('desktop');
+            });
+
             const btnBack = document.getElementById('btn-focus-back');
             if (btnBack) btnBack.addEventListener('click', () => this.app.renderView('planning'));
             
@@ -90,7 +104,13 @@ export class FocusView {
         }
 
         this.container.innerHTML = `
-            <h2>⏱️ Mode Focus</h2>
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px; flex-wrap:wrap; gap:10px;">
+                <h2 style="margin:0;">⏱️ Mode Focus</h2>
+                <div style="display:flex; gap:8px;">
+                    <button id="btn-focus-quit-desktop" style="background:transparent; color:#88a7b7; border:1px solid #2a5268; padding:8px 14px; border-radius:20px; cursor:pointer; font-size:13px;">🏠 Quitter (Bureau)</button>
+                    <button id="btn-focus-quit-plan" style="background:transparent; color:#88a7b7; border:1px solid #2a5268; padding:8px 14px; border-radius:20px; cursor:pointer; font-size:13px;">📅 Quitter (Planning)</button>
+                </div>
+            </div>
             <div class="stats" style="text-align: center;">
                 <h3 style="color: #ff9800; font-size: 20px;">${session.title}</h3>
                 <div style="font-size: 14px; color: #88a7b7; margin-bottom: 5px;">🎯 Objectif : ${session.objective || session.skillLabel || ''}</div>
@@ -171,6 +191,23 @@ export class FocusView {
             </div>
         `;
         
+        const btnQuitDesktop = document.getElementById('btn-focus-quit-desktop');
+        if (btnQuitDesktop) {
+            btnQuitDesktop.addEventListener('click', () => {
+                if (this.timerInterval) clearInterval(this.timerInterval);
+                if (this.app.state) this.app.state.activeFocusSession = null;
+                this.app.renderView('desktop');
+            });
+        }
+        const btnQuitPlan = document.getElementById('btn-focus-quit-plan');
+        if (btnQuitPlan) {
+            btnQuitPlan.addEventListener('click', () => {
+                if (this.timerInterval) clearInterval(this.timerInterval);
+                if (this.app.state) this.app.state.activeFocusSession = null;
+                this.app.renderView('planning');
+            });
+        }
+
         const btnOpenResource = document.getElementById('btn-open-resource');
         if (btnOpenResource) {
             btnOpenResource.addEventListener('click', (e) => {

@@ -22,6 +22,7 @@ export class Router {
             life: new LifeView(containerId, app),
             languages: new LanguageView(containerId, app),
             coach: new DashboardView(containerId, app),
+            dashboard: new DashboardView(containerId, app),
             planning: new PlanningView(containerId, app),
             focus: new FocusView(containerId, app),
             bilan: new BilanView(containerId, app),
@@ -64,7 +65,7 @@ export class Router {
             let data = state;
             if (viewName === 'planning') data = state;
             if (viewName === 'focus') {
-                data = state.dailyPlan.sessions.find(s => !s.completed) || null;
+                data = state.activeFocusSession || (state.dailyPlan && state.dailyPlan.sessions ? state.dailyPlan.sessions.find(s => !s.completed) : null) || null;
             }
             if (viewName === 'bilan') data = { summary: state.dailySummary, checkIn: state.todayCheckIn, stats: state.dailyStats };
             if (viewName === 'portfolio') data = state;

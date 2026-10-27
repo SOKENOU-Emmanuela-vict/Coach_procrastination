@@ -57,17 +57,29 @@ export class DesktopView {
             <div class="bureau-nav-item" data-view="planning">
                 <i class="bi bi-calendar3"></i> Planning
             </div>
+            <div class="bureau-nav-item" data-view="calendar">
+                <i class="bi bi-calendar-month"></i> Calendrier
+            </div>
             <div class="bureau-nav-item" data-view="academic">
-                <i class="bi bi-mortarboard"></i> School
+                <i class="bi bi-mortarboard"></i> École
             </div>
             <div class="bureau-nav-item" data-view="languages">
                 <i class="bi bi-globe"></i> Langues
             </div>
             <div class="bureau-nav-item" data-view="life">
-                <i class="bi bi-heart"></i> Life
+                <i class="bi bi-heart"></i> Vie
             </div>
             <div class="bureau-nav-item" data-view="chat">
                 <i class="bi bi-robot"></i> Coach
+            </div>
+            <div class="bureau-nav-item" data-view="dashboard">
+                <i class="bi bi-speedometer2"></i> Tableau de bord
+            </div>
+            <div class="bureau-nav-item" data-view="weekly">
+                <i class="bi bi-journal-check"></i> Hebdo
+            </div>
+            <div class="bureau-nav-item" data-view="portfolio">
+                <i class="bi bi-award"></i> Portfolio
             </div>
         </nav>
 
@@ -132,6 +144,8 @@ export class DesktopView {
                         }
                     });
 
+                    this.currentDesktopEvent = currentEvent;
+
                     if (currentEvent) {
                         return `
                         <div>
@@ -141,7 +155,7 @@ export class DesktopView {
                         </div>
                         <div class="bureau-session-btn-wrap">
                             <button type="button" id="btn-desktop-course" class="btn btn-secondary bureau-btn-full">
-                                Voir le cours
+                                Démarrer la session
                             </button>
                         </div>`;
                     }
@@ -149,6 +163,11 @@ export class DesktopView {
                         <div>
                             <span class="bureau-eyebrow">Repos</span>
                             <h3 class="bureau-session-empty-title">Aucune session en cours</h3>
+                        </div>
+                        <div class="bureau-session-btn-wrap">
+                            <button type="button" id="btn-desktop-course" class="btn btn-secondary bureau-btn-full">
+                                Démarrer une session
+                            </button>
                         </div>
                     `;
                 })()}
@@ -381,8 +400,10 @@ export class DesktopView {
         const btnCourse = this.container.querySelector('#btn-desktop-course');
         if (btnCourse) {
             btnCourse.addEventListener('click', () => {
-                if (this.app.renderView) {
-                    this.app.renderView('languages');
+                if (this.app.startFocusSession) {
+                    this.app.startFocusSession(this.currentDesktopEvent);
+                } else if (this.app.renderView) {
+                    this.app.renderView('focus');
                 }
             });
         }

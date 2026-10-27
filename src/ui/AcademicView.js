@@ -186,20 +186,29 @@ export class AcademicView {
             <div class="bureau-nav-item" data-view="planning">
                 <i class="bi bi-calendar3"></i> <span>Planning</span>
             </div>
+            <div class="bureau-nav-item" data-view="calendar">
+                <i class="bi bi-calendar-month"></i> <span>Calendrier</span>
+            </div>
             <div class="bureau-nav-item active" data-view="academic">
-                <i class="bi bi-mortarboard"></i> <span>School</span>
+                <i class="bi bi-mortarboard"></i> <span>École</span>
             </div>
             <div class="bureau-nav-item" data-view="languages">
                 <i class="bi bi-globe"></i> <span>Langues</span>
             </div>
             <div class="bureau-nav-item" data-view="life">
-                <i class="bi bi-star"></i> <span>Life</span>
-            </div>
-            <div class="bureau-nav-item" data-view="portfolio">
-                <i class="bi bi-kanban"></i> <span>Projets</span>
+                <i class="bi bi-heart"></i> <span>Vie</span>
             </div>
             <div class="bureau-nav-item" data-view="chat">
                 <i class="bi bi-robot"></i> <span>Coach</span>
+            </div>
+            <div class="bureau-nav-item" data-view="dashboard">
+                <i class="bi bi-speedometer2"></i> <span>Tableau de bord</span>
+            </div>
+            <div class="bureau-nav-item" data-view="weekly">
+                <i class="bi bi-journal-check"></i> <span>Hebdo</span>
+            </div>
+            <div class="bureau-nav-item" data-view="portfolio">
+                <i class="bi bi-award"></i> <span>Portfolio</span>
             </div>
         </nav>
     </aside>

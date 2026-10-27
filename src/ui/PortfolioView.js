@@ -219,6 +219,7 @@ export class PortfolioView {
                 const energyLabel = j.energy ? (j.energy === 'high' ? 'Haute ⚡' : j.energy === 'medium' ? 'Moyenne 🔋' : 'Basse 🪫') : 'Non renseignée';
                 const motivationLabel = j.motivation ? (j.motivation === 'high' ? 'Forte 🔥' : j.motivation === 'medium' ? 'Moyenne 📈' : 'Faible 📉') : 'Non renseignée';
                 const blockersText = Array.isArray(j.blockers) ? j.blockers.filter(Boolean).join(', ') : (j.blockers || '');
+                const hasVoice = Boolean(j.voiceNote);
                 
                 checkinsHtml += `
                 <div style="background: linear-gradient(135deg, #12242f 0%, #0c1921 100%); border: 1px solid #2a5268; border-radius: 12px; padding: 16px; margin-bottom: 15px; box-shadow: 0 4px 12px rgba(0,0,0,0.3);">
@@ -274,7 +275,10 @@ export class PortfolioView {
                     <h2 style="margin:0; color:#ffffff; font-size: 24px;">🏆 Mon Portfolio Officiel & Historique</h2>
                     <p style="margin:4px 0 0 0; color:#88a7b7; font-size:14px;">Vitrine complète de vos compétences, captures d'écran, vocaux et accomplissements</p>
                 </div>
-                <div style="display:flex; gap:10px;">
+                <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+                    <button type="button" id="btn-portfolio-back" style="background:transparent; color:#88a7b7; font-weight:bold; border:1px solid #2a5268; padding:10px 15px; border-radius:20px; cursor:pointer; font-size:13px;">
+                        ⬅ Retour au Bureau
+                    </button>
                     <button type="button" id="btn-export-data" style="background:transparent; color:#ffb74d; font-weight:bold; border:1px solid #ffb74d; padding:10px 15px; border-radius:20px; cursor:pointer; font-size:13px;">
                         💾 Exporter Backup
                     </button>
@@ -513,6 +517,13 @@ export class PortfolioView {
                 } catch(e) {
                     alert("Erreur lors de l'export: " + e.message);
                 }
+            });
+        }
+
+        const btnBack = document.getElementById('btn-portfolio-back');
+        if (btnBack) {
+            btnBack.addEventListener('click', () => {
+                if (this.app.renderView) this.app.renderView('desktop');
             });
         }
 

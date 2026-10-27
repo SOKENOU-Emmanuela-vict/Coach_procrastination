@@ -71,6 +71,7 @@ export class PlanningView {
                 <div style="display:flex; justify-content:space-between; align-items:center; gap:2px;">
                     <strong style="display:block; text-overflow:ellipsis; white-space:nowrap; overflow:hidden; flex:1;">${escapeHtml(e.title || e.type)}</strong>
                     <div style="display:inline-flex; gap:2px;">
+                        ${isSchool ? `<button type="button" class="btn-start-focus" data-id="${escapeHtml(e.id)}" title="Démarrer une session" style="background:transparent; border:none; color:#a7f3d0; cursor:pointer; font-size:10px; padding:0; line-height:1;">▶️</button>` : ''}
                         <button type="button" class="btn-edit-event" data-id="${escapeHtml(e.id)}" title="Modifier" style="background:transparent; border:none; color:white; cursor:pointer; font-size:10px; padding:0; line-height:1;">✏️</button>
                         <button type="button" class="btn-delete-event" data-id="${escapeHtml(e.id)}" title="Supprimer" style="background:transparent; border:none; color:#fca5a5; cursor:pointer; font-size:10px; padding:0; line-height:1;">🗑️</button>
                     </div>
@@ -127,21 +128,38 @@ export class PlanningView {
                         <button type="button" class="btn-delete-event" data-id="${escapeHtml(currentEvent.id)}" title="Supprimer" style="background:transparent; border:none; color:#ef4444; cursor:pointer; font-size:12px; padding:0;">🗑️</button>
                     </div>
                 </div>
-                <div style="font-size:12px; color:var(--text-main);"><i class="bi bi-clock"></i> ${currentEvent.startTime} - ${currentEvent.endTimeStr}</div>
+                <div style="font-size:12px; color:var(--text-main); margin-bottom:10px;"><i class="bi bi-clock"></i> ${currentEvent.startTime} - ${currentEvent.endTimeStr}</div>
+                <button type="button" class="btn-start-focus btn btn-primary" data-id="${escapeHtml(currentEvent.id)}" style="background:var(--accent-primary); color:white; border:none; padding:6px 12px; border-radius:6px; cursor:pointer; font-size:12px; font-weight:600; display:inline-flex; align-items:center; gap:6px;">
+                    <i class="bi bi-play-fill"></i> Démarrer une session
+                </button>
             </div>`;
         }
 
         if (upcomingList.length > 0) {
-            upcomingHtml = upcomingList.map(e => `
-            <div style="display:flex; justify-content:space-between; align-items:center; padding: 10px 0; border-bottom: 1px solid var(--border-color);">
-                <div style="font-size:13px; font-weight:500; color:var(--text-main); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; flex:1;">${escapeHtml(e.title || e.type)}</div>
-                <div style="display:flex; align-items:center; gap:8px;">
-                    <span style="font-size:12px; color:var(--text-muted);">${e.startTime}</span>
-                    <button type="button" class="btn-edit-event" data-id="${escapeHtml(e.id)}" title="Modifier" style="background:transparent; border:none; color:var(--accent-primary); cursor:pointer; font-size:12px; padding:0;">✏️</button>
-                    <button type="button" class="btn-delete-event" data-id="${escapeHtml(e.id)}" title="Supprimer" style="background:transparent; border:none; color:#ef4444; cursor:pointer; font-size:12px; padding:0;">🗑️</button>
+            upcomingHtml = upcomingList.map(e => {
+                let isSchoolEv = !!e.subjectId;
+                if (!isSchoolEv && e.type) {
+                    const t = e.type.toLowerCase();
+                    isSchoolEv = t === 'course' || t === 'cours' || t === 'td' || t === 'exam' || t === 'revision' || t === 'révision' || t !== 'perso';
+                }
+                const focusBtn = isSchoolEv ? `
+                    <button type="button" class="btn-start-focus" data-id="${escapeHtml(e.id)}" title="Démarrer une session" style="background:rgba(14,165,233,0.15); color:var(--accent-primary); border:1px solid var(--accent-primary); padding:3px 8px; border-radius:5px; cursor:pointer; font-size:11px; font-weight:600; display:inline-flex; align-items:center; gap:4px;">
+                        <i class="bi bi-play-fill"></i> Démarrer une session
+                    </button>
+                ` : '';
+
+                return `
+                <div style="display:flex; justify-content:space-between; align-items:center; padding: 10px 0; border-bottom: 1px solid var(--border-color); gap:8px;">
+                    <div style="font-size:13px; font-weight:500; color:var(--text-main); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; flex:1;">${escapeHtml(e.title || e.type)}</div>
+                    <div style="display:flex; align-items:center; gap:8px;">
+                        <span style="font-size:12px; color:var(--text-muted);">${e.startTime}</span>
+                        ${focusBtn}
+                        <button type="button" class="btn-edit-event" data-id="${escapeHtml(e.id)}" title="Modifier" style="background:transparent; border:none; color:var(--accent-primary); cursor:pointer; font-size:12px; padding:0;">✏️</button>
+                        <button type="button" class="btn-delete-event" data-id="${escapeHtml(e.id)}" title="Supprimer" style="background:transparent; border:none; color:#ef4444; cursor:pointer; font-size:12px; padding:0;">🗑️</button>
+                    </div>
                 </div>
-            </div>
-            `).join('');
+                `;
+            }).join('');
         }
 
         const next14Days = new Date(now);
@@ -185,17 +203,29 @@ export class PlanningView {
             <div class="bureau-nav-item active" data-view="planning" style="display:flex; align-items:center; gap:12px; cursor:pointer; background:rgba(14, 165, 233, 0.1); border-left:4px solid var(--accent-primary); border-radius:0 8px 8px 0; padding:12px 15px 12px 11px; color:var(--text-main); font-weight:600;">
                 <i class="bi bi-calendar3" style="font-size:18px; color:var(--accent-primary);"></i> Planning
             </div>
+            <div class="bureau-nav-item" data-view="calendar" style="display:flex; align-items:center; gap:12px; cursor:pointer; padding:12px 15px; color:var(--text-muted); font-weight:500;">
+                <i class="bi bi-calendar-month" style="font-size:18px;"></i> Calendrier
+            </div>
             <div class="bureau-nav-item" data-view="academic" style="display:flex; align-items:center; gap:12px; cursor:pointer; padding:12px 15px; color:var(--text-muted); font-weight:500;">
-                <i class="bi bi-mortarboard" style="font-size:18px;"></i> School
+                <i class="bi bi-mortarboard" style="font-size:18px;"></i> École
             </div>
             <div class="bureau-nav-item" data-view="languages" style="display:flex; align-items:center; gap:12px; cursor:pointer; padding:12px 15px; color:var(--text-muted); font-weight:500;">
                 <i class="bi bi-globe" style="font-size:18px;"></i> Langues
             </div>
             <div class="bureau-nav-item" data-view="life" style="display:flex; align-items:center; gap:12px; cursor:pointer; padding:12px 15px; color:var(--text-muted); font-weight:500;">
-                <i class="bi bi-star" style="font-size:18px;"></i> Life
+                <i class="bi bi-heart" style="font-size:18px;"></i> Vie
             </div>
             <div class="bureau-nav-item" data-view="chat" style="display:flex; align-items:center; gap:12px; cursor:pointer; padding:12px 15px; color:var(--text-muted); font-weight:500;">
                 <i class="bi bi-robot" style="font-size:18px;"></i> Coach
+            </div>
+            <div class="bureau-nav-item" data-view="dashboard" style="display:flex; align-items:center; gap:12px; cursor:pointer; padding:12px 15px; color:var(--text-muted); font-weight:500;">
+                <i class="bi bi-speedometer2" style="font-size:18px;"></i> Tableau de bord
+            </div>
+            <div class="bureau-nav-item" data-view="weekly" style="display:flex; align-items:center; gap:12px; cursor:pointer; padding:12px 15px; color:var(--text-muted); font-weight:500;">
+                <i class="bi bi-journal-check" style="font-size:18px;"></i> Hebdo
+            </div>
+            <div class="bureau-nav-item" data-view="portfolio" style="display:flex; align-items:center; gap:12px; cursor:pointer; padding:12px 15px; color:var(--text-muted); font-weight:500;">
+                <i class="bi bi-award" style="font-size:18px;"></i> Portfolio
             </div>
         </div>
     </div>
@@ -358,6 +388,19 @@ export class PlanningView {
                     return;
                 }
                 await this.app.deleteCalendarEvent(eventId);
+            });
+        });
+
+        this.container.querySelectorAll('.btn-start-focus').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const eventId = e.currentTarget.getAttribute('data-id');
+                const eventObj = rawEvents.find(ev => String(ev.id) === String(eventId));
+                if (this.app.startFocusSession) {
+                    this.app.startFocusSession(eventObj);
+                } else if (this.app.renderView) {
+                    this.app.renderView('focus', eventObj);
+                }
             });
         });
     }

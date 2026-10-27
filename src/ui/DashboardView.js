@@ -104,7 +104,12 @@ export class DashboardView {
         const sessions = state.dailyPlan && state.dailyPlan.sessions ? state.dailyPlan.sessions : [];
 
         this.container.innerHTML = `
-            <h2>🏠 Poste de Pilotage</h2>
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px; flex-wrap:wrap; gap:10px;">
+                <h2 style="margin:0;">🏠 Poste de Pilotage</h2>
+                <button id="btn-dash-desktop" style="background:transparent; color:#88a7b7; border:1px solid #2a5268; padding:8px 15px; border-radius:20px; cursor:pointer; font-size:13px; font-weight:bold;">
+                    ⬅️ Retour au Bureau
+                </button>
+            </div>
             
             <div class="stats" style="border-left: 5px solid #00f2fe; background: #0e1e26; margin-bottom: 20px; padding: 15px; border-radius: 6px;">
                 <div style="display:flex; justify-content:space-between; align-items:center;">
@@ -132,6 +137,9 @@ export class DashboardView {
             </div>
         `;
         
+        const btnDashDesktop = document.getElementById('btn-dash-desktop');
+        if (btnDashDesktop) btnDashDesktop.addEventListener('click', () => this.app.renderView('desktop'));
+
         const btnWeekly = document.getElementById('btn-open-weekly');
         if (btnWeekly) btnWeekly.addEventListener('click', () => this.app.renderView('weekly'));
         

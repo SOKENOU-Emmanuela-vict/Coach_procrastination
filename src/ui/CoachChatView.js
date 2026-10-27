@@ -53,17 +53,29 @@ export class CoachChatView {
             <div class="bureau-nav-item" data-view="planning" style="display:flex; align-items:center; gap:12px; cursor:pointer; padding:12px 15px; color:var(--text-muted); font-weight:500;">
                 <i class="bi bi-calendar3" style="font-size:18px;"></i> Planning
             </div>
+            <div class="bureau-nav-item" data-view="calendar" style="display:flex; align-items:center; gap:12px; cursor:pointer; padding:12px 15px; color:var(--text-muted); font-weight:500;">
+                <i class="bi bi-calendar-month" style="font-size:18px;"></i> Calendrier
+            </div>
             <div class="bureau-nav-item" data-view="academic" style="display:flex; align-items:center; gap:12px; cursor:pointer; padding:12px 15px; color:var(--text-muted); font-weight:500;">
-                <i class="bi bi-mortarboard" style="font-size:18px;"></i> School
+                <i class="bi bi-mortarboard" style="font-size:18px;"></i> École
             </div>
             <div class="bureau-nav-item" data-view="languages" style="display:flex; align-items:center; gap:12px; cursor:pointer; padding:12px 15px; color:var(--text-muted); font-weight:500;">
                 <i class="bi bi-globe" style="font-size:18px;"></i> Langues
             </div>
             <div class="bureau-nav-item" data-view="life" style="display:flex; align-items:center; gap:12px; cursor:pointer; padding:12px 15px; color:var(--text-muted); font-weight:500;">
-                <i class="bi bi-star" style="font-size:18px;"></i> Life
+                <i class="bi bi-heart" style="font-size:18px;"></i> Vie
             </div>
             <div class="bureau-nav-item active" data-view="chat" style="display:flex; align-items:center; gap:12px; cursor:pointer; background:rgba(14, 165, 233, 0.1); border-left:4px solid var(--accent-primary); border-radius:0 8px 8px 0; padding:12px 15px 12px 11px; color:var(--text-main); font-weight:600;">
                 <i class="bi bi-robot" style="font-size:18px; color:var(--accent-primary);"></i> Coach
+            </div>
+            <div class="bureau-nav-item" data-view="dashboard" style="display:flex; align-items:center; gap:12px; cursor:pointer; padding:12px 15px; color:var(--text-muted); font-weight:500;">
+                <i class="bi bi-speedometer2" style="font-size:18px;"></i> Tableau de bord
+            </div>
+            <div class="bureau-nav-item" data-view="weekly" style="display:flex; align-items:center; gap:12px; cursor:pointer; padding:12px 15px; color:var(--text-muted); font-weight:500;">
+                <i class="bi bi-journal-check" style="font-size:18px;"></i> Hebdo
+            </div>
+            <div class="bureau-nav-item" data-view="portfolio" style="display:flex; align-items:center; gap:12px; cursor:pointer; padding:12px 15px; color:var(--text-muted); font-weight:500;">
+                <i class="bi bi-award" style="font-size:18px;"></i> Portfolio
             </div>
         </div>
     </div>

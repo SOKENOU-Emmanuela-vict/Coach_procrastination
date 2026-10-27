@@ -69,19 +69,28 @@ export class CalendarView {
                     <i class="bi bi-house-door"></i> <span style="font-size:14px; font-weight:500;">Bureau</span>
                 </div>
                 <div class="bureau-nav-item active" data-view="calendar" style="display:flex; align-items:center; gap:15px; padding:12px 15px; background:rgba(255,255,255,0.1); color:#fff; border-radius:10px; cursor:pointer;">
-                    <i class="bi bi-calendar-event"></i> <span style="font-size:14px; font-weight:500;">Événements</span>
+                    <i class="bi bi-calendar-month"></i> <span style="font-size:14px; font-weight:500;">Calendrier</span>
                 </div>
                 <div class="bureau-nav-item" data-view="planning" style="display:flex; align-items:center; gap:15px; padding:12px 15px; color:rgba(255,255,255,0.6); border-radius:10px; cursor:pointer; transition:all 0.2s;">
                     <i class="bi bi-calendar3"></i> <span style="font-size:14px; font-weight:500;">Planning</span>
                 </div>
                 <div class="bureau-nav-item" data-view="academic" style="display:flex; align-items:center; gap:15px; padding:12px 15px; color:rgba(255,255,255,0.6); border-radius:10px; cursor:pointer; transition:all 0.2s;">
-                    <i class="bi bi-mortarboard"></i> <span style="font-size:14px; font-weight:500;">School</span>
+                    <i class="bi bi-mortarboard"></i> <span style="font-size:14px; font-weight:500;">École</span>
                 </div>
                 <div class="bureau-nav-item" data-view="languages" style="display:flex; align-items:center; gap:15px; padding:12px 15px; color:rgba(255,255,255,0.6); border-radius:10px; cursor:pointer; transition:all 0.2s;">
                     <i class="bi bi-globe"></i> <span style="font-size:14px; font-weight:500;">Langues</span>
                 </div>
                 <div class="bureau-nav-item" data-view="life" style="display:flex; align-items:center; gap:15px; padding:12px 15px; color:rgba(255,255,255,0.6); border-radius:10px; cursor:pointer; transition:all 0.2s;">
-                    <i class="bi bi-star"></i> <span style="font-size:14px; font-weight:500;">Projets</span>
+                    <i class="bi bi-heart"></i> <span style="font-size:14px; font-weight:500;">Vie</span>
+                </div>
+                <div class="bureau-nav-item" data-view="dashboard" style="display:flex; align-items:center; gap:15px; padding:12px 15px; color:rgba(255,255,255,0.6); border-radius:10px; cursor:pointer; transition:all 0.2s;">
+                    <i class="bi bi-speedometer2"></i> <span style="font-size:14px; font-weight:500;">Tableau de bord</span>
+                </div>
+                <div class="bureau-nav-item" data-view="weekly" style="display:flex; align-items:center; gap:15px; padding:12px 15px; color:rgba(255,255,255,0.6); border-radius:10px; cursor:pointer; transition:all 0.2s;">
+                    <i class="bi bi-journal-check"></i> <span style="font-size:14px; font-weight:500;">Hebdo</span>
+                </div>
+                <div class="bureau-nav-item" data-view="portfolio" style="display:flex; align-items:center; gap:15px; padding:12px 15px; color:rgba(255,255,255,0.6); border-radius:10px; cursor:pointer; transition:all 0.2s;">
+                    <i class="bi bi-award"></i> <span style="font-size:14px; font-weight:500;">Portfolio</span>
                 </div>
                 <div class="bureau-nav-item" data-view="chat" style="display:flex; align-items:center; gap:15px; padding:12px 15px; color:rgba(255,255,255,0.6); border-radius:10px; cursor:pointer; transition:all 0.2s;">
                     <i class="bi bi-robot"></i> <span style="font-size:14px; font-weight:500;">Coach</span>

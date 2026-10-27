@@ -12,8 +12,17 @@ export class WeeklyView {
                 <div style="text-align: center; padding: 40px;">
                     <h2 style="color: #ff9800;">Erreur ou chargement</h2>
                     <p style="color: #88a7b7;">Impossible de charger la Weekly Review.</p>
+                    <button id="btn-weekly-error-back" style="margin-top: 15px; background: transparent; color: #88a7b7; border: 1px solid #2a5268; padding: 10px 20px; border-radius: 20px; cursor: pointer; font-size: 14px;">
+                        ⬅️ Retour au Bureau
+                    </button>
                 </div>
             `;
+            const btnErrorBack = document.getElementById('btn-weekly-error-back');
+            if (btnErrorBack) {
+                btnErrorBack.addEventListener('click', () => {
+                    if (this.app.renderView) this.app.renderView('desktop');
+                });
+            }
             return;
         }
 
@@ -150,15 +159,27 @@ export class WeeklyView {
                 ${dailyHtml}
             </div>
 
-            <button id="btn-weekly-back" style="width: 100%; margin-top: 20px; background: transparent; color: #88a7b7; border: 1px solid #2a5268; padding: 12px; border-radius: 20px; cursor: pointer; font-size: 15px;">
-                ⬅️ Retour au Dashboard
-            </button>
+            <div style="display:flex; gap:10px; margin-top:20px;">
+                <button id="btn-weekly-back" style="flex:1; background: transparent; color: #88a7b7; border: 1px solid #2a5268; padding: 12px; border-radius: 20px; cursor: pointer; font-size: 15px;">
+                    ⬅️ Retour au Dashboard
+                </button>
+                <button id="btn-weekly-desktop" style="flex:1; background: transparent; color: #88a7b7; border: 1px solid #2a5268; padding: 12px; border-radius: 20px; cursor: pointer; font-size: 15px;">
+                    🏠 Retour au Bureau
+                </button>
+            </div>
         `;
 
         const btnBack = document.getElementById('btn-weekly-back');
         if (btnBack) {
             btnBack.addEventListener('click', () => {
                 this.app.renderView('coach');
+            });
+        }
+
+        const btnDesktop = document.getElementById('btn-weekly-desktop');
+        if (btnDesktop) {
+            btnDesktop.addEventListener('click', () => {
+                this.app.renderView('desktop');
             });
         }
     }

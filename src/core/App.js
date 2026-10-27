@@ -1846,10 +1846,30 @@ export class App {
         
         await this.router.render(viewName, this.state);
     }
+
+    async startFocusSession(eventOrSession) {
+        if (!eventOrSession) {
+            this.state.activeFocusSession = null;
+            return await this.renderView('focus');
+        }
+        const duration = eventOrSession.duration || eventOrSession.durationMinutes || eventOrSession.expectedDuration || 45;
+        const session = {
+            id: eventOrSession.id || ('focus-' + Date.now()),
+            title: eventOrSession.title || eventOrSession.type || 'Session d\'étude',
+            objective: eventOrSession.objective || eventOrSession.description || eventOrSession.skillLabel || eventOrSession.title || '',
+            expectedResult: eventOrSession.expectedResult || '',
+            expectedDuration: duration,
+            difficulty: eventOrSession.difficulty || '🟢',
+            resourceLink: eventOrSession.resourceLink || eventOrSession.url || ''
+        };
+        this.state.activeFocusSession = session;
+        return await this.renderView('focus', session);
+    }
     
     async markSessionCompleted(sessionId, metrics = { status: 'completed' }, redirectView = null) {
         try {
-            const session = this.state.dailyPlan.sessions.find(s => s.id === sessionId);
+            this.state.activeFocusSession = null;
+            const session = this.state.dailyPlan && this.state.dailyPlan.sessions ? this.state.dailyPlan.sessions.find(s => s.id === sessionId) : null;
             if (session) {
                 if (!session.completed) {
                     session.completed = true;

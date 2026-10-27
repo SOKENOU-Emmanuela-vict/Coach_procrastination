@@ -75,6 +75,7 @@ const server = http.createServer((request, response) => {
     });
 });
 
-server.listen(8125, '127.0.0.1', () => {
-    console.log('Server running at http://127.0.0.1:8125/');
+const PORT = parseInt(process.env.PORT, 10) || 8125;
+server.listen(PORT, '127.0.0.1', () => {
+    console.log(`Server running at http://127.0.0.1:${PORT}/`);
 });
