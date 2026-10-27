@@ -42,7 +42,10 @@ async function run() {
     assert(gitignore.includes('.env'), '2. .env est présent dans .gitignore');
     console.log('✅ PASS: 1. .gitignore protège api_key.txt et .env');
 
-    // 2. Création temporaire de api_key.txt
+    // Sauvegarde de l'état préalable éventuel de api_key.txt
+    const previousContent = fs.existsSync(keyFilePath) ? fs.readFileSync(keyFilePath, 'utf8') : null;
+
+    // 2. Création temporaire de api_key.txt pour le test
     try {
         fs.writeFileSync(keyFilePath, TEST_KEY + '\n', 'utf8');
 
@@ -132,7 +135,9 @@ async function run() {
             serverProcess.kill();
         }
     } finally {
-        if (fs.existsSync(keyFilePath)) {
+        if (previousContent !== null) {
+            fs.writeFileSync(keyFilePath, previousContent, 'utf8');
+        } else if (fs.existsSync(keyFilePath)) {
             fs.unlinkSync(keyFilePath);
         }
     }
