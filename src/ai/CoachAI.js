@@ -153,10 +153,8 @@ export class CoachAI {
     _shapeChatReply(recommendations, context, query, llmStatus) {
         let recs = recommendations.filter(r => !(r.decisionType === 'RELAY_ACADEMIC_ALERT' && CHAT_SILENT_ALERTS.includes(r.alertCode)));
         if (llmStatus && !llmStatus.ok) {
-            const hasGradeRequests = !!(context && context.courses && Array.isArray(context.courses.gradeRequests) && context.courses.gradeRequests.length > 0);
-            recs = recs.filter(r => !COVERED_BY_LOCAL_REPLY.includes(r.decisionType)
-                && !(hasGradeRequests && r.decisionType === 'REVIEW_PAST_DUE_ASSESSMENT'));
             const local = CoachLocalReply.build(context, query, llmStatus);
+            recs = recs.filter(r => r.actionable && r.decisionType !== 'ADDRESS_PROCRASTINATION_RISK');
             recs.unshift({
                 id: `coach_local_${Date.now()}`,
                 type: 'INFO',
@@ -168,6 +166,7 @@ export class CoachAI {
                 decisionType: 'LOCAL_REPLY',
                 llmStatus
             });
+            return recs;
         }
         const assistantTexts = ((context && context.conversation) || []).filter(m => m && m.role === 'assistant').map(m => String(m.content || '').trim());
         const said = new Set(assistantTexts);

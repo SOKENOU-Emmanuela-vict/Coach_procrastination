@@ -7,10 +7,31 @@ import { describeGeminiFailure } from './GeminiProvider.js';
  * sans dépendre du modèle, et l'échec de Gemini est annoncé honnêtement (avec son code).
  */
 export class CoachLocalReply {
+    static _sessionNoticeShown = false;
+
+    static resetSessionNotice() {
+        CoachLocalReply._sessionNoticeShown = false;
+        try {
+            if (typeof sessionStorage !== 'undefined' && sessionStorage) {
+                sessionStorage.removeItem('gemini_notice_shown');
+            }
+        } catch (_) {}
+    }
+
     /** Phrase honnête sur l'état de Gemini (null si Gemini a répondu). */
     static llmStatusLine(llmStatus) {
         if (!llmStatus || llmStatus.ok) return null;
-        if (llmStatus.code === 'NO_LLM') return "Gemini n'est pas configuré : je te réponds avec ce que je sais déjà de ton planning.";
+        if (llmStatus.code === 'NO_LLM') {
+            const inSession = CoachLocalReply._sessionNoticeShown || (typeof sessionStorage !== 'undefined' && sessionStorage && sessionStorage.getItem('gemini_notice_shown') === 'true');
+            if (inSession) return null;
+            CoachLocalReply._sessionNoticeShown = true;
+            try {
+                if (typeof sessionStorage !== 'undefined' && sessionStorage) {
+                    sessionStorage.setItem('gemini_notice_shown', 'true');
+                }
+            } catch (_) {}
+            return "ℹ️ Gemini n'est pas configuré : je te réponds à partir de tes données locales.";
+        }
         if (llmStatus.code === 'INVALID_JSON') return "Gemini m'a répondu dans un format illisible : je te réponds avec ce que je sais déjà de ton planning.";
         const status = Number.isFinite(llmStatus.status) && llmStatus.status > 0 ? llmStatus.status : null;
         const d = describeGeminiFailure(status || 0, llmStatus.message || '');
@@ -48,6 +69,81 @@ export class CoachLocalReply {
     }
 
     /**
+     * Détection exacte des 4 questions locales requises.
+     */
+    static detectExactIntent(query) {
+        if (!query) return null;
+        const q = String(query).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[-_]/g, ' ').trim();
+
+        // 1. Qu'est-ce que j'ai aujourd'hui ? / mon planning d'aujourd'hui
+        const hasToday = /\baujourd'?\s*hui\b/.test(q);
+        const hasTodayActivity = /qu'?\s*est\s*ce\s*que\s*j'?\s*ai|je\s*fais\s*quoi|j'?\s*ai\s*quoi|programme|planning|cours|edt|emploi|seance|faire|preva?u/.test(q);
+        if ((hasToday && (hasTodayActivity || q === "aujourd'hui" || q === "aujourd'hui ?")) || /planning\s+du\s+jour|programme\s+du\s+jour/.test(q)) {
+            return 'today';
+        }
+
+        // 2. Quel est mon prochain examen ?
+        if (/(prochain(e)?\s+(examen|eval|evaluation|devoir|partiel|controle)|quand\s+est\s+(mon\s+)?(prochain\s+)?(examen|eval|partiel|devoir)|(et\s+pour\s+)?mes\s+examens)/.test(q)) {
+            return 'next_exam';
+        }
+
+        // 3. Où j'en suis en anglais ? (ou autre langue)
+        const langMatches = q.match(/\b(anglais|english|espagnol|spanish|allemand|german|italien|italian|chinois|chinese|japonais|japanese|arabe|arabic|russe|russian|portugais|portuguese)\b/);
+        if (langMatches || (/\blangues?\b/.test(q) && /ou\s+j'?\s*en\s+suis|niveau|progres|cours/.test(q))) {
+            return { type: 'language', langName: langMatches ? langMatches[1] : null };
+        }
+
+        // 4. Combien de livres j'ai lus ?
+        if (/\blivres?\b/.test(q) && /combien|lus?|termines?|finis?/.test(q)) {
+            return 'books';
+        }
+
+        return null;
+    }
+
+    /** Calcule le nombre d'événements existants dans la semaine cible. */
+    static countEventsInTargetWeek(context) {
+        const timetable = context.courses && context.courses.timetable;
+        const today = context.currentDate || new Date().toLocaleDateString('fr-CA');
+        let targetMonday = timetable && timetable.targetWeekStart;
+        if (!targetMonday) {
+            const [y, m, d] = today.split('-').map(Number);
+            const dt = new Date(y, m - 1, d);
+            const dayOfWeek = dt.getDay(); // 0 is Sunday
+            const diff = dt.getDate() - dayOfWeek + (dayOfWeek === 0 ? -6 : 1);
+            const mon = new Date(dt.setDate(diff));
+            const pad = n => String(n).padStart(2, '0');
+            targetMonday = `${mon.getFullYear()}-${pad(mon.getMonth() + 1)}-${pad(mon.getDate())}`;
+        }
+        if (!targetMonday) return 0;
+
+        const [y, m, d] = targetMonday.split('-').map(Number);
+        const start = new Date(y, m - 1, d);
+        const end = new Date(y, m - 1, d + 6);
+        const pad = n => String(n).padStart(2, '0');
+        const endStr = `${end.getFullYear()}-${pad(end.getMonth() + 1)}-${pad(end.getDate())}`;
+
+        let count = 0;
+        const checkEv = (e) => {
+            if (!e) return;
+            const date = e.date || e.day;
+            if (date && date >= targetMonday && date <= endStr) {
+                count++;
+            }
+        };
+
+        const sessions = (context.courses && Array.isArray(context.courses.upcomingSessions)) ? context.courses.upcomingSessions : [];
+        const planningEvents = (context.planning && Array.isArray(context.planning.events)) ? context.planning.events : [];
+        const temporalEvents = Array.isArray(context.temporalEvents) ? context.temporalEvents : [];
+
+        sessions.forEach(checkEv);
+        planningEvents.forEach(checkEv);
+        temporalEvents.forEach(checkEv);
+
+        return count;
+    }
+
+    /**
      * @param {Object} context - CoachContext (CoachContextBuilder.build)
      * @param {string} query - message de l'utilisatrice
      * @param {Object} llmStatus - { ok, status, code, message } ; null = LLM non sollicité
@@ -73,7 +169,6 @@ export class CoachLocalReply {
             const isPlanned = planning && planning.events && planning.events.some(ev => ev.projectId === p.id && new Date(ev.date) >= new Date(today));
             return !isPlanned;
         });
-        // Parmi les stagnants, ceux à faible détermination (pas de session récente ET pas de retour coach)
         const lowDeterminationProjects = stagnatingProjects.filter(p => !p.determination || p.determination.score < 40);
         const tasks = context.personalTasks || [];
         const books = context.books || [];
@@ -82,49 +177,21 @@ export class CoachLocalReply {
         const postponedTasks = tasks.filter(pt => pt.status !== 'faite' && pt.reportsCount >= 3);
         const neglectedBooks = books.filter(b => b.status !== 'finished' && b.lastProgressDate && Math.floor((new Date(today) - new Date(b.lastProgressDate)) / (1000 * 60 * 60 * 24)) >= 5);
 
-        const lines = {};
-        // Cours (emploi du temps importé)
-        const todaySessions = sessions.filter(s => s.date === today);
-        if (todaySessions.length > 0) {
-            lines.courses = `Aujourd'hui tu as cours : ${todaySessions.map(s => `${CoachLocalReply._short(s.title)} (${s.startTime}–${s.endTime})`).join(', ')}.`;
-        } else if (sessions.length > 0) {
-            const n = sessions[0];
-            lines.courses = `Pas de cours aujourd'hui. Prochain cours : ${CoachLocalReply._short(n.title)} ${CoachLocalReply._frDay(n.date)} à ${n.startTime}.`;
-        }
+        const statusLine = CoachLocalReply.llmStatusLine(llmStatus);
         const withHours = progress.filter(p => p && p.hoursTotal);
+        const lines = {};
         if (withHours.length > 0) {
             const parts = withHours.slice(0, 4).map(p => `${CoachLocalReply._short(p.componentName || p.subjectName || p.title, 32)} ${p.hoursDone} h/${p.hoursTotal} h${p.finished ? ' (terminé)' : ''}`);
             lines.progress = `Avancement des cours : ${parts.join(' ; ')}.`;
         }
-        if (timetable && timetable.needsImport) {
-            const [, m, d] = String(timetable.targetWeekStart || '').split('-');
-            lines.timetable = `Il me manque l'emploi du temps de la semaine du ${d}/${m} (Planning → « Importer l'emploi du temps (PDF) »).`;
-        }
-        // Évaluations
-        if (exams.length > 0) {
-            lines.exams = `À venir : ${exams.slice(0, 3).map(a => `${a.title} ${CoachLocalReply._when(a.daysRemaining)} (${CoachLocalReply._frDay(a.targetDate)})`).join(' ; ')}.`;
-        }
-        // Créneaux libres
-        if (slots.length > 0) {
-            const s = slots[0];
-            lines.slots = `Prochain créneau libre : ${s.date === today ? "aujourd'hui" : CoachLocalReply._frDay(s.date)} à ${s.startTime} (${s.durationMinutes} min).`;
-        }
-        // Livres et Tâches
-        if (overdueTasks.length > 0) {
-            lines.tasks = `Tâches en retard : ${overdueTasks.map(t => CoachLocalReply._short(t.title)).join(', ')}.`;
-        } else if (postponedTasks.length > 0) {
-            lines.tasks = `Tâches reportées 3 fois : ${postponedTasks.map(t => CoachLocalReply._short(t.title)).join(', ')}.`;
-        }
-        if (neglectedBooks.length > 0) {
-            lines.books = `Livres délaissés depuis 5+ jours : ${neglectedBooks.map(b => CoachLocalReply._short(b.title)).join(', ')}.`;
-        }
 
-        // Question : ce dont le coach a le plus besoin, dans l'ordre
+        // Question prompte classique pour les erreurs techniques LLM (ex: 503)
         let question = null;
         const gradeAsk = gradeRequests[0];
+        const eventsInTargetWeek = CoachLocalReply.countEventsInTargetWeek(context);
         if (gradeAsk) {
             question = `As-tu des notes à me donner pour ${gradeAsk.label} ? Réponds-moi ici (ex. « 14/20 »), ou « pas encore ».`;
-        } else if (timetable && timetable.needsImport && sessions.length === 0) {
+        } else if (timetable && timetable.needsImport && eventsInTargetWeek === 0) {
             question = "Peux-tu importer ton emploi du temps de la semaine ? Je pourrai alors suivre tes cours et te rappeler tes examens.";
         } else if (undated.length > 0) {
             question = `Quelle est la date de « ${undated[0].title} » ? Dis-le-moi (ex. « examen de ${CoachLocalReply._short(undated[0].subjectName && undated[0].subjectName !== 'Unknown Subject' ? undated[0].subjectName : 'la matière', 30)} le 15/10 »).`;
@@ -143,6 +210,164 @@ export class CoachLocalReply {
             question = `Tu veux que je te propose une séance de révision pour ${exams[0]?.subjectName && exams[0]?.subjectName !== 'Unknown Subject' ? exams[0].subjectName : (exams[0]?.title || 'ton prochain examen')} ?`;
         }
 
+        // 1. Détection des 4 questions locales exactes
+        const exactIntent = CoachLocalReply.detectExactIntent(query);
+
+        // 1.1 Question 1 : Qu'est-ce que j'ai aujourd'hui ?
+        if (exactIntent === 'today') {
+            const todayEventsMap = new Map();
+            const addEv = (e) => {
+                if (!e || e.date !== today) return;
+                const key = `${e.startTime || ''}_${e.endTime || ''}_${e.title || ''}`;
+                if (!todayEventsMap.has(key)) {
+                    todayEventsMap.set(key, {
+                        startTime: e.startTime || '',
+                        endTime: e.endTime || '',
+                        title: e.title || e.name || 'Événement'
+                    });
+                }
+            };
+
+            sessions.forEach(addEv);
+            (planning.events || []).forEach(addEv);
+            (context.temporalEvents || []).forEach(addEv);
+
+            const sortedEvents = Array.from(todayEventsMap.values()).sort((a, b) => (a.startTime || '').localeCompare(b.startTime || ''));
+            let answerText = "";
+            if (sortedEvents.length > 0) {
+                const eventLines = sortedEvents.map(e => `• ${e.startTime}${e.endTime ? ` - ${e.endTime}` : ''} : ${CoachLocalReply._short(e.title, 50)}`);
+                answerText = `Aujourd'hui :\n${eventLines.join('\n')}`;
+            } else {
+                answerText = "Rien de prévu aujourd'hui.";
+            }
+
+            // Fallback pour échec Gemini (test_coach_local_reply) : avancement et question
+            if (llmStatus && llmStatus.code !== 'NO_LLM' && lines.progress) {
+                answerText += `\n${lines.progress}`;
+            }
+            const questionText = (llmStatus && llmStatus.code !== 'NO_LLM') ? question : null;
+            const message = [statusLine, answerText, questionText].filter(Boolean).join('\n');
+            return {
+                message,
+                question: questionText,
+                facts: { topic: 'courses', todaySessions: sortedEvents.length, exams: exams.length, gradeRequests: gradeRequests.length, needsImport: false }
+            };
+        }
+
+        // 1.2 Question 2 : Quel est mon prochain examen ?
+        if (exactIntent === 'next_exam') {
+            let answerText = "";
+            if (exams.length > 0) {
+                const next = exams[0];
+                const subj = next.subjectName && next.subjectName !== 'Unknown Subject' ? next.subjectName : (next.title || 'Matière');
+                answerText = `À venir : ${next.title} (${subj}) ${CoachLocalReply._when(next.daysRemaining)} (${CoachLocalReply._frDay(next.targetDate)}).`;
+            } else {
+                answerText = "Aucun examen prévu prochainement.";
+            }
+            const questionText = (llmStatus && llmStatus.code !== 'NO_LLM') ? question : null;
+            const message = [statusLine, answerText, questionText].filter(Boolean).join('\n');
+            return {
+                message,
+                question: questionText,
+                facts: { topic: 'exams', examsCount: exams.length }
+            };
+        }
+
+        // 1.3 Question 3 : Où j'en suis en anglais ? (ou autre langue)
+        if (exactIntent && exactIntent.type === 'language') {
+            const userLangs = context.userLanguages || [];
+            const targetLang = exactIntent.langName;
+            const matched = targetLang
+                ? userLangs.find(l => (l.name || '').toLowerCase().includes(targetLang.toLowerCase()))
+                : (userLangs[0] || null);
+
+            let answerText = "";
+            if (!matched) {
+                answerText = "Tu n'as pas encore renseigné de langue. Dis-moi quelle langue tu souhaites apprendre !";
+            } else {
+                const mins = (matched.tracking && matched.tracking.minutesStudied) || 0;
+                const tempsRevise = mins >= 60 ? `${Math.floor(mins / 60)}h${mins % 60 > 0 ? (mins % 60) + 'min' : ''}` : `${mins} min`;
+
+                const allEvents = [...(planning.events || []), ...(context.temporalEvents || []), ...sessions];
+                const langNameLower = matched.name.toLowerCase();
+                const upcomingLang = allEvents
+                    .filter(e => e && e.date && e.date >= today && (e.title || '').toLowerCase().includes(langNameLower))
+                    .sort((a, b) => (a.date + (a.startTime || '')).localeCompare(b.date + (b.startTime || '')))[0];
+
+                const prochainCours = upcomingLang
+                    ? `${CoachLocalReply._frDay(upcomingLang.date)} à ${upcomingLang.startTime}`
+                    : 'aucun cours planifié';
+
+                answerText = `En ${matched.name} : niveau actuel ${matched.level || 'A1'}, objectif « ${matched.goal || 'non défini'} ». Temps révisé cette semaine : ${tempsRevise}. Prochain cours : ${prochainCours}.`;
+            }
+            const message = [statusLine, answerText].filter(Boolean).join('\n');
+            return {
+                message,
+                question: null,
+                facts: { topic: 'language', matched: !!matched }
+            };
+        }
+
+        // 1.4 Question 4 : Combien de livres j'ai lus ?
+        if (exactIntent === 'books') {
+            const finished = books.filter(b => b && (b.status === 'finished' || b.status === 'termine' || b.status === 'lu' || (b.totalPages > 0 && b.pagesRead >= b.totalPages)));
+            let answerText = "";
+            if (finished.length === 0) {
+                answerText = "Tu as lu 0 livre pour le moment (aucun livre terminé enregistré).";
+            } else {
+                const titles = finished.map(b => `« ${CoachLocalReply._short(b.title, 40)} »`).join(', ');
+                answerText = `Tu as lu ${finished.length} livre(s) : ${titles}.`;
+            }
+            const message = [statusLine, answerText].filter(Boolean).join('\n');
+            return {
+                message,
+                question: null,
+                facts: { topic: 'books', count: finished.length }
+            };
+        }
+
+        // 2. Question hors des 4 types SANS clé Gemini (mode local strict)
+        if (llmStatus && llmStatus.code === 'NO_LLM') {
+            const answerText = "Je n'ai pas cette information dans tes données. En mode local sans clé Gemini, je peux te renseigner sur : ton planning du jour, ton prochain examen, ton suivi de langues et tes livres.";
+            const message = [statusLine, answerText].filter(Boolean).join('\n');
+            return {
+                message,
+                question: null,
+                facts: { topic: 'general', localMode: true }
+            };
+        }
+
+        // 3. Fallback standard (Gemini avec erreur technique HTTP 503, etc., ou appel hors chat)
+        const todaySessions = sessions.filter(s => s.date === today);
+        if (todaySessions.length > 0) {
+            lines.courses = `Aujourd'hui tu as cours : ${todaySessions.map(s => `${CoachLocalReply._short(s.title)} (${s.startTime}–${s.endTime})`).join(', ')}.`;
+        } else if (sessions.length > 0) {
+            const n = sessions[0];
+            lines.courses = `Pas de cours aujourd'hui. Prochain cours : ${CoachLocalReply._short(n.title)} ${CoachLocalReply._frDay(n.date)} à ${n.startTime}.`;
+        }
+
+        // L'alerte emploi du temps n'apparaît QUE si la semaine en cours a 0 événement
+        if (timetable && timetable.needsImport && eventsInTargetWeek === 0) {
+            const [, m, d] = String(timetable.targetWeekStart || '').split('-');
+            lines.timetable = `Il me manque l'emploi du temps de la semaine du ${d}/${m} (Planning → « Importer l'emploi du temps (PDF) »).`;
+        }
+
+        if (exams.length > 0) {
+            lines.exams = `À venir : ${exams.slice(0, 3).map(a => `${a.title} ${CoachLocalReply._when(a.daysRemaining)} (${CoachLocalReply._frDay(a.targetDate)})`).join(' ; ')}.`;
+        }
+        if (slots.length > 0) {
+            const s = slots[0];
+            lines.slots = `Prochain créneau libre : ${s.date === today ? "aujourd'hui" : CoachLocalReply._frDay(s.date)} à ${s.startTime} (${s.durationMinutes} min).`;
+        }
+        if (overdueTasks.length > 0) {
+            lines.tasks = `Tâches en retard : ${overdueTasks.map(t => CoachLocalReply._short(t.title)).join(', ')}.`;
+        } else if (postponedTasks.length > 0) {
+            lines.tasks = `Tâches reportées 3 fois : ${postponedTasks.map(t => CoachLocalReply._short(t.title)).join(', ')}.`;
+        }
+        if (neglectedBooks.length > 0) {
+            lines.books = `Livres délaissés depuis 5+ jours : ${neglectedBooks.map(b => CoachLocalReply._short(b.title)).join(', ')}.`;
+        }
+
         const orderByTopic = {
             grades: ['exams', 'progress', 'courses', 'timetable', 'slots', 'tasks', 'books'],
             exams: ['exams', 'progress', 'courses', 'timetable', 'slots', 'tasks', 'books'],
@@ -156,8 +381,7 @@ export class CoachLocalReply {
         const body = orderByTopic[topic].map(k => lines[k]).filter(Boolean);
         if (body.length === 0) body.push("Je n'ai encore aucune donnée de cours ni d'évaluation pour cette semaine.");
 
-        const statusLine = CoachLocalReply.llmStatusLine(llmStatus);
         const message = [statusLine, ...body, question].filter(Boolean).join('\n');
-        return { message, question, facts: { topic, todaySessions: todaySessions.length, exams: exams.length, gradeRequests: gradeRequests.length, needsImport: !!(timetable && timetable.needsImport) } };
+        return { message, question, facts: { topic, todaySessions: todaySessions.length, exams: exams.length, gradeRequests: gradeRequests.length, needsImport: !!(timetable && timetable.needsImport && eventsInTargetWeek === 0) } };
     }
 }

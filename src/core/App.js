@@ -342,6 +342,7 @@ export class App {
             books: await this.projectEngine.getBooks(),
             personalTasks: await this.projectEngine.getPersonalTasks(),
             goals: await this.projectEngine.getGoals(),
+            userLanguages: (this.state && this.state.userLanguages) || (this.languageEngine ? await this.languageEngine.getLanguages() : []),
             temporalEvents: temporalEvents,
             availableSlots: availableSlots,
             availabilityDates: availabilityDates,
