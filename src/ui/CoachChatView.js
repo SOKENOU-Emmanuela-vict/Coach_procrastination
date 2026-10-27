@@ -158,6 +158,16 @@ export class CoachChatView {
                     `;
                 }
 
+                if (!isUser && msg.metadata && (msg.metadata.pendingCheckInStep || msg.metadata.proactive === 'checkin' || msg.metadata.proactive === 'checkin_reminder')) {
+                    html += `
+                        <div class="checkin-actions" style="display: flex; gap: 8px; margin-top: 10px;">
+                            <button type="button" class="btn-checkin-snooze" style="background: rgba(255,255,255,0.08); color: var(--text-muted); border: 1px solid rgba(255,255,255,0.2); padding: 5px 12px; border-radius: 15px; cursor: pointer; font-size: 12px; font-weight: 500;">
+                                ⏳ Plus tard
+                            </button>
+                        </div>
+                    `;
+                }
+
                 html += `
                     </div>
                 `;
@@ -370,7 +380,15 @@ export class CoachChatView {
             });
         });
 
-        // Modale de configuration de la clé IA (Google AI Studio ou Vertex AI Express AQ.…)
+        // Delegation for Check-in Snooze ("Plus tard") buttons
+        const snoozeButtons = this.container.querySelectorAll('.btn-checkin-snooze');
+        snoozeButtons.forEach(btn => {
+            btn.addEventListener('click', () => {
+                if (this.app && typeof this.app.sendChatMessage === 'function') {
+                    this.app.sendChatMessage('plus tard');
+                }
+            });
+        });
         const btnOpenKey = this.container.querySelector('#btn-coach-api-key');
         const keyModal = this.container.querySelector('#coach-api-key-modal');
         const keyInput = this.container.querySelector('#coach-api-key-input');

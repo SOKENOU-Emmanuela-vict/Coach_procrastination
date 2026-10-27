@@ -11,3 +11,4 @@
 | 2026-10-26 | Compatibilité clés Vertex AI Express Mode (`AQ.…`) dans `GeminiProvider` + CSP `server.js` + bouton/modale « Clé IA » dans `CoachChatView` + tests `test_vertex_express_key.mjs` | fait |
 | 2026-10-26 | Chantier V1 (T2, T3, T4) — En attente du contenu de `ORDRE_V1_IMPORT_DOCUMENTS_COACH.md` | suite |
 | 2026-10-27 | Mission X - X1 — Accès à tous les écrans (Calendrier, Hebdo, Tableau de bord, Portfolio, Focus), démarrage Focus depuis Bureau/Planning, retours clairs, correction bug hasVoice, test dédié test_x1_navigation.mjs et captures réelles headless Chrome | fait |
+| 2026-10-27 | Mission X - X2 — Check-in non bloquant (pass-through des questions avec rappel unique par étape), reportable (« plus tard » / bouton « Plus tard »), test dédié test_x2_checkin_nonblocking.mjs et capture x2_checkin.png | fait |

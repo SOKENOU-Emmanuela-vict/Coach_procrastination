@@ -351,10 +351,10 @@ export class App {
             chatHistory: chatHistory,
             options: { useLLM },
             courses: {
-                progress: courseProgress.items,
-                bySubject: courseProgress.bySubject,
-                upcomingSessions: courseProgress.upcomingSessions,
-                timetable: this.state.timetableStatus || null,
+                progress: (courseProgress && courseProgress.items) || [],
+                bySubject: (courseProgress && courseProgress.bySubject) || {},
+                upcomingSessions: (courseProgress && courseProgress.upcomingSessions) || [],
+                timetable: (this.state && this.state.timetableStatus) || null,
                 gradeRequests
             }
         };
@@ -2114,6 +2114,39 @@ export class App {
             });
         }
         
+        // 3.5. Rappel unique du check-in en attente si la question était hors sujet
+        try {
+            const pendingCheckIn = await this.storage.loadData('pending_checkin_conv');
+            const todayStr = this._todayStr();
+            if (pendingCheckIn && pendingCheckIn.date === todayStr && pendingCheckIn.postponedDate !== todayStr) {
+                const alreadyReminded = pendingCheckIn.lastRemindedDate === todayStr && pendingCheckIn.lastRemindedStep === pendingCheckIn.step;
+                if (!alreadyReminded) {
+                    pendingCheckIn.lastRemindedDate = todayStr;
+                    pendingCheckIn.lastRemindedStep = pendingCheckIn.step;
+                    await this.storage.saveData('pending_checkin_conv', pendingCheckIn);
+                    
+                    let reminderText = "";
+                    if (pendingCheckIn.step === 'mood') {
+                        reminderText = "💡 (Rappel : ton bilan du jour est en cours. Je n'ai pas bien compris ton humeur ou tu posais une autre question. Peux-tu me dire si elle est plutôt bonne, moyenne ou basse aujourd'hui, ou dis « plus tard » pour reporter ?)";
+                    } else if (pendingCheckIn.step === 'energy') {
+                        reminderText = "💡 (Rappel : ton bilan du jour est en cours. Je n'ai pas bien saisi ton niveau d'énergie. Te sens-tu avec une énergie haute, moyenne ou basse, ou dis-moi « plus tard » pour reporter ?)";
+                    } else if (pendingCheckIn.step === 'motivation') {
+                        reminderText = "💡 (Rappel : ton bilan du jour est presque terminé. Peux-tu me préciser si ta motivation est plutôt forte, moyenne ou faible, ou me dire « plus tard » pour reporter ?)";
+                    } else {
+                        reminderText = "💡 (Rappel : ton bilan du jour est toujours en attente. Dis-moi quand tu veux le reprendre, ou dis « plus tard » pour reporter).";
+                    }
+
+                    await this._sayCoach(reminderText, {
+                        intent: null,
+                        proactive: 'checkin_reminder',
+                        pendingCheckInStep: pendingCheckIn.step
+                    });
+                }
+            }
+        } catch (err) {
+            console.warn("Erreur rappel check-in:", err.message);
+        }
+
         // 4. Réaffichage final
         this.renderView('chat', { refresh: false });
     }
@@ -2239,9 +2272,12 @@ export class App {
         const pending = await this.storage.loadData('pending_checkin_conv');
         const trimmed = text.trim();
 
+        const isTrigger = /\b(faire\s+(mon\s+)?(check-?in|bilan)|daily\s+check-?in|bilan\s+du\s+jour|check-?in|mon\s+bilan|faire\s+le\s+bilan|reprendre\s+(le\s+)?bilan)\b/i.test(trimmed);
+        const isPostpone = /\b(plus\s+tard|passer|reporter|reporte|pas\s+maintenant|snooze|later|skip)\b/i.test(trimmed);
+
         // 1. Déclenchement manuel ou explicite par l'utilisatrice
         if (!pending || pending.date !== today) {
-            if (/\b(faire\s+(mon\s+)?(check-?in|bilan)|daily\s+check-?in|bilan\s+du\s+jour|check-?in|mon\s+bilan|faire\s+le\s+bilan)\b/i.test(trimmed)) {
+            if (isTrigger) {
                 await this.storage.saveData('pending_checkin_conv', { step: 'mood', date: today, data: {} });
                 await this._sayCoach("Bonjour ! Faisons ton bilan du jour ensemble. Pour commencer, quelle est ton humeur aujourd'hui (bonne, moyenne, morose...) ?", {
                     intent: null,
@@ -2253,16 +2289,50 @@ export class App {
             return false;
         }
 
-        // 2. Étape 1 : Humeur
-        if (pending.step === 'mood') {
-            const parsedMood = this._parseMoodRule(trimmed);
-            if (!parsedMood) {
-                await this._sayCoach("Je n'ai pas bien compris ton humeur. Peux-tu me dire si elle est plutôt bonne, moyenne ou basse aujourd'hui ?", {
+        // 2. Report explicite par l'utilisatrice ("plus tard", "passer", etc.)
+        if (isPostpone) {
+            pending.postponedDate = today;
+            await this.storage.saveData('pending_checkin_conv', pending);
+            await this._sayCoach("C'est bien noté, on reportera ton bilan à plus tard. Dis-moi « faire mon bilan » quand tu souhaiteras le reprendre !", {
+                intent: null,
+                proactive: 'checkin_postponed'
+            });
+            return true;
+        }
+
+        // 3. Reprise explicite si déjà en cours ou reporté
+        if (isTrigger) {
+            pending.postponedDate = null;
+            await this.storage.saveData('pending_checkin_conv', pending);
+            if (pending.step === 'energy') {
+                await this._sayCoach("Reprenons ton bilan ! Ton humeur est déjà enregistrée. Côté énergie, comment te sens-tu (haute, moyenne, basse) ?", {
+                    intent: null,
+                    proactive: 'checkin',
+                    pendingCheckInStep: 'energy'
+                });
+                return true;
+            } else if (pending.step === 'motivation') {
+                await this._sayCoach("Reprenons ton bilan ! Humeur et énergie sont déjà enregistrées. Quelle est ta motivation aujourd'hui (forte, moyenne, faible) ?", {
+                    intent: null,
+                    proactive: 'checkin',
+                    pendingCheckInStep: 'motivation'
+                });
+                return true;
+            } else {
+                await this._sayCoach("Reprenons ton bilan ! Quelle est ton humeur aujourd'hui (bonne, moyenne, morose...) ?", {
                     intent: null,
                     proactive: 'checkin',
                     pendingCheckInStep: 'mood'
                 });
                 return true;
+            }
+        }
+
+        // 4. Étape 1 : Humeur
+        if (pending.step === 'mood') {
+            const parsedMood = this._parseMoodRule(trimmed);
+            if (!parsedMood) {
+                return false;
             }
             pending.data.mood = parsedMood;
             pending.step = 'energy';
@@ -2282,16 +2352,11 @@ export class App {
             return true;
         }
 
-        // 3. Étape 2 : Énergie
+        // 5. Étape 2 : Énergie
         if (pending.step === 'energy') {
             const parsedEnergy = this._parseEnergyRule(trimmed);
             if (!parsedEnergy) {
-                await this._sayCoach("Je n'ai pas bien saisi ton niveau d'énergie. Te sens-tu avec une énergie haute, moyenne ou basse ?", {
-                    intent: null,
-                    proactive: 'checkin',
-                    pendingCheckInStep: 'energy'
-                });
-                return true;
+                return false;
             }
             pending.data.energy = parsedEnergy;
             pending.step = 'motivation';
@@ -2311,16 +2376,11 @@ export class App {
             return true;
         }
 
-        // 4. Étape 3 : Motivation & Enregistrement du Check-in authentique
+        // 6. Étape 3 : Motivation & Enregistrement du Check-in authentique
         if (pending.step === 'motivation') {
             const parsedMotivation = this._parseMotivationRule(trimmed);
             if (!parsedMotivation) {
-                await this._sayCoach("Peux-tu me préciser si ta motivation est plutôt forte, moyenne ou faible ?", {
-                    intent: null,
-                    proactive: 'checkin',
-                    pendingCheckInStep: 'motivation'
-                });
-                return true;
+                return false;
             }
             pending.data.motivation = parsedMotivation;
 
