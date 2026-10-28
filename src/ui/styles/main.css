@@ -435,6 +435,52 @@ h1, h2, h3, h4, h5, h6 {
     padding: 24px;
 }
 
+.modal-box.modal-lg {
+    max-width: 720px;
+}
+
+.file-dropzone {
+    border: 2px dashed var(--border-subtle);
+    border-radius: var(--card-radius);
+    padding: var(--space-6);
+    text-align: center;
+    background: var(--bg-surface-alt, var(--bg-surface));
+    cursor: pointer;
+    transition: border-color 0.2s, background-color 0.2s;
+}
+
+.file-dropzone:hover,
+.file-dropzone:focus,
+.file-dropzone.dragover {
+    border-color: var(--accent-primary);
+    background: var(--accent-subtle);
+    outline: none;
+}
+
+.btn-group {
+    display: inline-flex;
+    gap: var(--space-1);
+    align-items: center;
+}
+
+.spin {
+    animation: spin 1s linear infinite;
+    display: inline-block;
+}
+
+@keyframes spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+}
+
+.academic-chunks-list {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-3);
+    max-height: 280px;
+    overflow-y: auto;
+}
+
 .modal-header {
     display: flex;
     align-items: center;

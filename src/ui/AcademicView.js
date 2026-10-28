@@ -1,4 +1,5 @@
 import { escapeHtml } from '../utils/html.js';
+import { DocumentsModal } from './DocumentsModal.js';
 
 export class AcademicView {
     constructor(containerId, app) {
@@ -100,9 +101,9 @@ export class AcademicView {
                 
                 <!-- Action Buttons Grid -->
                 <div class="academic-subject-actions">
-                    <button class="academic-action-btn btn-action-subject" data-action="ressources" data-id="${sub.id}">
-                        <i class="bi bi-folder2-open"></i>
-                        <span>Ressources</span>
+                    <button class="academic-action-btn btn-action-subject" data-action="documents" data-id="${sub.id}" title="Documents de cette matière">
+                        <i class="bi bi-file-earmark-text"></i>
+                        <span>Documents</span>
                     </button>
                     <button class="academic-action-btn btn-action-subject" data-action="notebook" data-id="${sub.id}">
                         <i class="bi bi-robot"></i>
@@ -219,6 +220,9 @@ export class AcademicView {
             <header class="academic-topbar">
                 <h1 class="academic-title">CURSUS ACADÉMIQUE</h1>
                 <div class="academic-header-actions">
+                    <button type="button" id="btn-open-documents" class="btn btn-secondary btn-sm" title="Gérer mes documents et cours">
+                        <i class="bi bi-file-earmark-text"></i> Documents
+                    </button>
                     <button type="button" id="btn-clear-example" class="btn btn-outline btn-sm" title="Effacer les données d'exemple du cursus">
                         <i class="bi bi-trash"></i> Effacer les données d'exemple
                     </button>
@@ -342,6 +346,15 @@ export class AcademicView {
         if (btnImport) btnImport.addEventListener('click', handleImportExample);
         const btnEmptyImport = this.container.querySelector('#btn-empty-import-example');
         if (btnEmptyImport) btnEmptyImport.addEventListener('click', handleImportExample);
+
+        // --- OUVRIR LA MODALE DES DOCUMENTS ---
+        const btnOpenDocuments = this.container.querySelector('#btn-open-documents');
+        if (btnOpenDocuments) {
+            btnOpenDocuments.addEventListener('click', () => {
+                if (!this.documentsModal) this.documentsModal = new DocumentsModal(this.app);
+                this.documentsModal.open(null);
+            });
+        }
 
         // --- EFFACER LES DONNEES D'EXEMPLE ---
         const handleClearExample = async () => {
@@ -790,19 +803,9 @@ export class AcademicView {
 
                 if (actionName === 'epreuves') {
                     openEpreuvesModal(subjectId);
-                } else if (actionName === 'ressources') {
-                    openModal(
-                        `<i class="bi bi-folder2-open"></i> <span>Ressources pour ${escapeHtml(sub.name)}</span>`,
-                        `
-                        <div class="academic-resource-box">
-                            <i class="bi bi-cloud-arrow-up academic-resource-icon"></i>
-                            <p class="academic-empty-desc">Aucune ressource disponible pour l'instant.</p>
-                            <button class="btn btn-secondary btn-sm">
-                                <i class="bi bi-plus-lg"></i> Ajouter un fichier ou lien
-                            </button>
-                        </div>
-                        `
-                    );
+                } else if (actionName === 'ressources' || actionName === 'documents') {
+                    if (!this.documentsModal) this.documentsModal = new DocumentsModal(this.app);
+                    this.documentsModal.open(subjectId);
                 } else if (actionName === 'notebook') {
                     openModal(
                         `<i class="bi bi-robot"></i> <span>Notebook LM : ${escapeHtml(sub.name)}</span>`,

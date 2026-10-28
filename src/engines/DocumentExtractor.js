@@ -37,7 +37,8 @@ async function getPdfJs() {
     if (typeof globalThis !== 'undefined' && globalThis.pdfjsLib) {
         return globalThis.pdfjsLib;
     }
-    if (typeof window !== 'undefined' && typeof document !== 'undefined') {
+    const isNode = typeof process !== 'undefined' && process.versions && Boolean(process.versions.node);
+    if (!isNode && typeof window !== 'undefined' && typeof document !== 'undefined') {
         try {
             const lib = await loadVendorScript(
                 './vendor/pdfjs/pdf.min.js',
@@ -71,7 +72,8 @@ async function getMammoth() {
     if (typeof globalThis !== 'undefined' && globalThis.mammoth) {
         return globalThis.mammoth;
     }
-    if (typeof window !== 'undefined' && typeof document !== 'undefined') {
+    const isNode = typeof process !== 'undefined' && process.versions && Boolean(process.versions.node);
+    if (!isNode && typeof window !== 'undefined' && typeof document !== 'undefined') {
         try {
             return await loadVendorScript(
                 './vendor/mammoth/mammoth.browser.min.js',
@@ -138,6 +140,9 @@ export class DocumentExtractor {
         const name = (source.name || '').toLowerCase();
         const type = (source.type || '').toLowerCase();
 
+        if ((name.endsWith('.doc') && !name.endsWith('.docx')) || type === 'application/msword') {
+            return 'legacy_doc';
+        }
         if (name.endsWith('.pdf') || type.includes('pdf')) return 'pdf';
         if (name.endsWith('.docx') || type.includes('wordprocessingml') || type.includes('docx')) return 'docx';
         if (name.endsWith('.txt') || name.endsWith('.md') || type.includes('text/plain') || type.includes('text/markdown')) return 'text_file';
@@ -174,7 +179,13 @@ export class DocumentExtractor {
             throw new Error("Format de source non supporté.");
         }
 
-        // 2. Vérification de la taille
+        // 2. Détection du format (pour détecter .doc avant la taille si nécessaire)
+        const format = this.detectFormat(source);
+        if (format === 'legacy_doc') {
+            throw new Error("Ce document Word (.doc) utilise un ancien format. Enregistre-le en .docx depuis Word puis réessaie.");
+        }
+
+        // 3. Vérification de la taille
         const size = typeof source.size === 'number' ? source.size : (source.data ? source.data.length || source.data.byteLength : null);
         if (size !== null && size !== undefined) {
             if (size === 0) {
@@ -185,8 +196,6 @@ export class DocumentExtractor {
             }
         }
 
-        // 3. Détection du format
-        const format = this.detectFormat(source);
         if (!format) {
             throw new Error("Format de fichier non pris en charge. Formats acceptés : PDF, Word (.docx), texte (.txt, .md).");
         }
