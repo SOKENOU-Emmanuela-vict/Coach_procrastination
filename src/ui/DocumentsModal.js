@@ -137,7 +137,8 @@ export class DocumentsModal {
                             const subName = sub ? (sub.code || sub.name) : 'Général';
                             const dateStr = doc.createdAt ? new Date(doc.createdAt).toLocaleDateString('fr-FR') : '-';
                             const pages = doc.metadata && doc.metadata.pageCount ? `${doc.metadata.pageCount} p. • ` : '';
-                            const chunks = `${doc.metadata && doc.metadata.chunkCount ? doc.metadata.chunkCount : 0} extraits`;
+                            const chunkCount = doc.metadata && doc.metadata.chunkCount ? doc.metadata.chunkCount : 0;
+                            const chunks = `${chunkCount} ${chunkCount > 1 ? 'extraits' : 'extrait'}`;
                             return `
                                 <tr data-doc-id="${escapeHtml(doc.id)}">
                                     <td><strong>${escapeHtml(doc.title)}</strong></td>
@@ -518,7 +519,8 @@ export class DocumentsModal {
                 const newSuccessBox = newBody.querySelector('#doc-modal-success');
                 const newSuccessText = newBody.querySelector('#doc-modal-success-text');
                 if (newSuccessBox && newSuccessText) {
-                    newSuccessText.textContent = `${chunkCount} extraits indexés depuis ${docTitle}.`;
+                    const extraitsLabel = chunkCount > 1 ? 'extraits indexés' : 'extrait indexé';
+                    newSuccessText.textContent = `${chunkCount} ${extraitsLabel} depuis ${docTitle}.`;
                     newSuccessBox.hidden = false;
                 }
             }

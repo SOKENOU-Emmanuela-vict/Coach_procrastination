@@ -125,7 +125,7 @@ await knowledgeEngine.ingestDocument(
 
 await testAsync('7. Avec 2 documents : « Quels documents j’ai ? » liste les vrais titres et nombre', async () => {
     const res = await CoachLocalReply.resolve(baseContext, "Quels documents j'ai ?", { code: 'NO_LLM' }, knowledgeRetriever);
-    assert(res.message.includes('2 document(s) importé(s)'), 'Nombre de documents exact (2)');
+    assert(res.message.includes('2 documents importés'), 'Nombre de documents exact (2)');
     assert(res.message.includes('Cours POO') && res.message.includes('Algèbre 2 Pages'), 'Les 2 titres figurent dans la réponse');
 });
 
@@ -152,7 +152,7 @@ await testAsync('10. « Résume le document Algèbre 2 Pages » renvoie un « Ap
 await testAsync('11. Sujet absent : « Que dit mon cours sur la photosynthèse ? » répond honnêtement « rien trouvé »', async () => {
     const res = await CoachLocalReply.resolve(baseContext, "Que dit mon cours sur la photosynthèse ?", { code: 'NO_LLM' }, knowledgeRetriever);
     assert(res.message.includes('Je n\'ai rien trouvé sur ça dans tes documents.'), 'Rien trouvé annoncé honnêtement');
-    assert(res.message.includes('2 document(s) importé(s)'), 'Rappel du nombre de documents importés');
+    assert(res.message.includes('2 documents importés'), 'Rappel du nombre de documents importés');
     assert(!res.message.includes('chlorophylle'), 'Aucune hallucination ou fait inventé');
 });
 

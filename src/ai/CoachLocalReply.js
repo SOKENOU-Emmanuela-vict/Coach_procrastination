@@ -197,11 +197,14 @@ export class CoachLocalReply {
                 const statusLine = CoachLocalReply.llmStatusLine(llmStatus);
                 const lines = documents.map(d => {
                     const pages = d.metadata && d.metadata.pageCount ? `${d.metadata.pageCount} p.` : '';
-                    const chCount = d.metadata && d.metadata.chunkCount ? `${d.metadata.chunkCount} extrait(s)` : '';
+                    const chunkCount = d.metadata && d.metadata.chunkCount ? d.metadata.chunkCount : 0;
+                    const chCount = chunkCount > 0 ? `${chunkCount} ${chunkCount > 1 ? 'extraits' : 'extrait'}` : '';
                     const meta = [pages, chCount].filter(Boolean).join(', ');
                     return `• « ${d.title} »${meta ? ` (${meta})` : ''}`;
                 });
-                const answerText = `Tu as ${documents.length} document(s) importé(s) :\n${lines.join('\n')}`;
+                const docCount = documents.length;
+                const docLabel = docCount > 1 ? `${docCount} documents importés` : `${docCount} document importé`;
+                const answerText = `Tu as ${docLabel} :\n${lines.join('\n')}`;
                 const message = [statusLine, answerText].filter(Boolean).join('\n');
                 return {
                     message,
@@ -220,7 +223,9 @@ export class CoachLocalReply {
                 const statusLine = CoachLocalReply.llmStatusLine(llmStatus);
                 if (!matchedDoc) {
                     const titles = documents.map(d => `« ${d.title} »`).join(', ');
-                    const answerText = `Je n'ai trouvé aucun document correspondant à « ${courseIntent.titlePhrase} ». Tu as ${documents.length} document(s) importé(s) : ${titles}.`;
+                    const docCount = documents.length;
+                    const docLabel = docCount > 1 ? `${docCount} documents importés` : `${docCount} document importé`;
+                    const answerText = `Je n'ai trouvé aucun document correspondant à « ${courseIntent.titlePhrase} ». Tu as ${docLabel} : ${titles}.`;
                     const message = [statusLine, answerText].filter(Boolean).join('\n');
                     return { message, question: null, facts: { topic: 'courses', documentCount: documents.length } };
                 }
@@ -264,7 +269,9 @@ export class CoachLocalReply {
 
                 const statusLine = CoachLocalReply.llmStatusLine(llmStatus);
                 if (!searchResults || searchResults.length === 0) {
-                    const answerText = `Je n'ai rien trouvé sur ça dans tes documents. Tu as ${documents.length} document(s) importé(s).`;
+                    const docCount = documents.length;
+                    const docLabel = docCount > 1 ? `${docCount} documents importés` : `${docCount} document importé`;
+                    const answerText = `Je n'ai rien trouvé sur ça dans tes documents. Tu as ${docLabel}.`;
                     const message = [statusLine, answerText].filter(Boolean).join('\n');
                     return { message, question: null, facts: { topic: 'courses', documentCount: documents.length } };
                 }
