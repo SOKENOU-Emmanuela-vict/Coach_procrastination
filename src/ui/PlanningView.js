@@ -240,8 +240,8 @@ export class PlanningView {
             </div>
             <div class="bureau-topbar-actions" style="display:flex; gap:12px; align-items:center;">
                 <button id="btn-add-event-planning" style="background:#00f2fe; color:#0f2027; border:none; padding:10px 16px; border-radius:8px; font-weight:bold; cursor:pointer; font-size:13px; display:inline-flex; align-items:center; gap:6px;"><i class="bi bi-plus-lg"></i> Ajouter un événement</button>
-                <button id="btn-import-timetable" style="background:var(--accent-primary); color:white; border:none; padding:10px 16px; border-radius:8px; font-weight:bold; cursor:pointer; font-size:13px;"><i class="bi bi-file-earmark-arrow-up"></i> Importer l'emploi du temps (PDF)</button>
-                <input type="file" id="input-import-timetable" accept="application/pdf,image/*" style="display:none;">
+                <button id="btn-import-timetable" style="background:var(--accent-primary); color:white; border:none; padding:10px 16px; border-radius:8px; font-weight:bold; cursor:pointer; font-size:13px;"><i class="bi bi-file-earmark-arrow-up"></i> Importer l'emploi du temps</button>
+                <input type="file" id="input-import-timetable" accept="application/pdf,image/*,.docx,.xlsx,.csv" style="display:none;">
                 <div style="text-align:right;">
                     <strong style="display:block; font-size:14px; color:var(--text-main);">${escapeHtml(state.userProfile?.name || 'Étudiant')}</strong>
                 </div>
@@ -333,14 +333,14 @@ export class PlanningView {
         </div>
     </div>
 </div>
-        <!-- MODAL IMPORT EMPLOI DU TEMPS (même gabarit que la fenêtre de la vue Académique) -->
-        <div id="timetable-modal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.6); z-index:9999; align-items:center; justify-content:center;">
-            <div style="background:var(--bg-main); width:90%; max-width:760px; max-height:80vh; border-radius:12px; border:1px solid var(--border-color); display:flex; flex-direction:column; overflow:hidden; box-shadow:0 10px 30px rgba(0,0,0,0.5);">
-                <div style="padding:15px 20px; border-bottom:1px solid var(--border-color); display:flex; justify-content:space-between; align-items:center; background:var(--bg-card);">
-                    <h3 id="timetable-modal-title" style="margin:0; font-size:18px; color:var(--text-main);"><i class="bi bi-calendar-week"></i> Emploi du temps de la semaine</h3>
-                    <button id="timetable-modal-close" style="background:transparent; border:none; color:var(--text-muted); font-size:20px; cursor:pointer;">&times;</button>
+        <!-- MODAL IMPORT EMPLOI DU TEMPS -->
+        <div id="timetable-modal" class="modal-backdrop" hidden>
+            <div class="modal-box modal-lg">
+                <div class="modal-header">
+                    <h3 id="timetable-modal-title" class="modal-title"><i class="bi bi-calendar-week"></i> Emploi du temps de la semaine</h3>
+                    <button type="button" id="timetable-modal-close" class="btn btn-ghost" aria-label="Fermer">&times;</button>
                 </div>
-                <div id="timetable-modal-content" style="padding:20px; overflow-y:auto; flex-grow:1; color:var(--text-main);"></div>
+                <div id="timetable-modal-content" class="modal-body"></div>
             </div>
         </div>
 `;
@@ -405,7 +405,7 @@ export class PlanningView {
     }
 
     /**
-     * Import de l'emploi du temps : fichier (PDF ou photo) → lecture par l'IA → aperçu à valider → enregistrement.
+     * Import de l'emploi du temps : choix de méthode (fichier, texte, grille), aperçu à valider, enregistrement.
      */
     attachTimetableImport() {
         const btn = this.container.querySelector('#btn-import-timetable');
@@ -417,24 +417,178 @@ export class PlanningView {
 
         let saved = false;
         const close = () => {
+            modal.hidden = true;
             modal.style.display = 'none';
+            if (this.app) this.app.pendingTimetablePreview = null;
             if (saved) this.app.renderView('planning');
         };
+        const open = () => {
+            modal.hidden = false;
+            modal.style.display = 'flex';
+        };
+
         if (btnClose) btnClose.addEventListener('click', close);
         modal.addEventListener('click', (e) => { if (e.target === modal) close(); });
 
-        const message = (html) => { content.innerHTML = html; modal.style.display = 'flex'; };
-        const btnStyle = 'background:var(--accent-primary); color:white; border:none; padding:10px 20px; border-radius:8px; font-weight:bold; cursor:pointer;';
-        const btnGhost = 'background:transparent; color:var(--text-muted); border:1px solid var(--border-color); padding:10px 20px; border-radius:8px; font-weight:bold; cursor:pointer;';
+        const ui = {
+            close,
+            open,
+            onSaved: () => { saved = true; },
+            switchTab: (tabKey) => this.renderTimetableTabs(modal, content, input, ui, tabKey)
+        };
 
-        btn.addEventListener('click', () => { input.value = ''; input.click(); });
+        btn.addEventListener('click', () => {
+            this.renderTimetableTabs(modal, content, input, ui, 'file');
+        });
 
         input.addEventListener('change', async () => {
             const file = input.files && input.files[0];
             if (!file) return;
-            saved = false;
-            message(`<div style="text-align:center; padding:20px; color:var(--text-muted);"><i class="bi bi-hourglass-split" style="font-size:32px; color:var(--accent-primary); display:block; margin-bottom:10px;"></i>Lecture de « ${escapeHtml(file.name)} » par l'IA… (quelques secondes)</div>`);
-            try {
+            await this.handleTimetableFile(file, modal, content, input, ui);
+        });
+    }
+
+    renderTimetableTabs(modal, content, input, ui, activeTab = 'file') {
+        ui.open();
+        content.innerHTML = `
+            <div class="tabs" role="tablist">
+                <button type="button" class="tab-item ${activeTab === 'file' ? 'active' : ''}" data-tab="file"><i class="bi bi-file-earmark-arrow-up"></i> Fichier</button>
+                <button type="button" class="tab-item ${activeTab === 'text' ? 'active' : ''}" data-tab="text"><i class="bi bi-clipboard"></i> Coller un texte</button>
+                <button type="button" class="tab-item ${activeTab === 'grid' ? 'active' : ''}" data-tab="grid"><i class="bi bi-grid-3x3"></i> Saisie en grille</button>
+            </div>
+            <div id="tt-tab-container"></div>
+        `;
+
+        const tabContainer = content.querySelector('#tt-tab-container');
+        content.querySelectorAll('.tab-item').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const tab = btn.getAttribute('data-tab');
+                this.renderTimetableTabs(modal, content, input, ui, tab);
+            });
+        });
+
+        if (activeTab === 'file') {
+            this.renderFileTab(tabContainer, modal, content, input, ui);
+        } else if (activeTab === 'text') {
+            this.renderTextTab(tabContainer, modal, content, input, ui);
+        } else if (activeTab === 'grid') {
+            this.renderGridTab(tabContainer, modal, content, input, ui);
+        }
+    }
+
+    renderFileTab(container, modal, content, input, ui) {
+        container.innerHTML = `
+            <p class="modal-hint">Dépose ton emploi du temps (PDF, Image, Word .docx, Excel .xlsx, CSV). Les fichiers Word, Excel et CSV sont lus localement sans clé Gemini.</p>
+            <div class="file-dropzone" id="tt-file-dropzone" tabindex="0">
+                <i class="bi bi-cloud-arrow-up" style="font-size:36px; color:var(--accent-primary); display:block; margin-bottom:8px;"></i>
+                <strong>Dépose un fichier ou clique pour choisir</strong>
+                <p class="modal-hint">PDF, PNG, JPEG, WebP, DOCX, XLSX, CSV (max 15 Mo)</p>
+            </div>
+            <div id="tt-file-feedback" style="margin-top:12px;"></div>
+            <div class="modal-actions">
+                <button type="button" class="btn btn-ghost tt-cancel">Annuler</button>
+            </div>
+        `;
+
+        const dropzone = container.querySelector('#tt-file-dropzone');
+        const feedback = container.querySelector('#tt-file-feedback');
+        container.querySelector('.tt-cancel').addEventListener('click', ui.close);
+
+        dropzone.addEventListener('click', () => {
+            input.value = '';
+            input.click();
+        });
+
+        ['dragenter', 'dragover'].forEach(name => {
+            dropzone.addEventListener(name, (e) => {
+                e.preventDefault();
+                dropzone.classList.add('dragover');
+            });
+        });
+
+        ['dragleave', 'drop'].forEach(name => {
+            dropzone.addEventListener(name, (e) => {
+                e.preventDefault();
+                dropzone.classList.remove('dragover');
+            });
+        });
+
+        dropzone.addEventListener('drop', async (e) => {
+            const files = e.dataTransfer && e.dataTransfer.files;
+            if (files && files[0]) {
+                await this.handleTimetableFile(files[0], modal, content, input, ui, feedback);
+            }
+        });
+    }
+
+    async handleTimetableFile(file, modal, content, input, ui, feedbackEl = null) {
+        const feedback = feedbackEl || content.querySelector('#tt-file-feedback') || content;
+        const name = file.name || '';
+        const ext = name.split('.').pop().toLowerCase();
+        const isPdfOrImage = ext === 'pdf' || ['png', 'jpg', 'jpeg', 'webp', 'heic', 'heif'].includes(ext) || (file.type && file.type.startsWith('image/'));
+        const isCsv = ext === 'csv';
+        const isSpreadsheet = ext === 'xlsx' || ext === 'xls';
+        const isDocx = ext === 'docx';
+
+        const canLlm = this.app && this.app.timetableImporter && this.app.timetableImporter.canExtract();
+
+        // Règle Y1-C (d) : Sans clé, si l'utilisateur charge un PDF scanné ou une image
+        if (isPdfOrImage && !canLlm) {
+            feedback.innerHTML = `
+                <div class="alert alert-warning">
+                    <i class="bi bi-exclamation-triangle"></i>
+                    <div>
+                        <strong>Pour lire un PDF scanné ou une photo, configure une clé Gemini dans Réglages, ou colle le texte / utilise la grille.</strong>
+                    </div>
+                </div>
+                <div class="btn-group" style="margin-top:12px; display:flex; flex-wrap:wrap; gap:8px;">
+                    <button type="button" class="btn btn-secondary tt-btn-go-text"><i class="bi bi-clipboard"></i> Coller le texte</button>
+                    <button type="button" class="btn btn-secondary tt-btn-go-grid"><i class="bi bi-grid-3x3"></i> Utiliser la grille</button>
+                    <button type="button" class="btn btn-secondary tt-btn-go-csv"><i class="bi bi-file-earmark-spreadsheet"></i> Fichier CSV / XLSX / DOCX</button>
+                    <button type="button" class="btn btn-ghost tt-btn-go-settings"><i class="bi bi-gear"></i> Réglages</button>
+                </div>
+            `;
+            const btnText = feedback.querySelector('.tt-btn-go-text');
+            if (btnText) btnText.addEventListener('click', () => ui.switchTab('text'));
+            const btnGrid = feedback.querySelector('.tt-btn-go-grid');
+            if (btnGrid) btnGrid.addEventListener('click', () => ui.switchTab('grid'));
+            const btnCsv = feedback.querySelector('.tt-btn-go-csv');
+            if (btnCsv) btnCsv.addEventListener('click', () => { input.accept = '.csv,.xlsx,.xls,.docx'; input.value = ''; input.click(); });
+            const btnSettings = feedback.querySelector('.tt-btn-go-settings');
+            if (btnSettings) btnSettings.addEventListener('click', () => { ui.close(); if (this.app.renderView) this.app.renderView('chat'); });
+            return;
+        }
+
+        feedback.innerHTML = `<div class="alert alert-info"><i class="bi bi-hourglass-split spin"></i> Lecture de « ${escapeHtml(file.name)} » en cours…</div>`;
+
+        try {
+            let preview;
+            if (isCsv) {
+                const text = await new Promise((resolve, reject) => {
+                    const reader = new FileReader();
+                    reader.onload = () => resolve(reader.result);
+                    reader.onerror = () => reject(new Error('Fichier CSV illisible.'));
+                    reader.readAsText(file, 'utf-8');
+                });
+                preview = await this.app.extractTimetableFromSource({ type: 'csv', text, fileName: file.name, sizeBytes: file.size });
+            } else if (isSpreadsheet) {
+                const buffer = await new Promise((resolve, reject) => {
+                    const reader = new FileReader();
+                    reader.onload = () => resolve(reader.result);
+                    reader.onerror = () => reject(new Error('Fichier Excel illisible.'));
+                    reader.readAsArrayBuffer(file);
+                });
+                preview = await this.app.extractTimetableFromSource({ type: 'xlsx', buffer, fileName: file.name, sizeBytes: file.size });
+            } else if (isDocx) {
+                const buffer = await new Promise((resolve, reject) => {
+                    const reader = new FileReader();
+                    reader.onload = () => resolve(reader.result);
+                    reader.onerror = () => reject(new Error('Fichier Word illisible.'));
+                    reader.readAsArrayBuffer(file);
+                });
+                preview = await this.app.extractTimetableFromSource({ type: 'docx', buffer, fileName: file.name, sizeBytes: file.size });
+            } else {
+                // PDF / image avec clé Gemini
                 const dataUrl = await new Promise((resolve, reject) => {
                     const reader = new FileReader();
                     reader.onload = () => resolve(reader.result);
@@ -443,14 +597,174 @@ export class PlanningView {
                 });
                 const base64 = String(dataUrl).split(',')[1] || '';
                 const mimeType = file.type || (/\.pdf$/i.test(file.name) ? 'application/pdf' : '');
-                const preview = await this.app.extractTimetable({ base64, mimeType, fileName: file.name, sizeBytes: file.size });
-                this.renderTimetablePreview(preview, content, { btnStyle, btnGhost, close, onSaved: () => { saved = true; } });
+                preview = await this.app.extractTimetable({ base64, mimeType, fileName: file.name, sizeBytes: file.size });
+            }
+
+            this.renderTimetablePreview(preview, content, ui);
+        } catch (err) {
+            feedback.innerHTML = `
+                <div class="alert alert-warning">
+                    <i class="bi bi-exclamation-triangle"></i>
+                    <div>${escapeHtml(err.message)}</div>
+                </div>
+            `;
+        }
+    }
+
+    renderTextTab(container, modal, content, input, ui) {
+        container.innerHTML = `
+            <p class="modal-hint">Colle ici le texte de ton emploi du temps pour l'analyser directement sans clé Gemini.</p>
+            <div class="alert alert-info">
+                <i class="bi bi-info-circle"></i>
+                <div>
+                    <strong>Exemple de format :</strong><br>
+                    <code>Lundi 8h-10h : Structures algébriques et applications (Amphi A)</code><br>
+                    <code>Mardi 10h-12h : Approche orientée objet (Salle TP 2)</code><br>
+                    <code>Jeudi 14h-16h : Analyse numérique</code>
+                </div>
+            </div>
+            <div class="form-group" style="margin-top:12px;">
+                <textarea id="tt-text-input" class="form-input" rows="7" placeholder="Colle ton emploi du temps ici..."></textarea>
+            </div>
+            <div id="tt-text-feedback" style="margin-top:8px;"></div>
+            <div class="modal-actions">
+                <button type="button" class="btn btn-ghost tt-cancel">Annuler</button>
+                <button type="button" class="btn btn-primary tt-parse-text-btn"><i class="bi bi-search"></i> Voir l'aperçu</button>
+            </div>
+        `;
+
+        const textarea = container.querySelector('#tt-text-input');
+        const feedback = container.querySelector('#tt-text-feedback');
+        container.querySelector('.tt-cancel').addEventListener('click', ui.close);
+
+        container.querySelector('.tt-parse-text-btn').addEventListener('click', async () => {
+            const raw = textarea.value.trim();
+            if (!raw) {
+                feedback.innerHTML = `<div class="alert alert-warning"><i class="bi bi-exclamation-triangle"></i> Colle d'abord le texte de ton emploi du temps.</div>`;
+                return;
+            }
+            try {
+                feedback.innerHTML = `<div class="alert alert-info"><i class="bi bi-hourglass-split spin"></i> Analyse du texte…</div>`;
+                const preview = await this.app.extractTimetableFromSource({ type: 'text', text: raw });
+                this.renderTimetablePreview(preview, content, ui);
             } catch (err) {
-                message(`<div style="padding:10px; color:#ef4444;">${escapeHtml(err.message)}</div>
-                    ${err.code === 'NO_LLM' ? `<p style="color:var(--text-muted); font-size:13px;">Ajoute ta clé Gemini dans les réglages de l'app, puis réessaie.</p>` : ''}
-                    <div style="text-align:right; margin-top:15px;"><button class="tt-close" style="${btnGhost}">Fermer</button></div>`);
-                const c = content.querySelector('.tt-close');
-                if (c) c.addEventListener('click', close);
+                const unread = err.unreadLines && err.unreadLines.length > 0 ? `<br><small>${err.unreadLines.length} ligne(s) non lue(s) : ${escapeHtml(err.unreadLines.join(' ; '))}</small>` : '';
+                feedback.innerHTML = `<div class="alert alert-warning"><i class="bi bi-exclamation-triangle"></i> <div>${escapeHtml(err.message)}${unread}</div></div>`;
+            }
+        });
+    }
+
+    renderGridTab(container, modal, content, input, ui) {
+        container.innerHTML = `
+            <p class="modal-hint">Saisis directement tes séances de la semaine dans la grille ci-dessous.</p>
+            <div class="table-container" style="max-height:280px; overflow-y:auto;">
+                <table class="tt-grid-table">
+                    <thead>
+                        <tr>
+                            <th style="width:110px;">Jour</th>
+                            <th style="width:90px;">Début</th>
+                            <th style="width:90px;">Fin</th>
+                            <th>Matière</th>
+                            <th style="width:100px;">Salle</th>
+                            <th style="width:90px;">Type</th>
+                            <th style="width:40px;"></th>
+                        </tr>
+                    </thead>
+                    <tbody id="tt-grid-tbody"></tbody>
+                </table>
+            </div>
+            <div style="margin-top:10px; display:flex; gap:8px;">
+                <button type="button" class="btn btn-secondary btn-sm" id="tt-grid-add-row"><i class="bi bi-plus-lg"></i> Ajouter une ligne</button>
+            </div>
+            <div id="tt-grid-feedback" style="margin-top:10px;"></div>
+            <div class="modal-actions">
+                <button type="button" class="btn btn-ghost tt-cancel">Annuler</button>
+                <button type="button" class="btn btn-primary" id="tt-grid-preview-btn"><i class="bi bi-check2"></i> Voir l'aperçu</button>
+            </div>
+        `;
+
+        const tbody = container.querySelector('#tt-grid-tbody');
+        const feedback = container.querySelector('#tt-grid-feedback');
+        container.querySelector('.tt-cancel').addEventListener('click', ui.close);
+
+        const days = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi', 'Dimanche'];
+        const types = [
+            { id: 'course', label: 'Cours' },
+            { id: 'td', label: 'TD' },
+            { id: 'tp', label: 'TP' },
+            { id: 'exam', label: 'Examen' }
+        ];
+
+        const addRow = (data = {}) => {
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+                <td>
+                    <select class="tt-row-day form-input tt-grid-input">
+                        ${days.map(d => `<option value="${d}" ${data.day === d ? 'selected' : ''}>${d}</option>`).join('')}
+                    </select>
+                </td>
+                <td><input type="time" class="tt-row-start form-input tt-grid-input" value="${data.startTime || '08:00'}"></td>
+                <td><input type="time" class="tt-row-end form-input tt-grid-input" value="${data.endTime || '10:00'}"></td>
+                <td><input type="text" class="tt-row-title form-input tt-grid-input" placeholder="ex. Algèbre" value="${escapeHtml(data.title || '')}"></td>
+                <td><input type="text" class="tt-row-room form-input tt-grid-input" placeholder="ex. Amphi A" value="${escapeHtml(data.room || '')}"></td>
+                <td>
+                    <select class="tt-row-type form-input tt-grid-input">
+                        ${types.map(t => `<option value="${t.id}" ${(data.type || 'course') === t.id ? 'selected' : ''}>${t.label}</option>`).join('')}
+                    </select>
+                </td>
+                <td style="text-align:center;">
+                    <button type="button" class="btn btn-danger btn-sm tt-row-del" title="Supprimer la ligne" style="padding:2px 6px;">🗑️</button>
+                </td>
+            `;
+            tr.querySelector('.tt-row-del').addEventListener('click', () => {
+                tr.remove();
+                if (tbody.children.length === 0) addRow();
+            });
+            tbody.appendChild(tr);
+        };
+
+        addRow({ day: 'Lundi', startTime: '08:00', endTime: '10:00', title: '' });
+        addRow({ day: 'Mardi', startTime: '10:00', endTime: '12:00', title: '' });
+
+        container.querySelector('#tt-grid-add-row').addEventListener('click', () => addRow());
+
+        container.querySelector('#tt-grid-preview-btn').addEventListener('click', async () => {
+            feedback.innerHTML = '';
+            const trs = [...tbody.querySelectorAll('tr')];
+            const rows = trs.map(tr => ({
+                day: tr.querySelector('.tt-row-day').value,
+                startTime: tr.querySelector('.tt-row-start').value,
+                endTime: tr.querySelector('.tt-row-end').value,
+                title: tr.querySelector('.tt-row-title').value.trim(),
+                room: tr.querySelector('.tt-row-room').value.trim(),
+                type: tr.querySelector('.tt-row-type').value
+            })).filter(r => r.title || r.room);
+
+            if (rows.length === 0) {
+                feedback.innerHTML = `<div class="alert alert-warning"><i class="bi bi-exclamation-triangle"></i> Saisis au moins une séance avec un intitulé.</div>`;
+                return;
+            }
+
+            for (let i = 0; i < rows.length; i++) {
+                const r = rows[i];
+                if (!r.title) {
+                    feedback.innerHTML = `<div class="alert alert-warning"><i class="bi bi-exclamation-triangle"></i> Renseigne la matière pour la séance du ${r.day}.</div>`;
+                    return;
+                }
+                const startMin = timeToMinutes(r.startTime);
+                const endMin = timeToMinutes(r.endTime);
+                if (endMin <= startMin) {
+                    feedback.innerHTML = `<div class="alert alert-warning"><i class="bi bi-exclamation-triangle"></i> Ligne ${i + 1} (${r.day}) : l'heure de fin (${r.endTime}) doit être après l'heure de début (${r.startTime}).</div>`;
+                    return;
+                }
+            }
+
+            try {
+                feedback.innerHTML = `<div class="alert alert-info"><i class="bi bi-hourglass-split spin"></i> Génération de l'aperçu…</div>`;
+                const preview = await this.app.extractTimetableFromSource({ type: 'grid', gridRows: rows });
+                this.renderTimetablePreview(preview, content, ui);
+            } catch (err) {
+                feedback.innerHTML = `<div class="alert alert-warning"><i class="bi bi-exclamation-triangle"></i> ${escapeHtml(err.message)}</div>`;
             }
         });
     }
@@ -470,32 +784,45 @@ export class PlanningView {
                 <tr data-row="${escapeHtml(r.id)}" style="border-bottom:1px solid var(--border-color); ${r.status === 'invalid' ? 'opacity:0.5;' : ''}">
                     <td style="padding:8px 6px;"><input type="checkbox" class="tt-include" ${r.include ? 'checked' : ''} ${r.status === 'invalid' ? 'disabled' : ''}></td>
                     <td style="padding:8px 6px; white-space:nowrap; font-size:12px;">${escapeHtml(fmt(r.date))}<br><span style="color:var(--text-muted);">${escapeHtml(r.startTime || '?')}–${escapeHtml(r.endTime || '?')}</span></td>
-                    <td style="padding:8px 6px; font-size:13px;"><strong>${escapeHtml(r.title || '?')}</strong>${r.teacher ? `<br><span style="font-size:11px; color:var(--text-muted);">${escapeHtml(r.teacher)}</span>` : ''}${flags.length ? `<br><span style="font-size:11px; color:#f59e0b;">⚠ ${escapeHtml(flags.join(', '))}</span>` : ''}</td>
+                    <td style="padding:8px 6px; font-size:13px;"><strong>${escapeHtml(r.title || '?')}</strong>${r.teacher ? `<br><span style="font-size:11px; color:var(--text-muted);">${escapeHtml(r.teacher)}</span>` : ''}${r.room ? `<br><span style="font-size:11px; color:var(--text-muted);">📍 ${escapeHtml(r.room)}</span>` : ''}${flags.length ? `<br><span style="font-size:11px; color:#f59e0b;">⚠ ${escapeHtml(flags.join(', '))}</span>` : ''}</td>
                     <td style="padding:8px 6px; white-space:nowrap; font-size:12px;">${r.hoursDone !== null && r.hoursDone !== undefined ? escapeHtml(r.hoursDone) : '?'} h / ${r.hoursTotal !== null && r.hoursTotal !== undefined ? escapeHtml(r.hoursTotal) : '?'} h</td>
                     <td style="padding:8px 6px;"><select class="tt-subject" style="max-width:200px; padding:6px; background:var(--bg-card); color:var(--text-main); border:1px solid var(--border-color); border-radius:8px; font-size:12px;">${options}</select>${r.componentName ? `<br><span style="font-size:11px; color:var(--text-muted);">${escapeHtml(r.componentName)}</span>` : ''}</td>
                 </tr>`;
         }).join('');
 
+        const unreadWarningHtml = preview.unreadLines && preview.unreadLines.length > 0 ? `
+            <div class="alert alert-warning" style="margin-bottom:8px;">
+                <i class="bi bi-exclamation-triangle"></i>
+                <div>
+                    <strong>${preview.unreadLines.length} ligne(s) non lue(s) :</strong>
+                    ${escapeHtml(preview.unreadLines.join(' ; '))}
+                </div>
+            </div>` : '';
+
         content.innerHTML = `
-            <div style="display:flex; justify-content:space-between; align-items:center; gap:10px; margin-bottom:12px; flex-wrap:wrap;">
+            <div class="tt-preview-meta">
                 <div style="font-size:14px;">${preview.weekStart ? `Semaine du <strong>${escapeHtml(fmt(preview.weekStart))}</strong> au <strong>${escapeHtml(fmt(preview.weekEnd))}</strong>` : 'Semaine non reconnue'}</div>
                 <label style="font-size:13px; color:var(--text-muted);">Groupe :
-                    <select class="tt-group" style="padding:6px; background:var(--bg-card); color:var(--text-main); border:1px solid var(--border-color); border-radius:8px;">
+                    <select class="tt-group form-input" style="padding:6px; display:inline-block; width:auto;">
                         ${groups.map(g => `<option value="${escapeHtml(g)}" ${g === preview.group ? 'selected' : ''}>${escapeHtml(g)}</option>`).join('')}
                     </select>
                 </label>
             </div>
-            ${preview.replacesExistingImport ? `<div style="font-size:12px; color:#f59e0b; margin-bottom:8px;">Cette semaine a déjà été importée : ses cours seront remplacés.</div>` : ''}
-            ${(preview.warnings || []).map(w => `<div style="font-size:12px; color:#f59e0b; margin-bottom:4px;">⚠ ${escapeHtml(w)}</div>`).join('')}
-            <p style="font-size:12px; color:var(--text-muted); margin:6px 0 10px 0;">Vérifie chaque ligne (lecture automatique), corrige la matière si besoin, puis valide. Les cours seront ajoutés au planning, verrouillés.</p>
-            <table style="width:100%; border-collapse:collapse;">
-                <thead><tr style="text-align:left; font-size:11px; color:var(--text-muted); text-transform:uppercase;"><th></th><th>Jour</th><th>Cours</th><th>Heures</th><th>Matière</th></tr></thead>
-                <tbody>${rowsHtml || `<tr><td colspan="5" style="padding:12px; color:var(--text-muted);">Aucune séance pour ce groupe.</td></tr>`}</tbody>
-            </table>
+            ${preview.replacesExistingImport ? `<div class="alert alert-warning" style="margin-bottom:8px;"><i class="bi bi-arrow-repeat"></i> Cette semaine a déjà été importée : ses cours seront remplacés.</div>` : ''}
+            ${unreadWarningHtml}
+            ${(preview.warnings || []).filter(w => !w.includes('ligne(s) non lue(s)')).map(w => `<div class="alert alert-warning" style="margin-bottom:4px;"><i class="bi bi-exclamation-triangle"></i> ⚠ ${escapeHtml(w)}</div>`).join('')}
+            <p class="modal-hint" style="margin:6px 0 10px 0;">Vérifie chaque ligne, coche les séances à ajouter, corrige la matière si besoin, puis valide.</p>
+            <div class="table-container" style="max-height:300px; overflow-y:auto;">
+                <table class="data-table">
+                    <thead><tr style="text-align:left; font-size:11px; color:var(--text-muted); text-transform:uppercase;"><th></th><th>Jour</th><th>Cours</th><th>Heures</th><th>Matière</th></tr></thead>
+                    <tbody>${rowsHtml || `<tr><td colspan="5" style="padding:12px; color:var(--text-muted);">Aucune séance pour ce groupe.</td></tr>`}</tbody>
+                </table>
+            </div>
             <div class="tt-error" style="color:#ef4444; font-size:13px; margin-top:10px;"></div>
-            <div style="display:flex; justify-content:flex-end; gap:10px; margin-top:15px;">
-                <button class="tt-cancel" style="${ui.btnGhost}">Annuler</button>
-                <button class="tt-validate" style="${ui.btnStyle}" ${preview.rows.length === 0 ? 'disabled' : ''}>Valider</button>
+            <div class="modal-actions">
+                <button type="button" class="btn btn-secondary tt-back" style="margin-right:auto;"><i class="bi bi-arrow-left"></i> Retour</button>
+                <button type="button" class="btn btn-ghost tt-cancel">Annuler</button>
+                <button type="button" class="btn btn-primary tt-validate" ${preview.rows.length === 0 ? 'disabled' : ''}>Valider</button>
             </div>`;
 
         const groupSelect = content.querySelector('.tt-group');
@@ -503,6 +830,12 @@ export class PlanningView {
             const updated = await this.app.changeTimetableGroup(preview, groupSelect.value);
             this.renderTimetablePreview(updated, content, ui);
         });
+
+        const btnBack = content.querySelector('.tt-back');
+        if (btnBack) btnBack.addEventListener('click', () => {
+            this.renderTimetableTabs(content.closest('#timetable-modal'), content, this.container.querySelector('#input-import-timetable'), ui, 'file');
+        });
+
         content.querySelector('.tt-cancel').addEventListener('click', ui.close);
         content.querySelector('.tt-validate').addEventListener('click', async () => {
             const rows = [...content.querySelectorAll('tr[data-row]')].map(tr => ({
@@ -517,11 +850,16 @@ export class PlanningView {
                 if (res.replaced) extra.push(`${res.replaced} ancien(s) cours de cette semaine remplacé(s).`);
                 if (res.unmapped && res.unmapped.length) extra.push(`Non relié(s) au cursus : ${res.unmapped.join(', ')}.`);
                 if (res.overlaps && res.overlaps.length) extra.push(`Chevauchement(s) avec ton agenda : ${res.overlaps.map(o => `${o.course.title} / ${o.other.title} (${o.course.date})`).join(' ; ')}.`);
-                content.innerHTML = `<div style="text-align:center; padding:15px;"><i class="bi bi-check-circle" style="font-size:36px; color:#10b981; display:block; margin-bottom:10px;"></i>
-                    <strong>${escapeHtml(res.count)} cours enregistré(s)</strong> pour la semaine du ${escapeHtml(fmt(res.weekStart))}.
-                    <p style="font-size:13px; color:var(--text-muted);">Le coach suit maintenant l'avancement de tes cours.</p>
-                    ${extra.map(x => `<p style="font-size:12px; color:#f59e0b;">${escapeHtml(x)}</p>`).join('')}
-                    <button class="tt-done" style="${ui.btnStyle}">Fermer</button></div>`;
+                content.innerHTML = `
+                    <div style="text-align:center; padding:20px;">
+                        <i class="bi bi-check-circle" style="font-size:36px; color:#10b981; display:block; margin-bottom:10px;"></i>
+                        <strong>${escapeHtml(res.count)} cours enregistré(s)</strong> pour la semaine du ${escapeHtml(fmt(res.weekStart))}.
+                        <p class="modal-hint" style="margin-top:6px;">Le coach suit maintenant l'avancement de tes cours.</p>
+                        ${extra.map(x => `<p style="font-size:12px; color:#f59e0b; margin-top:4px;">${escapeHtml(x)}</p>`).join('')}
+                        <div class="modal-actions" style="justify-content:center; border:none; margin-top:20px;">
+                            <button type="button" class="btn btn-primary tt-done">Fermer</button>
+                        </div>
+                    </div>`;
                 content.querySelector('.tt-done').addEventListener('click', ui.close);
             } catch (err) {
                 const box = content.querySelector('.tt-error');

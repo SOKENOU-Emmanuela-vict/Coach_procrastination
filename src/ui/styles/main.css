@@ -481,6 +481,40 @@ h1, h2, h3, h4, h5, h6 {
     overflow-y: auto;
 }
 
+.tt-grid-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.tt-grid-table th {
+    padding: var(--space-2) var(--space-2);
+    font-size: var(--text-xs);
+    color: var(--text-secondary);
+    text-align: left;
+    border-bottom: 1px solid var(--border-subtle);
+}
+
+.tt-grid-table td {
+    padding: var(--space-1) var(--space-2);
+    vertical-align: middle;
+    border-bottom: 1px solid var(--border-subtle);
+}
+
+.tt-grid-input {
+    width: 100%;
+    padding: 6px 8px;
+    font-size: var(--text-sm);
+}
+
+.tt-preview-meta {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: var(--space-3);
+    flex-wrap: wrap;
+    margin-bottom: var(--space-3);
+}
+
 .modal-header {
     display: flex;
     align-items: center;

@@ -525,6 +525,37 @@ export class App {
         return preview;
     }
 
+    /**
+     * Import d'emploi du temps sans clé Gemini (texte brut, grille, CSV, XLSX, DOCX).
+     */
+    async extractTimetableFromSource(params = {}) {
+        const profile = await this._loadProfile();
+        const subjects = (await this.academicEngine.getSubjects()) || [];
+        const existingImports = (await this.storage.loadData('timetable_imports')) || [];
+        const preview = await this.timetableImporter.extractFromSource({
+            ...params,
+            group: params.group || profile.groupe || DEFAULT_GROUP,
+            referenceDate: params.referenceDate || this._todayStr(),
+            subjects,
+            semesterId: profile.currentSemesterId || 'sem_s3_26',
+            existingImports
+        });
+        this.pendingTimetablePreview = preview;
+
+        if (this.chatHistoryEngine && typeof this.chatHistoryEngine.saveMessage === 'function') {
+            const rowCount = preview.rows ? preview.rows.length : 0;
+            const groupText = (preview.groupsFound && preview.groupsFound.length > 0)
+                ? `groupe(s) détecté(s) : ${preview.groupsFound.join(', ')}`
+                : 'aucun groupe spécifique détecté';
+            if (rowCount === 0) {
+                await this._sayCoach(`J'ai analysé l'emploi du temps mais je n'ai trouvé aucun cours (${groupText}).`, { intent: null, proactive: 'timetable_empty' });
+            } else {
+                await this._sayCoach(`Lecture de l'emploi du temps : ${rowCount} cours lu(s) (${groupText}). Tu peux vérifier l'aperçu et valider.`, { intent: null, proactive: 'timetable_read' });
+            }
+        }
+        return preview;
+    }
+
     /** Aperçu recalculé pour un autre groupe (sans nouvel appel à Gemini). */
     async changeTimetableGroup(preview, group) {
         const subjects = (await this.academicEngine.getSubjects()) || [];

@@ -54,7 +54,15 @@ export const TIMETABLE_RESPONSE_SCHEMA = {
 
 const MONTHS = { jan: 1, janv: 1, janvier: 1, fev: 2, fevr: 2, fevrier: 2, mar: 3, mars: 3, avr: 4, avril: 4, mai: 5, juin: 6,
     juil: 7, juillet: 7, aou: 8, aout: 8, sep: 9, sept: 9, septembre: 9, oct: 10, octobre: 10, nov: 11, novembre: 11, dec: 12, decembre: 12 };
-const WEEKDAYS = { dimanche: 0, lundi: 1, mardi: 2, mercredi: 3, jeudi: 4, vendredi: 5, samedi: 6 };
+const WEEKDAYS = {
+    dimanche: 0, sunday: 0,
+    lundi: 1, monday: 1,
+    mardi: 2, tuesday: 2,
+    mercredi: 3, wednesday: 3,
+    jeudi: 4, thursday: 4,
+    vendredi: 5, friday: 5,
+    samedi: 6, saturday: 6
+};
 const HOURS_RE = /\(?\s*(\d{1,3})\s*h\s*\/\s*(\d{1,3})\s*h\s*\)?/i;
 const TEACHER_RE = /\b(?:M\.|Mr\.?|Mme\.?|Mlle\.?|Monsieur|Madame|Dr\.?|Pr\.?)\s+[A-Za-zÀ-ÖØ-öø-ÿ'’.\- ]{2,}$/;
 const TIME_RANGE_RE = /(\d{1,2})\s*[h:]\s*(\d{2})?\s*(?:-|–|—|à|a|to)\s*(\d{1,2})\s*[h:]\s*(\d{2})?/i;
@@ -263,7 +271,7 @@ export class TimetableImportEngine {
                 endTime = this._time(`${rm[3]}:${rm[4] || '00'}`);
             }
 
-            const dayLabel = this._pick(e, ['dayLabel', 'day', 'jour']) || '';
+            const dayLabel = this._pick(e, ['dayLabel', 'day', 'jour', 'dayOfWeek']) || '';
             let date = this._parseDocDate(this._pick(e, ['date']));
             const parsedDay = this._parseDayLabel(dayLabel);
             if (!date && parsedDay.day && parsedDay.month) {
@@ -285,6 +293,18 @@ export class TimetableImportEngine {
             const first = dated.map(r => r.date).sort()[0];
             const fd = parseLocalDate(first);
             const monday = new Date(fd); monday.setDate(fd.getDate() - ((fd.getDay() + 6) % 7));
+            for (const r of rows) {
+                if (!r.date && r.parsedDay.weekday !== null) {
+                    const d = new Date(monday); d.setDate(monday.getDate() + ((r.parsedDay.weekday + 6) % 7));
+                    r.date = toLocalDateStr(d);
+                } else if (!r.date && r.parsedDay.day) {
+                    const d = new Date(monday.getFullYear(), monday.getMonth(), r.parsedDay.day);
+                    if (Math.abs(d - monday) < 8 * 86400000) r.date = toLocalDateStr(d);
+                }
+            }
+        } else {
+            // Aucun cours daté (ex. CSV, texte brut ou saisie grille) : calage sur la semaine de référence
+            const monday = new Date(anchor); monday.setDate(anchor.getDate() - ((anchor.getDay() + 6) % 7));
             for (const r of rows) {
                 if (!r.date && r.parsedDay.weekday !== null) {
                     const d = new Date(monday); d.setDate(monday.getDate() + ((r.parsedDay.weekday + 6) % 7));
@@ -530,6 +550,296 @@ export class TimetableImportEngine {
             groupsFound: preview.groupsFound || [],
             groupDetected: !!(preview.groupsFound && preview.groupsFound.length > 0)
         };
+    }
+
+    async _loadXLSX() {
+        if (typeof globalThis !== 'undefined' && globalThis.XLSX) return globalThis.XLSX;
+        const isNode = typeof process !== 'undefined' && process.versions && Boolean(process.versions.node);
+        if (!isNode && typeof window !== 'undefined' && typeof document !== 'undefined') {
+            if (window.XLSX) return window.XLSX;
+            await new Promise((resolve, reject) => {
+                const s = document.createElement('script');
+                s.src = './vendor/sheetjs/xlsx.mini.min.js';
+                s.onload = () => resolve(window.XLSX);
+                s.onerror = () => reject(new Error("Bibliothèque SheetJS indisponible."));
+                document.head.appendChild(s);
+            });
+            return window.XLSX;
+        }
+        try {
+            const { createRequire } = await import('module');
+            const require = createRequire(import.meta.url);
+            const lib = require('../../vendor/sheetjs/xlsx.mini.min.js');
+            globalThis.XLSX = lib;
+            return lib;
+        } catch (e) {
+            throw new Error("Bibliothèque SheetJS indisponible.");
+        }
+    }
+
+    async _loadMammoth() {
+        if (typeof globalThis !== 'undefined' && globalThis.mammoth) return globalThis.mammoth;
+        const isNode = typeof process !== 'undefined' && process.versions && Boolean(process.versions.node);
+        if (!isNode && typeof window !== 'undefined' && typeof document !== 'undefined') {
+            if (window.mammoth) return window.mammoth;
+            await new Promise((resolve, reject) => {
+                const s = document.createElement('script');
+                s.src = './vendor/mammoth/mammoth.browser.min.js';
+                s.onload = () => resolve(window.mammoth);
+                s.onerror = () => reject(new Error("Bibliothèque Mammoth indisponible."));
+                document.head.appendChild(s);
+            });
+            return window.mammoth;
+        }
+        try {
+            const { createRequire } = await import('module');
+            const require = createRequire(import.meta.url);
+            const lib = require('../../vendor/mammoth/mammoth.browser.min.js');
+            globalThis.mammoth = lib;
+            return lib;
+        } catch (e) {
+            throw new Error("Bibliothèque Mammoth indisponible.");
+        }
+    }
+
+    parseTextSchedule(rawText, { defaultGroup = null } = {}) {
+        if (!rawText || typeof rawText !== 'string' || !rawText.trim()) {
+            return { entries: [], unreadLines: [] };
+        }
+        const lines = rawText.split(/\r?\n/);
+        const rawEntries = this.ingestion.parseSchedule(rawText);
+
+        const daysPattern = "Lundi|Mardi|Mercredi|Jeudi|Vendredi|Samedi|Dimanche|Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday";
+        const dayHeaderRegex = new RegExp(`^(${daysPattern})\\s*:?$`, 'i');
+
+        const proposedEntries = rawEntries.filter(e => e.status === 'proposed');
+        const validOriginalTexts = new Set(proposedEntries.map(e => (e.originalText || '').trim()));
+
+        const unreadLines = [];
+        for (const line of lines) {
+            const trimmed = line.trim();
+            if (!trimmed) continue;
+            if (dayHeaderRegex.test(trimmed)) continue;
+            if (!validOriginalTexts.has(trimmed)) {
+                unreadLines.push(trimmed);
+            }
+        }
+
+        const entries = proposedEntries.map(e => {
+            let title = e.title || '';
+            let room = null;
+            const roomMatch = title.match(/\(([^)]*(?:salle|amphi|labo|room|bâtiment|batiment)[^)]*)\)$/i) || title.match(/\(([^)]+)\)$/i);
+            if (roomMatch) {
+                room = roomMatch[1].trim();
+                const clean = title.slice(0, roomMatch.index).trim();
+                if (clean) title = clean;
+            }
+            return {
+                dayLabel: e.dayOfWeek,
+                startTime: e.startTime,
+                endTime: e.endTime,
+                title: title,
+                room: room,
+                group: defaultGroup,
+                rawText: e.originalText
+            };
+        });
+
+        return { entries, unreadLines };
+    }
+
+    _parseCsvLines(csvText) {
+        const lines = csvText.split(/\r?\n/).filter(l => l.trim().length > 0);
+        if (lines.length === 0) return [];
+        const firstLine = lines[0];
+        const countSemi = (firstLine.match(/;/g) || []).length;
+        const countComma = (firstLine.match(/,/g) || []).length;
+        const countTab = (firstLine.match(/\t/g) || []).length;
+        let delim = ';';
+        if (countComma > countSemi && countComma > countTab) delim = ',';
+        else if (countTab > countSemi && countTab > countComma) delim = '\t';
+
+        const parseRow = (line) => {
+            const cells = [];
+            let inQuotes = false;
+            let current = '';
+            for (let i = 0; i < line.length; i++) {
+                const char = line[i];
+                if (char === '"') {
+                    if (inQuotes && line[i + 1] === '"') {
+                        current += '"';
+                        i++;
+                    } else {
+                        inQuotes = !inQuotes;
+                    }
+                } else if (char === delim && !inQuotes) {
+                    cells.push(current.trim());
+                    current = '';
+                } else {
+                    current += char;
+                }
+            }
+            cells.push(current.trim());
+            return cells;
+        };
+
+        return lines.map(parseRow);
+    }
+
+    _parseTableRows(rows, { defaultGroup = null } = {}) {
+        if (!rows || rows.length < 2) {
+            return { entries: [], unreadLines: [] };
+        }
+        const headerRow = rows[0].map(c => TextNormalizer.forMatching(String(c || '')));
+        
+        const colMap = {};
+        headerRow.forEach((col, idx) => {
+            if (/^(jour|day|date)$/.test(col)) colMap.day = idx;
+            else if (/^(debut|start|heuredebut|horairedebut)$/.test(col)) colMap.startTime = idx;
+            else if (/^(fin|end|heurefin|horairefin)$/.test(col)) colMap.endTime = idx;
+            else if (/^(matiere|cours|subject|course|title|intitule)$/.test(col)) colMap.title = idx;
+            else if (/^(salle|room|lieu)$/.test(col)) colMap.room = idx;
+            else if (/^(groupe|group|grp)$/.test(col)) colMap.group = idx;
+            else if (/^(enseignant|teacher|professeur|prof)$/.test(col)) colMap.teacher = idx;
+            else if (/^(code|codematiere|codecours)$/.test(col)) colMap.code = idx;
+            else if (/^(heuresfaites|done|hfaites)$/.test(col)) colMap.hoursDone = idx;
+            else if (/^(heurestotal|total|htotal)$/.test(col)) colMap.hoursTotal = idx;
+        });
+
+        const hasRequired = colMap.day !== undefined && colMap.startTime !== undefined && colMap.endTime !== undefined && colMap.title !== undefined;
+        if (!hasRequired) {
+            const textLines = rows.slice(1).map(r => r.filter(c => c !== null && c !== undefined && String(c).trim() !== '').join(' : '));
+            return this.parseTextSchedule(textLines.join('\n'), { defaultGroup });
+        }
+
+        const entries = [];
+        const unreadLines = [];
+
+        for (let i = 1; i < rows.length; i++) {
+            const r = rows[i];
+            if (!r || r.every(c => c === null || c === undefined || String(c).trim() === '')) continue;
+            const dayLabel = r[colMap.day] ? String(r[colMap.day]).trim() : '';
+            const startTime = r[colMap.startTime] ? String(r[colMap.startTime]).trim() : '';
+            const endTime = r[colMap.endTime] ? String(r[colMap.endTime]).trim() : '';
+            const title = r[colMap.title] ? String(r[colMap.title]).trim() : '';
+            const room = colMap.room !== undefined && r[colMap.room] ? String(r[colMap.room]).trim() : null;
+            const group = colMap.group !== undefined && r[colMap.group] ? String(r[colMap.group]).trim() : defaultGroup;
+            const teacher = colMap.teacher !== undefined && r[colMap.teacher] ? String(r[colMap.teacher]).trim() : null;
+            const hoursDone = colMap.hoursDone !== undefined && Number.isFinite(Number(r[colMap.hoursDone])) ? Number(r[colMap.hoursDone]) : null;
+            const hoursTotal = colMap.hoursTotal !== undefined && Number.isFinite(Number(r[colMap.hoursTotal])) ? Number(r[colMap.hoursTotal]) : null;
+
+            if (dayLabel && startTime && endTime && title) {
+                entries.push({
+                    dayLabel,
+                    startTime,
+                    endTime,
+                    title,
+                    room,
+                    group,
+                    teacher,
+                    hoursDone,
+                    hoursTotal,
+                    rawText: r.join(' ; ')
+                });
+            } else {
+                unreadLines.push(r.filter(Boolean).join(' ; '));
+            }
+        }
+
+        return { entries, unreadLines };
+    }
+
+    parseCsv(csvString, { defaultGroup = null } = {}) {
+        const rows = this._parseCsvLines(csvString);
+        return this._parseTableRows(rows, { defaultGroup });
+    }
+
+    async parseSpreadsheet(bufferOrArrayBuffer, { defaultGroup = null } = {}) {
+        const XLSX = await this._loadXLSX();
+        const isArrayBuf = typeof ArrayBuffer !== 'undefined' && bufferOrArrayBuffer instanceof ArrayBuffer;
+        const wb = XLSX.read(bufferOrArrayBuffer, { type: isArrayBuf ? 'array' : 'buffer' });
+        const sheet = wb.Sheets[wb.SheetNames[0]];
+        const rows = XLSX.utils.sheet_to_json(sheet, { header: 1 });
+        return this._parseTableRows(rows, { defaultGroup });
+    }
+
+    async parseDocx(bufferOrArrayBuffer, { defaultGroup = null } = {}) {
+        const mammoth = await this._loadMammoth();
+        const isNode = typeof process !== 'undefined' && process.versions && Boolean(process.versions.node);
+        let arrayBuffer;
+        if (bufferOrArrayBuffer instanceof ArrayBuffer) {
+            arrayBuffer = bufferOrArrayBuffer;
+        } else if (bufferOrArrayBuffer && bufferOrArrayBuffer.buffer) {
+            arrayBuffer = bufferOrArrayBuffer.buffer.slice(bufferOrArrayBuffer.byteOffset, bufferOrArrayBuffer.byteOffset + bufferOrArrayBuffer.byteLength);
+        } else {
+            arrayBuffer = bufferOrArrayBuffer;
+        }
+        const res = await mammoth.extractRawText({ arrayBuffer });
+        const text = (res && res.value) || '';
+        return this.parseTextSchedule(text, { defaultGroup });
+    }
+
+    parseGridRows(rows, { defaultGroup = null } = {}) {
+        if (!Array.isArray(rows) || rows.length === 0) {
+            throw new Error("Aucune séance renseignée dans la grille.");
+        }
+        const entries = [];
+        for (let i = 0; i < rows.length; i++) {
+            const r = rows[i];
+            if (!r.day || !r.startTime || !r.endTime || !r.title) {
+                throw new Error(`Ligne ${i + 1} incomplète : renseigne le jour, l'heure de début, l'heure de fin et la matière.`);
+            }
+            const startMin = timeToMinutes(r.startTime);
+            const endMin = timeToMinutes(r.endTime);
+            if (endMin <= startMin) {
+                throw new Error(`Ligne ${i + 1} invalide : l'heure de fin (${r.endTime}) doit être après l'heure de début (${r.startTime}).`);
+            }
+            entries.push({
+                dayLabel: r.day,
+                startTime: r.startTime,
+                endTime: r.endTime,
+                title: String(r.title).trim(),
+                room: r.room ? String(r.room).trim() : null,
+                type: r.type || 'course',
+                group: r.group || defaultGroup
+            });
+        }
+        return { entries, unreadLines: [] };
+    }
+
+    async extractFromSource({ type, text, csv, buffer, gridRows, fileName = null, group = DEFAULT_GROUP, referenceDate = null, subjects = [], semesterId = null, existingImports = [] } = {}) {
+        let result = { entries: [], unreadLines: [] };
+        if (type === 'text') {
+            result = this.parseTextSchedule(text, { defaultGroup: group });
+        } else if (type === 'csv') {
+            result = this.parseCsv(csv || text, { defaultGroup: group });
+        } else if (type === 'spreadsheet' || type === 'xlsx') {
+            result = await this.parseSpreadsheet(buffer, { defaultGroup: group });
+        } else if (type === 'docx') {
+            result = await this.parseDocx(buffer, { defaultGroup: group });
+        } else if (type === 'grid') {
+            result = this.parseGridRows(gridRows, { defaultGroup: group });
+        } else {
+            throw new Error(`Type de source non pris en charge : ${type}`);
+        }
+
+        if (result.entries.length === 0) {
+            const err = new Error("Aucun cours n'a pu être lu dans ce document.");
+            err.unreadLines = result.unreadLines;
+            throw err;
+        }
+
+        const preview = this.buildPreview(
+            { entries: result.entries },
+            { group, referenceDate, subjects, semesterId, fileName, existingImports }
+        );
+        preview.unreadLines = result.unreadLines || [];
+        if (preview.unreadLines.length > 0) {
+            const count = preview.unreadLines.length;
+            const previewSnippet = preview.unreadLines.slice(0, 3).map(l => `« ${l} »`).join(', ');
+            preview.warnings.push(`${count} ligne(s) non lue(s) : ${previewSnippet}${count > 3 ? '…' : ''}`);
+        }
+        return preview;
     }
 
     /** Lundi (YYYY-MM-DD) de la semaine de `date`. */
