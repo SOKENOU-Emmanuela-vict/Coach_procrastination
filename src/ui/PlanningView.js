@@ -1,5 +1,5 @@
 import { escapeHtml } from '../utils/html.js';
-import { parseLocalDate } from '../utils/dateUtils.js';
+import { parseLocalDate, timeToMinutes } from '../utils/dateUtils.js';
 export class PlanningView {
     constructor(containerId, app) {
         this.container = typeof containerId === 'string' && typeof document !== 'undefined' ? document.getElementById(containerId) : (containerId || (typeof document !== 'undefined' ? document.getElementById('view-container') : null));
