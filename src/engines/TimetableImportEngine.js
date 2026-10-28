@@ -352,13 +352,20 @@ export class TimetableImportEngine {
         }
 
         // 4. Validation
+        const hasHourlyVolumeInBatch = merged.some(m =>
+            (m.hoursDone !== null && m.hoursDone !== undefined) ||
+            (m.hoursTotal !== null && m.hoursTotal !== undefined)
+        );
+
         const entries = merged.map((r, i) => {
             const flags = [];
             let status = r.status || 'proposed';
             if (!r.date || !r.startTime || !r.endTime || !r.title) status = 'invalid';
             else if (timeToMinutes(r.startTime) >= timeToMinutes(r.endTime)) { status = 'invalid'; flags.push('times_inverted'); }
-            if (r.hoursDone === null || r.hoursTotal === null) flags.push('missing_hours');
-            else if (r.hoursDone > r.hoursTotal) flags.push('hours_inconsistent');
+            if (hasHourlyVolumeInBatch) {
+                if (r.hoursDone === null || r.hoursTotal === null) flags.push('missing_hours');
+                else if (r.hoursDone > r.hoursTotal) flags.push('hours_inconsistent');
+            }
             if (r.dateMismatch) flags.push('date_mismatch');
             if (r.mergedContinuation) flags.push('merged_continuation');
             const dayOfWeek = r.date ? ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'][parseLocalDate(r.date).getDay()] : null;

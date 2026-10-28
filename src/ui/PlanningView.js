@@ -773,19 +773,40 @@ export class PlanningView {
         const subjects = (this.app.state.academicSubjects || []).slice()
             .sort((a, b) => (a.semesterId === preview.semesterId ? 0 : 1) - (b.semesterId === preview.semesterId ? 0 : 1) || String(a.name).localeCompare(String(b.name)));
         const fmt = (d) => { if (!d) return '?'; const x = parseLocalDate(d); return x.toLocaleDateString('fr-FR', { weekday: 'short', day: '2-digit', month: '2-digit' }); };
-        const flagLabels = { unmapped: 'matière non reconnue', to_check: 'matière à vérifier', missing_hours: 'heures illisibles', hours_inconsistent: 'heures incohérentes',
-            date_mismatch: 'date incohérente', out_of_week: 'hors semaine', overlap_in_timetable: 'chevauchement', times_inverted: 'horaire invalide' };
+
+        // Déterminer si le volume horaire est présent/demandé dans les lignes
+        const hasHourlyVolume = (preview.rows || []).some(r =>
+            (r.hoursDone !== null && r.hoursDone !== undefined) ||
+            (r.hoursTotal !== null && r.hoursTotal !== undefined)
+        );
+
+        const flagLabels = {
+            unmapped: 'matière non reconnue',
+            to_check: 'matière à vérifier',
+            missing_hours: hasHourlyVolume ? 'volume horaire manquant' : 'horaires de séance manquants',
+            hours_inconsistent: 'heures incohérentes',
+            date_mismatch: 'date incohérente',
+            out_of_week: 'hors semaine',
+            overlap_in_timetable: 'chevauchement',
+            times_inverted: 'horaire invalide'
+        };
         const groups = [...new Set(['Groupe 1', 'Groupe 2'].concat(preview.groupsFound || []))];
         const rowsHtml = preview.rows.map(r => {
-            const flags = (r.flags || []).filter(f => flagLabels[f]).map(f => flagLabels[f]);
+            const flags = (r.flags || []).filter(f => {
+                if (f === 'missing_hours' && (!hasHourlyVolume || (r.startTime && r.endTime))) return false;
+                return !!flagLabels[f];
+            }).map(f => flagLabels[f]);
             const options = [`<option value="">— non reliée —</option>`].concat(subjects.map(s =>
                 `<option value="${escapeHtml(s.id)}" ${s.id === r.subjectId ? 'selected' : ''}>${escapeHtml(s.code ? s.code + ' · ' : '')}${escapeHtml(s.name)}</option>`)).join('');
+            const hoursCol = hasHourlyVolume ? `
+                <td style="padding:8px 6px; white-space:nowrap; font-size:12px;">${r.hoursDone !== null && r.hoursDone !== undefined ? escapeHtml(r.hoursDone) : '?'} h / ${r.hoursTotal !== null && r.hoursTotal !== undefined ? escapeHtml(r.hoursTotal) : '?'} h</td>
+            ` : '';
             return `
                 <tr data-row="${escapeHtml(r.id)}" style="border-bottom:1px solid var(--border-color); ${r.status === 'invalid' ? 'opacity:0.5;' : ''}">
                     <td style="padding:8px 6px;"><input type="checkbox" class="tt-include" ${r.include ? 'checked' : ''} ${r.status === 'invalid' ? 'disabled' : ''}></td>
                     <td style="padding:8px 6px; white-space:nowrap; font-size:12px;">${escapeHtml(fmt(r.date))}<br><span style="color:var(--text-muted);">${escapeHtml(r.startTime || '?')}–${escapeHtml(r.endTime || '?')}</span></td>
                     <td style="padding:8px 6px; font-size:13px;"><strong>${escapeHtml(r.title || '?')}</strong>${r.teacher ? `<br><span style="font-size:11px; color:var(--text-muted);">${escapeHtml(r.teacher)}</span>` : ''}${r.room ? `<br><span style="font-size:11px; color:var(--text-muted);">📍 ${escapeHtml(r.room)}</span>` : ''}${flags.length ? `<br><span style="font-size:11px; color:#f59e0b;">⚠ ${escapeHtml(flags.join(', '))}</span>` : ''}</td>
-                    <td style="padding:8px 6px; white-space:nowrap; font-size:12px;">${r.hoursDone !== null && r.hoursDone !== undefined ? escapeHtml(r.hoursDone) : '?'} h / ${r.hoursTotal !== null && r.hoursTotal !== undefined ? escapeHtml(r.hoursTotal) : '?'} h</td>
+                    ${hoursCol}
                     <td style="padding:8px 6px;"><select class="tt-subject" style="max-width:200px; padding:6px; background:var(--bg-card); color:var(--text-main); border:1px solid var(--border-color); border-radius:8px; font-size:12px;">${options}</select>${r.componentName ? `<br><span style="font-size:11px; color:var(--text-muted);">${escapeHtml(r.componentName)}</span>` : ''}</td>
                 </tr>`;
         }).join('');
@@ -814,8 +835,8 @@ export class PlanningView {
             <p class="modal-hint" style="margin:6px 0 10px 0;">Vérifie chaque ligne, coche les séances à ajouter, corrige la matière si besoin, puis valide.</p>
             <div class="table-container" style="max-height:300px; overflow-y:auto;">
                 <table class="data-table">
-                    <thead><tr style="text-align:left; font-size:11px; color:var(--text-muted); text-transform:uppercase;"><th></th><th>Jour</th><th>Cours</th><th>Heures</th><th>Matière</th></tr></thead>
-                    <tbody>${rowsHtml || `<tr><td colspan="5" style="padding:12px; color:var(--text-muted);">Aucune séance pour ce groupe.</td></tr>`}</tbody>
+                    <thead><tr style="text-align:left; font-size:11px; color:var(--text-muted); text-transform:uppercase;"><th></th><th>Jour</th><th>Cours</th>${hasHourlyVolume ? '<th>Heures</th>' : ''}<th>Matière</th></tr></thead>
+                    <tbody>${rowsHtml || `<tr><td colspan="${hasHourlyVolume ? 5 : 4}" style="padding:12px; color:var(--text-muted);">Aucune séance pour ce groupe.</td></tr>`}</tbody>
                 </table>
             </div>
             <div class="tt-error" style="color:#ef4444; font-size:13px; margin-top:10px;"></div>
