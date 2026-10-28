@@ -1,4 +1,23 @@
 import { describeGeminiFailure } from './GeminiProvider.js';
+import { parseCourseQuery } from './ChatIntentParser.js';
+
+function extractSnippet(content, keyword = '', maxLen = 180) {
+    if (!content) return '';
+    const clean = content.replace(/\s+/g, ' ').trim();
+    if (!keyword) {
+        return clean.length > maxLen ? clean.slice(0, maxLen - 1) + '…' : clean;
+    }
+    const idx = clean.toLowerCase().indexOf(keyword.toLowerCase());
+    if (idx === -1) {
+        return clean.length > maxLen ? clean.slice(0, maxLen - 1) + '…' : clean;
+    }
+    const start = Math.max(0, idx - 40);
+    const end = Math.min(clean.length, idx + keyword.length + 100);
+    let snippet = clean.slice(start, end).trim();
+    if (start > 0) snippet = '…' + snippet;
+    if (end < clean.length) snippet = snippet + '…';
+    return snippet;
+}
 
 /**
  * Réponse du coach SANS LLM, construite uniquement à partir du contexte réel de l'App
@@ -141,6 +160,136 @@ export class CoachLocalReply {
         temporalEvents.forEach(checkEv);
 
         return count;
+    }
+
+    /**
+     * Résolution asynchrone complète (interroge KnowledgeRetriever si la question concerne un cours/document)
+     */
+    static async resolve(context = {}, query = '', llmStatus = null, knowledgeRetriever = null) {
+        const courseIntent = parseCourseQuery(query);
+        if (courseIntent) {
+            const retriever = knowledgeRetriever || context.knowledgeRetriever || (context.knowledge && context.knowledge.retriever);
+            const engine = retriever && retriever.knowledgeEngine;
+            let documents = [];
+            let chunks = [];
+            if (engine && typeof engine.getDocuments === 'function') {
+                documents = await engine.getDocuments();
+                chunks = await engine.getChunks();
+            } else if (context.knowledge && Array.isArray(context.knowledge.documents)) {
+                documents = context.knowledge.documents;
+                chunks = context.knowledge.chunks || [];
+            }
+
+            // 0 document dans la base
+            if (!documents || documents.length === 0) {
+                const statusLine = CoachLocalReply.llmStatusLine(llmStatus);
+                const answerText = "Tu n'as importé aucun document : ouvre École > Documents.";
+                const message = [statusLine, answerText].filter(Boolean).join('\n');
+                return {
+                    message,
+                    question: null,
+                    facts: { topic: 'courses', documentCount: 0 }
+                };
+            }
+
+            // 1. Liste des documents
+            if (courseIntent.type === 'list_documents') {
+                const statusLine = CoachLocalReply.llmStatusLine(llmStatus);
+                const lines = documents.map(d => {
+                    const pages = d.metadata && d.metadata.pageCount ? `${d.metadata.pageCount} p.` : '';
+                    const chCount = d.metadata && d.metadata.chunkCount ? `${d.metadata.chunkCount} extrait(s)` : '';
+                    const meta = [pages, chCount].filter(Boolean).join(', ');
+                    return `• « ${d.title} »${meta ? ` (${meta})` : ''}`;
+                });
+                const answerText = `Tu as ${documents.length} document(s) importé(s) :\n${lines.join('\n')}`;
+                const message = [statusLine, answerText].filter(Boolean).join('\n');
+                return {
+                    message,
+                    question: null,
+                    facts: { topic: 'courses', documentCount: documents.length }
+                };
+            }
+
+            // 2. Résumé / Aperçu d'un document
+            if (courseIntent.type === 'summarize_document') {
+                const normTitle = (s) => String(s || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim();
+                const target = normTitle(courseIntent.titlePhrase);
+                const matchedDoc = documents.find(d => normTitle(d.title).includes(target)) ||
+                    documents.find(d => target.includes(normTitle(d.title)));
+
+                const statusLine = CoachLocalReply.llmStatusLine(llmStatus);
+                if (!matchedDoc) {
+                    const titles = documents.map(d => `« ${d.title} »`).join(', ');
+                    const answerText = `Je n'ai trouvé aucun document correspondant à « ${courseIntent.titlePhrase} ». Tu as ${documents.length} document(s) importé(s) : ${titles}.`;
+                    const message = [statusLine, answerText].filter(Boolean).join('\n');
+                    return { message, question: null, facts: { topic: 'courses', documentCount: documents.length } };
+                }
+
+                const docChunks = chunks.filter(c => c.documentId === matchedDoc.id);
+                let preview = '';
+                if (docChunks.length > 0) {
+                    const firstChunk = docChunks[0];
+                    const sentences = firstChunk.content.split(/(?<=[.?!])\s+/).slice(0, 3).join(' ');
+                    preview = sentences || firstChunk.content.slice(0, 240);
+                } else {
+                    preview = "Contenu court sans extraits détaillés.";
+                }
+
+                const pStart = docChunks[0] ? (docChunks[0].pageStart || 1) : 1;
+                const answerText = `Aperçu du document « ${matchedDoc.title} » :\n${preview}\n\n(Source : ${matchedDoc.title}, p.${pStart})`;
+                const message = [statusLine, answerText].filter(Boolean).join('\n');
+                return {
+                    message,
+                    question: null,
+                    facts: { topic: 'courses', documentCount: documents.length, summarizedDocId: matchedDoc.id }
+                };
+            }
+
+            // 3. Question sur le cours ou recherche de mot
+            if (courseIntent.type === 'course_query' || courseIntent.type === 'course_search') {
+                const topic = courseIntent.topic;
+                let searchResults = [];
+                if (retriever && typeof retriever.search === 'function') {
+                    let subjectId = null;
+                    if (courseIntent.subjectPhrase && context.academic && context.academic.subjects) {
+                        const sSub = courseIntent.subjectPhrase.toLowerCase();
+                        const foundSub = context.academic.subjects.find(s =>
+                            (s.name && s.name.toLowerCase().includes(sSub)) ||
+                            (s.code && s.code.toLowerCase().includes(sSub))
+                        );
+                        if (foundSub) subjectId = foundSub.id;
+                    }
+                    searchResults = await retriever.search(topic, { subjectId });
+                }
+
+                const statusLine = CoachLocalReply.llmStatusLine(llmStatus);
+                if (!searchResults || searchResults.length === 0) {
+                    const answerText = `Je n'ai rien trouvé sur ça dans tes documents. Tu as ${documents.length} document(s) importé(s).`;
+                    const message = [statusLine, answerText].filter(Boolean).join('\n');
+                    return { message, question: null, facts: { topic: 'courses', documentCount: documents.length } };
+                }
+
+                const topResults = searchResults.slice(0, 3);
+                const extracts = topResults.map(res => {
+                    const chunk = res.chunk;
+                    const doc = documents.find(d => d.id === chunk.documentId);
+                    const docTitle = doc ? doc.title : 'Document';
+                    const page = chunk.pageStart || 1;
+                    const snippet = extractSnippet(chunk.content, topic, 180);
+                    return `• « ${snippet} » (${docTitle}, p.${page})`;
+                });
+
+                const answerText = `Voici ce que dit ton cours :\n\n${extracts.join('\n')}`;
+                const message = [statusLine, answerText].filter(Boolean).join('\n');
+                return {
+                    message,
+                    question: null,
+                    facts: { topic: 'courses', documentCount: documents.length, resultsCount: searchResults.length }
+                };
+            }
+        }
+
+        return CoachLocalReply.build(context, query, llmStatus);
     }
 
     /**

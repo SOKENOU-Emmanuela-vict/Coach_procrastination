@@ -9,6 +9,7 @@ const CHAT_SILENT_ALERTS = ['INCOMPLETE_SEMESTER', 'IMMINENT_ASSESSMENT'];
 
 export class CoachAI {
     constructor(llmProvider = null, knowledgeRetriever = null) {
+        this.knowledgeRetriever = knowledgeRetriever;
         this.llmReasoning = llmProvider ? new CoachLLMReasoning(llmProvider, knowledgeRetriever) : null;
         this.lastLLMStatus = null; // { ok, status, code, message } du dernier appel (null = LLM non sollicité)
     }
@@ -140,7 +141,7 @@ export class CoachAI {
         this.lastLLMStatus = llmStatus;
 
         if (!query) return recommendations;
-        return this._shapeChatReply(recommendations, context, query, llmStatus);
+        return await this._shapeChatReply(recommendations, context, query, llmStatus);
     }
 
     /**
@@ -150,10 +151,10 @@ export class CoachAI {
      *  - dans tous les cas, on ne répète pas une information déjà dite telle quelle dans la conversation récente.
      * Les recommandations actionnables (révision à planifier, conflit à régler) sont toujours conservées.
      */
-    _shapeChatReply(recommendations, context, query, llmStatus) {
+    async _shapeChatReply(recommendations, context, query, llmStatus) {
         let recs = recommendations.filter(r => !(r.decisionType === 'RELAY_ACADEMIC_ALERT' && CHAT_SILENT_ALERTS.includes(r.alertCode)));
         if (llmStatus && !llmStatus.ok) {
-            const local = CoachLocalReply.build(context, query, llmStatus);
+            const local = await CoachLocalReply.resolve(context, query, llmStatus, this.knowledgeRetriever || (context && context.knowledgeRetriever));
             recs = recs.filter(r => r.actionable && r.decisionType !== 'ADDRESS_PROCRASTINATION_RISK');
             recs.unshift({
                 id: `coach_local_${Date.now()}`,

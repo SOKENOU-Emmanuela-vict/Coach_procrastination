@@ -383,7 +383,8 @@ export class App {
                 upcomingSessions: (courseProgress && courseProgress.upcomingSessions) || [],
                 timetable: (this.state && this.state.timetableStatus) || null,
                 gradeRequests
-            }
+            },
+            knowledgeRetriever: this.knowledgeRetriever
         };
     }
 

@@ -209,3 +209,55 @@ export function parseItemDeletion(text) {
     if (!title || title.length < 2) return null;
     return { titlePhrase: title };
 }
+
+/**
+ * Détection des questions sur les cours et documents (RAG local et distant) :
+ *  - « quels documents j'ai ? » / « mes documents »
+ *  - « résume le document <titre> » / « aperçu du document <titre> »
+ *  - « que dit mon cours de <matière> sur <sujet> ? » / « que dit mon cours sur <sujet> ? »
+ *  - « cherche <mot> dans mes cours » / « cherche <mot> »
+ * @param {string} text
+ * @returns {{ type: string, topic?: string, subjectPhrase?: string, titlePhrase?: string } | null}
+ */
+export function parseCourseQuery(text) {
+    if (!text) return null;
+    const raw = String(text).trim();
+    const t = norm(raw);
+    if (!t) return null;
+
+    // 1. « quels documents j'ai ? », « mes documents », « quels sont mes documents », « liste mes documents »
+    if (/\b(quels? (?:sont )?mes documents|quels? documents? (?:j ai|ai je)|qu est ce que j ai comme documents|liste (?:de )?mes documents|mes documents)\b/.test(t) || t === 'documents' || t === 'mes documents ?') {
+        return { type: 'list_documents' };
+    }
+
+    // 2. « résume le document <titre> », « résume <titre> », « résumé du document <titre> », « aperçu du document <titre> »
+    const mResume = t.match(/\b(?:resume|resume moi|resumer|apercu de|apercu du|resume du document|resume le document)\s+(?:du document |le document |document )?(.+)$/);
+    if (mResume && !t.includes('mon cours sur') && !t.includes('cherche')) {
+        const titlePhrase = mResume[1].replace(/[?!.]+$/, '').trim();
+        if (titlePhrase.length >= 2) {
+            return { type: 'summarize_document', titlePhrase, rawQuery: raw };
+        }
+    }
+
+    // 3. « que dit mon cours de <matière> sur <sujet> ? », « que dit mon cours d'<matière> sur <sujet> ? », « que dit mon cours sur <sujet> ? »
+    const mQueDit = t.match(/\bque dit (?:mon |le )?cours\s*(?:d |de |du |des )?([a-z0-9+ ]+?)?\s*sur\s+(.+)$/);
+    if (mQueDit) {
+        const subjectPhrase = mQueDit[1] ? mQueDit[1].trim() : null;
+        let topic = mQueDit[2].replace(/[?!.]+$/, '').trim();
+        // Nettoyer les articles initiaux (le, la, les, l')
+        topic = topic.replace(/^(?:l |le |la |les |des |du |de |d )/, '').trim();
+        return { type: 'course_query', subjectPhrase, topic, rawQuery: raw };
+    }
+
+    // 4. « cherche <mot> dans mes cours », « cherche <mot> dans mes documents », « cherche <mot> », « recherche <mot> dans mes cours »
+    const mCherche = t.match(/\b(?:cherche|chercher|recherche|rechercher|trouve|trouver)\s+(.+?)(?:\s+dans\s+(?:mes |les )?(?:cours|documents))?$/);
+    if (mCherche) {
+        let topic = mCherche[1].replace(/\s+dans (?:mes |les )?(?:cours|documents).*$/, '').replace(/[?!.]+$/, '').trim();
+        topic = topic.replace(/^(?:l |le |la |les |des |du |de |d )/, '').trim();
+        if (topic.length >= 2 && !topic.startsWith('a ') && !topic.startsWith('de ')) {
+            return { type: 'course_search', topic, rawQuery: raw };
+        }
+    }
+
+    return null;
+}
