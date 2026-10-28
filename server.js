@@ -48,6 +48,31 @@ const server = http.createServer((request, response) => {
 
     // 2.5 Endpoint de configuration locale (clé API lue depuis api_key.txt, .env ou GEMINI_API_KEY)
     if (decodedPath === '/api/config/key') {
+        const hostHeader = String(request.headers['host'] || '').trim();
+        const hostHostname = (hostHeader.split(':')[0] || '').toLowerCase();
+        if (hostHostname !== '127.0.0.1' && hostHostname !== 'localhost') {
+            response.writeHead(403, { 'Content-Type': 'text/plain', ...SECURITY_HEADERS });
+            response.end('403 Forbidden: Accès non autorisé', 'utf-8');
+            return;
+        }
+
+        const originHeader = request.headers['origin'];
+        if (originHeader) {
+            try {
+                const parsedOrigin = new URL(originHeader);
+                const originHostname = parsedOrigin.hostname.toLowerCase();
+                if (originHostname !== '127.0.0.1' && originHostname !== 'localhost') {
+                    response.writeHead(403, { 'Content-Type': 'text/plain', ...SECURITY_HEADERS });
+                    response.end('403 Forbidden: Accès non autorisé', 'utf-8');
+                    return;
+                }
+            } catch (_) {
+                response.writeHead(403, { 'Content-Type': 'text/plain', ...SECURITY_HEADERS });
+                response.end('403 Forbidden: Accès non autorisé', 'utf-8');
+                return;
+            }
+        }
+
         let apiKey = null;
         if (process.env.GEMINI_API_KEY) {
             apiKey = process.env.GEMINI_API_KEY.trim();
