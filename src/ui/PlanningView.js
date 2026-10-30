@@ -521,12 +521,6 @@ export class PlanningView {
             <div class="bureau-nav-item" data-view="chat" style="display:flex; align-items:center; gap:12px; cursor:pointer; padding:12px 15px; color:var(--text-muted); font-weight:500;">
                 <i class="bi bi-robot" style="font-size:18px;"></i> Coach
             </div>
-            <div class="bureau-nav-item" data-view="dashboard" style="display:flex; align-items:center; gap:12px; cursor:pointer; padding:12px 15px; color:var(--text-muted); font-weight:500;">
-                <i class="bi bi-speedometer2" style="font-size:18px;"></i> Tableau de bord
-            </div>
-            <div class="bureau-nav-item" data-view="weekly" style="display:flex; align-items:center; gap:12px; cursor:pointer; padding:12px 15px; color:var(--text-muted); font-weight:500;">
-                <i class="bi bi-journal-check" style="font-size:18px;"></i> Hebdo
-            </div>
         </div>
     </div>
 

@@ -63,12 +63,6 @@ export class CoachChatView {
             <div class="bureau-nav-item active" data-view="chat" style="display:flex; align-items:center; gap:12px; cursor:pointer; background:rgba(14, 165, 233, 0.1); border-left:4px solid var(--accent-primary); border-radius:0 8px 8px 0; padding:12px 15px 12px 11px; color:var(--text-main); font-weight:600;">
                 <i class="bi bi-robot" style="font-size:18px; color:var(--accent-primary);"></i> Coach
             </div>
-            <div class="bureau-nav-item" data-view="dashboard" style="display:flex; align-items:center; gap:12px; cursor:pointer; padding:12px 15px; color:var(--text-muted); font-weight:500;">
-                <i class="bi bi-speedometer2" style="font-size:18px;"></i> Tableau de bord
-            </div>
-            <div class="bureau-nav-item" data-view="weekly" style="display:flex; align-items:center; gap:12px; cursor:pointer; padding:12px 15px; color:var(--text-muted); font-weight:500;">
-                <i class="bi bi-journal-check" style="font-size:18px;"></i> Hebdo
-            </div>
         </div>
     </div>
 

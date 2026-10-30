@@ -1,10 +1,8 @@
-import { DashboardView } from '../ui/DashboardView.js?v=99';
 import { DesktopView } from '../ui/DesktopView.js?v=101';
 import { AcademicView } from '../ui/AcademicView.js?v=102';
 import { PlanningView } from '../ui/PlanningView.js?v=101';
 import { FocusView } from '../ui/FocusView.js?v=10';
 import { BilanView } from '../ui/BilanView.js?v=4';
-import { WeeklyView } from '../ui/WeeklyView.js';
 import { CoachChatView } from '../ui/CoachChatView.js?v=3';
 import { LifeView } from '../ui/LifeView.js?v=99';
 import { LanguageView } from '../ui/LanguageView.js?v=99';
@@ -18,12 +16,9 @@ export class Router {
             academic: new AcademicView(containerId, app),
             life: new LifeView(containerId, app),
             languages: new LanguageView(containerId, app),
-            coach: new DashboardView(containerId, app),
-            dashboard: new DashboardView(containerId, app),
             planning: new PlanningView(containerId, app),
             focus: new FocusView(containerId, app),
             bilan: new BilanView(containerId, app),
-            weekly: new WeeklyView(containerId, app),
             chat: new CoachChatView(containerId, app)
         };
     }
@@ -61,7 +56,7 @@ export class Router {
         if (viewName === 'calendar') {
             resolvedViewName = 'planning';
         }
-        if (viewName === 'portfolio') {
+        if (viewName === 'portfolio' || viewName === 'dashboard' || viewName === 'weekly' || viewName === 'coach') {
             resolvedViewName = 'desktop';
         }
         if (!this.views[resolvedViewName]) {
@@ -78,7 +73,6 @@ export class Router {
             if (resolvedViewName === 'bilan') data = { summary: state.dailySummary, checkIn: state.todayCheckIn, stats: state.dailyStats };
             if (resolvedViewName === 'desktop') data = state;
             if (resolvedViewName === 'academic') data = state;
-            if (resolvedViewName === 'weekly') data = state.weeklySummary;
             if (resolvedViewName === 'chat') {
                 const messages = await this.app.chatHistoryEngine.getConversation('default');
                 if (this.currentRenderToken === renderToken) {

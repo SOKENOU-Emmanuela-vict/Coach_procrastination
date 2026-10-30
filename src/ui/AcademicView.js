@@ -318,12 +318,6 @@ export class AcademicView {
             <div class="bureau-nav-item" data-view="chat">
                 <i class="bi bi-robot"></i> <span>Coach</span>
             </div>
-            <div class="bureau-nav-item" data-view="dashboard">
-                <i class="bi bi-speedometer2"></i> <span>Tableau de bord</span>
-            </div>
-            <div class="bureau-nav-item" data-view="weekly">
-                <i class="bi bi-journal-check"></i> <span>Hebdo</span>
-            </div>
         </nav>
     </aside>
 

@@ -19,6 +19,8 @@ export class DesktopView {
         const insightsList = Array.isArray(state.coachInsights) ? state.coachInsights : [];
         const mainInsight = insightsList.find(r => r && r.message && r.title !== 'Créneau de disponibilité') || null;
         const coachMessage = escapeHtml(mainInsight ? mainInsight.message : 'Salut ! Je suis là si tu as besoin d\'aide pour t\'organiser.').replace(/\n/g, '<br>');
+        const rawReminder = state.lastCoachReminder || (mainInsight ? mainInsight.message : "Aucun rappel en attente. Tout est calme !");
+        const coachReminderText = escapeHtml(rawReminder).replace(/\n/g, '<br>');
 
         // Sommeil du bilan : { durationMinutes, quality }
         const sleepMinutes = state.todayCheckIn?.sleep?.durationMinutes || 0;
@@ -68,12 +70,6 @@ export class DesktopView {
             </div>
             <div class="bureau-nav-item" data-view="chat">
                 <i class="bi bi-robot"></i> Coach
-            </div>
-            <div class="bureau-nav-item" data-view="dashboard">
-                <i class="bi bi-speedometer2"></i> Tableau de bord
-            </div>
-            <div class="bureau-nav-item" data-view="weekly">
-                <i class="bi bi-journal-check"></i> Hebdo
             </div>
         </nav>
 
@@ -326,7 +322,22 @@ export class DesktopView {
                 </div>
             </div>
 
-            <!-- 8. LE COACH -->
+            <!-- 8. RAPPELS DU COACH -->
+            <div class="card bureau-coach-reminders-card" id="desktop-coach-reminders" data-view="chat" style="cursor: pointer;" title="Ouvrir le coach">
+                <div class="card-header" style="display: flex; justify-content: space-between; align-items: center;">
+                    <h3 class="card-title bureau-card-title-icon">
+                        <i class="bi bi-bell"></i> Rappels du coach
+                    </h3>
+                    <span class="badge" style="font-size: 11px;">Chat &rarr;</span>
+                </div>
+                <div class="card-body">
+                    <p class="bureau-coach-reminder-text" style="display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; margin: 0; line-height: 1.4; color: var(--text-main);">
+                        ${coachReminderText}
+                    </p>
+                </div>
+            </div>
+
+            <!-- 9. LE COACH -->
             <div class="bureau-coach-card">
                 <div class="bureau-coach-header">
                     <h3 class="card-title"><i class="bi bi-chat-quote"></i> Le Coach</h3>
@@ -418,6 +429,13 @@ export class DesktopView {
                 }
             });
         });
+
+        const coachRemindersCard = this.container.querySelector('#desktop-coach-reminders');
+        if (coachRemindersCard) {
+            coachRemindersCard.addEventListener('click', () => {
+                if (this.app.renderView) this.app.renderView('chat');
+            });
+        }
 
         const btnCourse = this.container.querySelector('#btn-desktop-course');
         if (btnCourse) {

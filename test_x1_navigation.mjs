@@ -11,8 +11,8 @@ import { Router } from './src/core/Router.js';
 import { DesktopView } from './src/ui/DesktopView.js';
 import { PlanningView } from './src/ui/PlanningView.js';
 // CalendarView fusionné dans PlanningView
-import { DashboardView } from './src/ui/DashboardView.js';
-import { WeeklyView } from './src/ui/WeeklyView.js';
+// DashboardView retiré
+// WeeklyView retiré
 // PortfolioView supprimé
 import { FocusView } from './src/ui/FocusView.js';
 
@@ -245,8 +245,9 @@ async function testNavigation() {
     const viewsAvailable = navItems.map(n => n.getAttribute('data-view')).filter(Boolean);
 
     assert(viewsAvailable.includes('planning'), "Planning accessible en 1 clic dans la barre latérale (fusionné avec Calendrier)");
-    assert(viewsAvailable.includes('dashboard'), "Tableau de bord accessible en 1 clic dans la barre latérale");
-    assert(viewsAvailable.includes('weekly'), "Hebdo accessible en 1 clic dans la barre latérale");
+    assert(!viewsAvailable.includes('dashboard'), "Tableau de bord retiré de la barre latérale");
+    assert(!viewsAvailable.includes('weekly'), "Hebdo retiré de la barre latérale");
+    assert(mockContainer.innerHTML.includes('id="desktop-coach-reminders"'), "Bloc Rappels du coach présent sur le Bureau");
     assert(mockContainer.innerHTML.includes('id="btn-backup-modal"'), "Bouton Sauvegarde accessible en 1 clic depuis le Bureau");
     assert(viewsAvailable.includes('planning'), "Planning accessible en 1 clic dans la barre latérale");
     assert(viewsAvailable.includes('academic'), "École accessible en 1 clic dans la barre latérale");
@@ -259,13 +260,13 @@ async function testNavigation() {
     await app.renderView('calendar');
     assert(mockContainer.innerHTML.includes('PLANNING'), "Navigation 'calendar' redirige vers Planning fusionné");
 
-    // 3.2 Tableau de bord
+    // 3.2 Tableau de bord (redirigé vers Bureau)
     await app.renderView('dashboard');
-    assert(mockContainer.innerHTML.includes('Poste de Pilotage') && mockContainer.innerHTML.includes('btn-dash-desktop'), "Tableau de bord se rend avec bouton retour Bureau");
+    assert(mockContainer.innerHTML.includes('Bonjour, '), "Navigation 'dashboard' redirige vers Bureau");
 
-    // 3.3 Hebdo (Weekly)
+    // 3.3 Hebdo (Weekly) (redirigé vers Bureau)
     await app.renderView('weekly');
-    assert(mockContainer.innerHTML.includes('Weekly Review') && mockContainer.innerHTML.includes('btn-weekly-desktop'), "Hebdo se rend avec bouton retour Bureau");
+    assert(mockContainer.innerHTML.includes('Bonjour, '), "Navigation 'weekly' redirige vers Bureau");
 
     // 3.4 Portfolio redirigé vers Bureau avec bouton Sauvegarde
     await app.renderView('portfolio');

@@ -25,10 +25,11 @@ global.document = {
     querySelectorAll: () => []
 };
 
+const { App } = await import('./src/core/App.js');
 const { DesktopView } = await import('./src/ui/DesktopView.js');
 const { LifeView } = await import('./src/ui/LifeView.js');
 // PortfolioView supprimé
-const { WeeklyView } = await import('./src/ui/WeeklyView.js');
+// WeeklyView retiré
 const { BilanView } = await import('./src/ui/BilanView.js');
 const { FocusView } = await import('./src/ui/FocusView.js');
 
@@ -133,33 +134,19 @@ console.log("\n[3] Test Sauvegarde sur Bureau (ex-Portfolio)");
     console.log("  ✔ Sauvegarde Bureau validée (remplace Portfolio sans perte de données)");
 }
 
-// 4. Weekly (WeeklyView)
-console.log("\n[4] Test WeeklyView sans données inventées");
+// 4. Bilan hebdomadaire local sans données inventées (ex-WeeklyView)
+console.log("\n[4] Test bilan hebdomadaire local sans données inventées");
 {
-    const container = createMockContainer('weekly-container');
-    const app = {};
-    const view = new WeeklyView('weekly-container', app);
-    view.container = container;
-
-    // Rendu état sans sommeil ni résumés
-    view.render({
-        execution: {},
-        trends: { lowEnergyDays: 0, averageSleep: null },
-        dailySummaries: []
-    });
-
-    assert.strictEqual(container.innerHTML.includes('Sommeil moyen : <strong style="color:#fff;">Non renseigné</strong>'), true, "WeeklyView affiche 'Non renseigné' au lieu de '0 h' quand le sommeil n'a pas été mesuré");
-    assert.strictEqual(container.innerHTML.includes('Aucun résumé de journée enregistré pour cette semaine.'), true, "WeeklyView affiche l'état vide explicite pour les jours");
-
-    // Rendu avec données réelles
-    view.render({
-        execution: { actualDuration: 120, plannedDuration: 180, completionRate: 67 },
-        trends: { lowEnergyDays: 1, averageSleep: 450 },
-        dailySummaries: [{ date: '2026-10-12', completionRate: 80, energy: 'high' }]
-    });
-    assert.strictEqual(container.innerHTML.includes('7.5 h'), true, "WeeklyView affiche la vraie moyenne de sommeil calculée");
-    assert.strictEqual(container.innerHTML.includes('📅 2026-10-12'), true, "WeeklyView affiche les résumés journaliers réels");
-    console.log("  ✔ WeeklyView validé (sommeil moyen et jours sans données corrigés)");
+    const mockStorage = {
+        data: {},
+        loadData: async (k) => mockStorage.data[k] || null,
+        saveData: async (k, v) => { mockStorage.data[k] = v; }
+    };
+    const app = new App(mockStorage);
+    const summary = await app.computeLocalWeeklySummary(new Date("2026-10-30"));
+    assert.strictEqual(typeof summary.text === "string" && summary.text.length > 0, true, "Bilan hebdo produit un texte");
+    assert.strictEqual(summary.text.includes("Cette semaine, tu as accompli"), true, "Bilan hebdo formule l'activité réelle");
+    console.log("  ✔ Bilan hebdomadaire validé (sans données inventées)");
 }
 
 // 5. Bilan (BilanView)

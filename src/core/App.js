@@ -355,6 +355,11 @@ export class App {
             conflicts.push(...dayConflicts);
         }
 
+        let weeklySummary = null;
+        try {
+            weeklySummary = await this.computeLocalWeeklySummary(dToday);
+        } catch (_) {}
+
         return {
             userProfile: this.state.userProfile,
             academicSummary: this.state.academicSummary,
@@ -376,6 +381,8 @@ export class App {
             analytics: { ...this.state.analytics, presenceStats },
             currentDate: localDate,
             chatHistory: chatHistory,
+            weeklySummary,
+            weeklyCounters: await this.getWeeklyCounters(),
             options: { useLLM },
             courses: {
                 progress: (courseProgress && courseProgress.items) || [],
@@ -629,6 +636,12 @@ export class App {
     }
 
     async _sayCoach(content, metadata = {}) {
+        if (this.state) {
+            this.state.lastCoachReminder = content;
+        }
+        try {
+            await this.storage.saveData('last_coach_reminder', { text: content, date: this._todayStr(), recordedAt: new Date().toISOString() });
+        } catch (_) {}
         return this.chatHistoryEngine.saveMessage({ role: 'assistant', content, conversationId: 'default', metadata });
     }
 
@@ -1128,10 +1141,143 @@ export class App {
         return false;
     }
 
+    getIsoWeek(date = this.clock()) {
+        const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+        const dayNum = d.getUTCDay() || 7;
+        d.setUTCDate(d.getUTCDate() + 4 - dayNum);
+        const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+        const weekNo = Math.ceil((((d - yearStart) / 86400000) + 1) / 7);
+        return `${d.getUTCFullYear()}-W${String(weekNo).padStart(2, '0')}`;
+    }
+
+    async getWeeklyCounters() {
+        const data = await this.storage.loadData('weekly_counters');
+        return Array.isArray(data) ? data : [];
+    }
+
+    async recordWeeklyCounters(weekData) {
+        if (!weekData || !weekData.week) return [];
+        const counters = await this.getWeeklyCounters();
+        const existingIdx = counters.findIndex(c => c.week === weekData.week);
+        const entry = {
+            ...weekData,
+            recordedAt: weekData.recordedAt || new Date().toISOString()
+        };
+        if (existingIdx !== -1) {
+            counters[existingIdx] = { ...counters[existingIdx], ...entry };
+        } else {
+            counters.push(entry);
+        }
+        counters.sort((a, b) => a.week.localeCompare(b.week));
+        // Rétention glissante sur 52 semaines
+        const trimmed = counters.slice(-52);
+        await this.storage.saveData('weekly_counters', trimmed);
+        return trimmed;
+    }
+
+    async computeLocalWeeklySummary(now = this.clock()) {
+        const d = new Date(now);
+        const day = d.getDay();
+        const diffToMonday = d.getDate() - day + (day === 0 ? -6 : 1);
+        const monday = new Date(d.getFullYear(), d.getMonth(), diffToMonday);
+        const sunday = new Date(monday.getFullYear(), monday.getMonth(), monday.getDate() + 6);
+        const pad = n => String(n).padStart(2, '0');
+        const toYmd = dt => `${dt.getFullYear()}-${pad(dt.getMonth() + 1)}-${pad(dt.getDate())}`;
+        const mondayStr = toYmd(monday);
+        const sundayStr = toYmd(sunday);
+        const currentWeekKey = this.getIsoWeek(now);
+
+        // 1. Sessions faites
+        const history = (this.studyRecordEngine && typeof this.studyRecordEngine.getFullHistory === 'function')
+            ? (await this.studyRecordEngine.getFullHistory()) || []
+            : (await this.storage.loadData('study_history')) || [];
+        const weekHistory = history.filter(r => r && r.date >= mondayStr && r.date <= sundayStr);
+
+        let completedEvents = [];
+        if (this.planningEngine && typeof this.planningEngine.getEvents === 'function') {
+            const allEvs = (await this.planningEngine.getEvents()) || [];
+            completedEvents = allEvs.filter(e => e && e.date >= mondayStr && e.date <= sundayStr && (e.completed === true || e.status === 'completed' || e.status === 'done' || e.status === 'faite'));
+        }
+
+        const sessionsDone = Math.max(weekHistory.length, completedEvents.length);
+        const focusMinutes = weekHistory.reduce((acc, r) => acc + (r.actualDuration || r.plannedDuration || 0), 0)
+            || completedEvents.reduce((acc, e) => acc + (e.targetDuration || e.duration || 45), 0);
+
+        // 2. Tâches faites et retards
+        let tasksDone = 0;
+        let overdueCount = 0;
+        if (this.projectEngine && typeof this.projectEngine.getPersonalTasks === 'function') {
+            const tasks = (await this.projectEngine.getPersonalTasks()) || [];
+            tasksDone = tasks.filter(t => t && (t.status === 'faite' || t.status === 'done' || t.status === 'completed' || t.completed === true)).length;
+            overdueCount = tasks.filter(t => t && t.status !== 'faite' && t.status !== 'done' && t.status !== 'completed' && !t.completed && t.dueDate && t.dueDate < sundayStr).length;
+        }
+
+        // 3. Tendance vs semaine précédente
+        const counters = await this.getWeeklyCounters();
+        const prevDate = new Date(d.getTime() - 7 * 86400000);
+        const prevWeekKey = this.getIsoWeek(prevDate);
+        const prevEntry = counters.find(c => c.week === prevWeekKey) || null;
+
+        // 4. Phrases claires
+        const sentence1 = `Cette semaine, tu as accompli ${sessionsDone} séance${sessionsDone > 1 ? 's' : ''} et validé ${tasksDone} tâche${tasksDone > 1 ? 's' : ''}${focusMinutes > 0 ? ` (${focusMinutes} min de travail)` : ''}.`;
+
+        let sentence2 = '';
+        if (prevEntry) {
+            const diff = sessionsDone - (prevEntry.sessionsDone || 0);
+            if (diff > 0) {
+                sentence2 = `C'est en progression par rapport à la semaine dernière (+${diff} séance${diff > 1 ? 's' : ''}).`;
+            } else if (diff < 0) {
+                sentence2 = `C'est un peu moins que la semaine dernière (${prevEntry.sessionsDone} séance${prevEntry.sessionsDone > 1 ? 's' : ''}), veille à garder un rythme régulier.`;
+            } else {
+                sentence2 = `Ton volume de travail est stable par rapport à la semaine dernière (${sessionsDone} séance${sessionsDone > 1 ? 's' : ''}).`;
+            }
+        } else {
+            sentence2 = `C'est ta première semaine de suivi enregistrée avec ce volume de travail.`;
+        }
+
+        let sentence3 = '';
+        if (overdueCount > 0) {
+            sentence3 = `Point à travailler : tu as ${overdueCount} tâche${overdueCount > 1 ? 's' : ''} en retard, commence la semaine prochaine par les apurer.`;
+        } else if (sessionsDone >= 3 || tasksDone >= 3) {
+            sentence3 = `Point fort : une belle régularité et une bonne dynamique de travail tout au long de la semaine.`;
+        } else {
+            sentence3 = `Point fort : le cadre est en place, pense à planifier tes créneaux de travail dès le début de la semaine prochaine.`;
+        }
+
+        const text = `${sentence1} ${sentence2} ${sentence3}`;
+
+        await this.recordWeeklyCounters({
+            week: currentWeekKey,
+            startDate: mondayStr,
+            endDate: sundayStr,
+            tasksDone,
+            sessionsDone,
+            focusMinutes,
+            summaryText: text
+        });
+
+        return {
+            week: currentWeekKey,
+            startDate: mondayStr,
+            endDate: sundayStr,
+            sessionsDone,
+            tasksDone,
+            focusMinutes,
+            sentence1,
+            sentence2,
+            sentence3,
+            text
+        };
+    }
+
     /**
      * Messages proactifs du coach, au plus une fois par jour et par sujet (clé de stockage 'coach_nudges') :
      *  - emploi du temps de la semaine à importer (le dimanche : semaine suivante) ;
      *  - rappel de chaque évaluation à venir (≤ 14 jours) jusqu'au jour J, avec proposition des révisions manquantes ;
+     *  - rappels spécifiques J-14 et J-7 pour les examens ;
+     *  - rappel de fin de journée si des tâches/séances prévues restent non cochées ;
+     *  - rappel si des tâches sont en retard ;
+     *  - bilan hebdo du dimanche calculé localement sans clé Gemini ;
      *  - « As-tu des notes à me donner pour X ? » (évaluation passée sans note, cours terminé), redemandé tous les 3 jours.
      * @returns {Promise<number>} nombre de messages ajoutés
      */
@@ -1179,6 +1325,20 @@ export class App {
             }
         }
 
+        // --- NUDGE BILAN HEBDO DU DIMANCHE (LOCAL SANS GEMINI) ---
+        if (now.getDay() === 0) {
+            const keySun = `weekly_review_${today}`;
+            if (due(keySun)) {
+                mark(keySun);
+                const summary = await this.computeLocalWeeklySummary(now);
+                await this._sayCoach(`📊 Bilan de la semaine :\n${summary.text}`, {
+                    intent: null,
+                    proactive: 'weekly_review',
+                    weeklySummary: summary
+                });
+            }
+        }
+
         const subjects = (await this.academicEngine.getSubjects()) || [];
         const grades = (await this.academicEngine.getGrades()) || [];
         const upcoming = ((await this.academicEngine.getAssessments()) || [])
@@ -1186,11 +1346,26 @@ export class App {
                 && !grades.some(g => g.assessmentId === a.id && g.isFinal))
             .sort((a, b) => String(a.targetDate).localeCompare(String(b.targetDate)));
         for (const a of upcoming) {
+            const days = this._daysBetween(today, a.targetDate);
+            // Z4: Alertes explicites J-14 et J-7
+            if (days === 14) {
+                const key14 = `exam_j14_${a.id}`;
+                if (due(key14)) {
+                    mark(key14);
+                    await this._sayCoach(`Rappel examen (J-14) : ton évaluation « ${a.title} » a lieu dans deux semaines (le ${this._frDate(a.targetDate)}). C'est le moment d'entamer tes révisions !`, { intent: null, proactive: 'exam_j14', assessmentId: a.id });
+                }
+            } else if (days === 7) {
+                const key7 = `exam_j7_${a.id}`;
+                if (due(key7)) {
+                    mark(key7);
+                    await this._sayCoach(`⚠️ Rappel examen (J-7) : ton évaluation « ${a.title} » est dans une semaine (le ${this._frDate(a.targetDate)}). Vérifie que ton planning de révision est à jour.`, { intent: null, proactive: 'exam_j7', assessmentId: a.id });
+                }
+            }
+
             const key = `exam_${a.id}`;
             if (!due(key)) continue;
             mark(key);
             const subject = subjects.find(s => s.id === a.subjectId);
-            const days = this._daysBetween(today, a.targetDate);
             const when = days === 0 ? "aujourd'hui" : (days === 1 ? 'demain' : `dans ${days} jours`);
             const progress = (this.state.courseProgress.bySubject || {})[a.subjectId] || null;
             const planned = ((await this.planningEngine.getEventsForAssessment(a.id)) || []).filter(e => e.type === 'revision' && e.date >= today && e.date <= a.targetDate).length;
@@ -1303,24 +1478,38 @@ export class App {
             }
         }
 
-        // --- NUDGE TACHES DU JOUR ---
-        if (now.getHours() >= 18) {
-            const todayEvents = await this.planningEngine.getEventsForDate(today);
-            const personalEvents = todayEvents.filter(e => e.type === 'personal' && e.taskId);
-            if (personalEvents.length > 0 && this.projectEngine) {
-                const tasks = await this.projectEngine.getPersonalTasks();
-                for (const ev of personalEvents) {
-                    const t = tasks.find(x => x.id === ev.taskId);
-                    if (t && t.status === 'planifiée') {
-                        const key = `task_followup_${t.id}_${today}`;
-                        if (due(key)) {
-                            mark(key);
-                            await this._sayCoach(`Tu avais prévu de "${t.title}" aujourd'hui. C'est fait ? (oui/non)`, {
-                                intent: null, proactive: 'task', pendingTaskFollowUp: { task: t }
-                            });
-                            break; // Une seule tâche à la fois
-                        }
-                    }
+        // --- NUDGE TACHES DU JOUR (après 17h) ---
+        if (now.getHours() >= 17) {
+            const todayEvents = (await this.planningEngine.getEventsForDate(today)) || [];
+            const remainingEvents = todayEvents.filter(e => e && e.completed !== true && e.status !== 'completed' && e.status !== 'done' && e.status !== 'faite');
+            let remainingTasks = [];
+            if (this.projectEngine && typeof this.projectEngine.getPersonalTasks === 'function') {
+                const allPTasks = (await this.projectEngine.getPersonalTasks()) || [];
+                remainingTasks = allPTasks.filter(t => t && t.dueDate === today && t.status !== 'faite' && t.status !== 'done' && t.status !== 'completed' && !t.completed && t.status !== 'cancelled');
+            }
+            const allRemaining = [...remainingEvents, ...remainingTasks];
+            if (allRemaining.length > 0) {
+                const keyRem = `tasks_remaining_${today}`;
+                if (due(keyRem)) {
+                    mark(keyRem);
+                    const titles = allRemaining.slice(0, 3).map(x => x.title || x.name || 'Séance');
+                    const msg = `Rappel de fin de journée : il te reste ${allRemaining.length} tâche(s)/séance(s) prévue(s) aujourd'hui (${titles.map(t => `« ${t} »`).join(', ')}). Pense à les terminer ou à les replanifier !`;
+                    await this._sayCoach(msg, { intent: null, proactive: 'remaining_tasks', remainingCount: allRemaining.length });
+                }
+            }
+        }
+
+        // --- NUDGE TACHES EN RETARD ---
+        if (this.projectEngine && typeof this.projectEngine.getPersonalTasks === 'function') {
+            const allPTasks = (await this.projectEngine.getPersonalTasks()) || [];
+            const overdue = allPTasks.filter(t => t && t.dueDate && t.dueDate < today && t.status !== 'faite' && t.status !== 'done' && t.status !== 'completed' && !t.completed && t.status !== 'cancelled');
+            if (overdue.length > 0) {
+                const keyOverdue = `tasks_overdue_${today}`;
+                if (due(keyOverdue, 1)) {
+                    mark(keyOverdue);
+                    const titles = overdue.slice(0, 3).map(t => t.title);
+                    const msg = `Rappel : tu as ${overdue.length} tâche(s) en retard (${titles.map(t => `« ${t} »`).join(', ')}). Prends quelques minutes pour les accomplir ou mettre à jour tes échéances.`;
+                    await this._sayCoach(msg, { intent: null, proactive: 'overdue_tasks', overdueCount: overdue.length });
                 }
             }
         }
@@ -1446,6 +1635,15 @@ export class App {
         this.state.coachInsights = insights;
         this.state.todayEvents = await this.planningEngine.getEventsForDate(localDate);
         await this.refreshCalendarData();
+
+        const lastRem = await this.storage.loadData('last_coach_reminder');
+        if (lastRem && lastRem.text) {
+            this.state.lastCoachReminder = lastRem.text;
+        } else if (!this.state.lastCoachReminder && this.chatHistoryEngine && typeof this.chatHistoryEngine.getRecentMessages === 'function') {
+            const recent = await this.chatHistoryEngine.getRecentMessages('default', 5);
+            const lastAssistant = recent.slice().reverse().find(m => m && m.role === 'assistant' && m.content);
+            if (lastAssistant) this.state.lastCoachReminder = lastAssistant.content;
+        }
 
         // --- SNAPSHOT JOURNALIER (Request B) ---
         if (this.snapshotEngine) {
@@ -1742,7 +1940,7 @@ export class App {
             ? await storage.getAllKeys()
             : ['study_history', 'user_profile', 'daily_checkins', 'events', 'availabilities', 'academic_schedule',
                'acad_years', 'acad_semesters', 'acad_subjects', 'acad_assessments', 'acad_grades',
-               'projects', 'user_habits', 'user_skills', 'chat_history', 'weekly_reviews'];
+               'projects', 'user_habits', 'user_skills', 'chat_history', 'weekly_reviews', 'weekly_counters', 'last_coach_reminder'];
         const exportData = { _meta: { app: 'coach_procrastination', format: 1, exportedAt: new Date().toISOString() } };
         for (const key of dbKeys) {
             const value = await storage.loadData(key);
@@ -1761,7 +1959,7 @@ export class App {
         }
         // Éliminer les clés de métadonnées et toute tentative d'injection de prototype de premier niveau
         const keys = Object.keys(importedData).filter(k => k !== '_meta' && k !== '__proto__' && k !== 'constructor' && k !== 'prototype');
-        const knownKeys = ['study_history', 'user_profile', 'daily_checkins', 'events', 'availabilities', 'acad_subjects', 'acad_assessments', 'acad_grades', 'chat_history'];
+        const knownKeys = ['study_history', 'user_profile', 'daily_checkins', 'events', 'availabilities', 'acad_subjects', 'acad_assessments', 'acad_grades', 'chat_history', 'weekly_counters'];
         if (keys.length === 0 || !keys.some(k => knownKeys.includes(k)) || keys.some(k => !/^[A-Za-z0-9_\-]+$/.test(k))) {
             throw new Error('format');
         }
@@ -2346,9 +2544,15 @@ export class App {
      */
     async _handleCheckInChat(text) {
         if (!text) return false;
+        const trimmed = text.trim();
+
+        // Le bilan de la semaine est traité par le Coach / CoachLocalReply, pas par le check-in quotidien
+        if (/\b(bilan\s+(de\s+la\s+semaine|hebdo(madaire)?)|resume\s+de\s+la\s+semaine)\b/i.test(trimmed)) {
+            return false;
+        }
+
         const today = this._todayStr();
         const pending = await this.storage.loadData('pending_checkin_conv');
-        const trimmed = text.trim();
 
         const isTrigger = /\b(faire\s+(mon\s+)?(check-?in|bilan)|daily\s+check-?in|bilan\s+du\s+jour|check-?in|mon\s+bilan|faire\s+le\s+bilan|reprendre\s+(le\s+)?bilan)\b/i.test(trimmed);
         const isPostpone = /\b(plus\s+tard|passer|reporter|reporte|pas\s+maintenant|snooze|later|skip)\b/i.test(trimmed);

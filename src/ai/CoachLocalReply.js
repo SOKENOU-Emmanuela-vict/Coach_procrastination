@@ -94,7 +94,27 @@ export class CoachLocalReply {
         if (!query) return null;
         const q = String(query).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[-_]/g, ' ').trim();
 
-        // 1. Qu'est-ce que j'ai aujourd'hui ? / mon planning d'aujourd'hui
+        // 1. Qu'est-ce qu'il me reste aujourd'hui ? / tâches restantes
+        if (/qu'?\s*est\s*ce\s*qu'?\s*il\s*(me\s*)?reste(\s+a\s+faire)?\s+aujourd'?\s*hui|que\s+me\s+reste\s*t\s*il\s*aujourd'?\s*hui|taches?\s+restantes?\s+(aujourd'?\s*hui|du\s+jour)|qu'?\s*il\s*me\s*reste\s*aujourd'?\s*hui|reste\s+aujourd'?\s*hui/.test(q)) {
+            return 'remaining_today';
+        }
+
+        // 2. Mon bilan de la semaine / bilan hebdo
+        if (/(mon\s+)?bilan\s+(de\s+la\s+semaine|hebdo(madaire)?)|resume\s+de\s+la\s+semaine|recapitulatif\s+de\s+la\s+semaine/.test(q)) {
+            return 'weekly_review';
+        }
+
+        // 3. Où j'en suis ? / synthèse globale
+        if (/ou\s+j'?\s*en\s+suis(\s*\?)?$|ou\s+en\s+suis\s*je|ma\s+synthese|mon\s+avancement\s+global|synthese\s+globale/.test(q)) {
+            return 'where_am_i';
+        }
+
+        // 4. Qu'est-ce que j'ai oublié ? / mes retards
+        if (/qu'?\s*est\s*ce\s*que\s*j'?\s*ai\s*oublie|mes\s+retards|taches?\s+en\s+retard|^retards?(\s*\?)?$/.test(q)) {
+            return 'overdue';
+        }
+
+        // 5. Qu'est-ce que j'ai aujourd'hui ? / mon planning d'aujourd'hui
         const hasToday = /\baujourd'?\s*hui\b/.test(q);
         const hasTodayActivity = /qu'?\s*est\s*ce\s*que\s*j'?\s*ai|je\s*fais\s*quoi|j'?\s*ai\s*quoi|programme|planning|cours|edt|emploi|seance|faire|preva?u/.test(q);
         if ((hasToday && (hasTodayActivity || q === "aujourd'hui" || q === "aujourd'hui ?")) || /planning\s+du\s+jour|programme\s+du\s+jour/.test(q)) {
@@ -366,8 +386,111 @@ export class CoachLocalReply {
             question = `Tu veux que je te propose une séance de révision pour ${exams[0]?.subjectName && exams[0]?.subjectName !== 'Unknown Subject' ? exams[0].subjectName : (exams[0]?.title || 'ton prochain examen')} ?`;
         }
 
-        // 1. Détection des 4 questions locales exactes
+        // 1. Détection des questions locales exactes
         const exactIntent = CoachLocalReply.detectExactIntent(query);
+
+        // 1.0.1 Tâches restantes du jour : Qu'est-ce qu'il me reste aujourd'hui ?
+        if (exactIntent === 'remaining_today') {
+            const allTodayEvents = [...sessions, ...(planning.events || []), ...(context.temporalEvents || [])];
+            const remainingEvents = allTodayEvents.filter(e => e && e.date === today && e.completed !== true && e.status !== 'completed' && e.status !== 'done' && e.status !== 'faite');
+            const remainingTasks = (tasks || []).filter(t => t && t.dueDate === today && t.status !== 'faite' && t.status !== 'done' && t.status !== 'completed' && !t.completed && t.status !== 'cancelled');
+
+            const uniqueLines = [];
+            const seen = new Set();
+            for (const e of remainingEvents) {
+                const key = `${e.startTime || ''}_${e.endTime || ''}_${e.title || ''}`;
+                if (!seen.has(key)) {
+                    seen.add(key);
+                    uniqueLines.push(`• ${e.startTime ? `${e.startTime}${e.endTime ? ` - ${e.endTime}` : ''} : ` : ''}${CoachLocalReply._short(e.title || e.name || 'Séance', 50)}`);
+                }
+            }
+            for (const t of remainingTasks) {
+                const key = `task_${t.id || t.title}`;
+                if (!seen.has(key)) {
+                    seen.add(key);
+                    uniqueLines.push(`• Tâche : ${CoachLocalReply._short(t.title, 50)}`);
+                }
+            }
+
+            let answerText = '';
+            if (uniqueLines.length > 0) {
+                answerText = `Il te reste aujourd'hui :\n${uniqueLines.join('\n')}`;
+            } else {
+                answerText = "Tu as tout terminé pour aujourd'hui ! Beau travail !";
+            }
+            const message = [statusLine, answerText].filter(Boolean).join('\n');
+            return {
+                message,
+                question: null,
+                facts: { topic: 'tasks', remainingCount: uniqueLines.length }
+            };
+        }
+
+        // 1.0.2 Mon bilan de la semaine (3 phrases claires, identique au message du dimanche)
+        if (exactIntent === 'weekly_review') {
+            let reviewText = '';
+            if (context.weeklySummary && context.weeklySummary.text) {
+                reviewText = context.weeklySummary.text;
+            } else {
+                const tasksDone = (tasks || []).filter(t => t && (t.status === 'faite' || t.status === 'done' || t.status === 'completed')).length;
+                reviewText = `Cette semaine, tu as accompli tes séances planifiées et validé ${tasksDone} tâche${tasksDone > 1 ? 's' : ''}. Ton niveau de travail est bien régulier par rapport à la semaine précédente. Point fort : une dynamique positive et engagée tout au long de la semaine.`;
+            }
+            const answerText = `📊 Bilan de la semaine :\n${reviewText}`;
+            const message = [statusLine, answerText].filter(Boolean).join('\n');
+            return {
+                message,
+                question: null,
+                facts: { topic: 'weekly_review', summary: reviewText }
+            };
+        }
+
+        // 1.0.3 Synthèse globale : Où j'en suis ?
+        if (exactIntent === 'where_am_i') {
+            const avg = context.academicSummary?.average?.value;
+            const avgText = typeof avg === 'number' ? `moyenne de ${avg.toFixed(1)}/20` : 'moyenne en cours de calcul';
+            const earnedCredits = context.academicSummary?.earnedCredits ?? 0;
+            const targetCredits = context.academicSummary?.cectStatus?.officialTotal || 30;
+            const examsCount = exams.length;
+
+            const userLangs = context.userLanguages || [];
+            let langSummary = 'aucune langue enregistrée';
+            if (userLangs.length > 0) {
+                langSummary = userLangs.map(l => `${l.name || l.title} (${l.level || 'A1'}, ${l.tracking?.sessionsCompleted || 0} séance${(l.tracking?.sessionsCompleted || 0) > 1 ? 's' : ''})`).join(', ');
+            }
+
+            const activeProjects = (context.projects || []).filter(p => p && p.status === 'active');
+            const remainingPersonalTasks = (tasks || []).filter(t => t && t.status !== 'faite' && t.status !== 'done' && t.status !== 'completed' && !t.completed && t.status !== 'cancelled');
+
+            const answerText = `Synthèse de ta progression :\n` +
+                `• École : ${avgText}, ${earnedCredits}/${targetCredits} crédits validés, ${examsCount} examen(s) à venir.\n` +
+                `• Langues : ${langSummary}.\n` +
+                `• Projets & Vie : ${activeProjects.length} projet(s) en cours, ${remainingPersonalTasks.length} tâche(s) restante(s).`;
+
+            const message = [statusLine, answerText].filter(Boolean).join('\n');
+            return {
+                message,
+                question: null,
+                facts: { topic: 'synthesis' }
+            };
+        }
+
+        // 1.0.4 Tâches en retard : Qu'est-ce que j'ai oublié ?
+        if (exactIntent === 'overdue') {
+            const overdue = (tasks || []).filter(t => t && t.dueDate && t.dueDate < today && t.status !== 'faite' && t.status !== 'done' && t.status !== 'completed' && !t.completed && t.status !== 'cancelled');
+            let answerText = '';
+            if (overdue.length > 0) {
+                const taskLines = overdue.map(t => `• « ${CoachLocalReply._short(t.title, 50)} » (échéance : ${t.dueDate})`);
+                answerText = `Tu as ${overdue.length} tâche${overdue.length > 1 ? 's' : ''} en retard :\n${taskLines.join('\n')}`;
+            } else {
+                answerText = "Tu n'as aucun retard ! Tout est à jour.";
+            }
+            const message = [statusLine, answerText].filter(Boolean).join('\n');
+            return {
+                message,
+                question: null,
+                facts: { topic: 'overdue', overdueCount: overdue.length }
+            };
+        }
 
         // 1.1 Question 1 : Qu'est-ce que j'ai aujourd'hui ?
         if (exactIntent === 'today') {
@@ -482,9 +605,9 @@ export class CoachLocalReply {
             };
         }
 
-        // 2. Question hors des 4 types SANS clé Gemini (mode local strict)
+        // 2. Question hors des types gérés SANS clé Gemini (mode local strict)
         if (llmStatus && llmStatus.code === 'NO_LLM') {
-            const answerText = "Je n'ai pas cette information dans tes données. En mode local sans clé Gemini, je peux te renseigner sur : ton planning du jour, ton prochain examen, ton suivi de langues et tes livres.";
+            const answerText = "Je n'ai pas cette information dans tes données. En mode local sans clé Gemini, je peux te renseigner sur : ton planning du jour, ce qu'il te reste aujourd'hui, ton bilan de la semaine, où tu en es, tes retards, ton prochain examen, ton suivi de langues et tes livres.";
             const message = [statusLine, answerText].filter(Boolean).join('\n');
             return {
                 message,

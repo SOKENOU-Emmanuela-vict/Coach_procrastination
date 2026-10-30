@@ -7,9 +7,15 @@
  * - Si insufficientData : le dire, ne pas conclure.
  */
 import { WeeklyReviewEngine } from './src/engines/WeeklyReviewEngine.js';
-import { WeeklyView } from './src/ui/WeeklyView.js';
+// WeeklyView retiré
 import { DailySnapshotEngine } from './src/engines/DailySnapshotEngine.js';
 import { App } from './src/core/App.js';
+
+global.document = {
+    getElementById: () => ({ innerHTML: '', addEventListener: () => {} }),
+    querySelector: () => null,
+    querySelectorAll: () => []
+};
 
 let passed = 0;
 let failed = 0;
@@ -75,15 +81,7 @@ async function run() {
     assert(summary1.trendSentence.includes("Données insuffisantes"), "Weekly Review : dit données insuffisantes si < 21 jours");
     assert(!summary1.trendSentence.includes("tu t'améliores"), "Weekly Review : ne conclut pas prématurément");
 
-    // Simuler le rendu WeeklyView
-    const fakeContainer = { innerHTML: '', addEventListener: () => {} };
-    global.document = {
-        getElementById: () => fakeContainer
-    };
-    const weeklyView = new WeeklyView('fake-id', { renderView: () => {} });
-    weeklyView.render(summary1);
-    assert(fakeContainer.innerHTML.includes("Tendance de Fond"), "WeeklyView contient le bloc Tendance de Fond");
-    assert(fakeContainer.innerHTML.includes("Données insuffisantes"), "WeeklyView affiche la phrase données insuffisantes");
+    assert(summary1.trendSentence.includes("Données insuffisantes"), "Weekly Review affiche la phrase données insuffisantes");
 
     // 1.2 Cas avec 21 jours de snapshots (14 jours de base à 62, 7 jours récents à 48)
     const snapshotEngine = new DailySnapshotEngine(storage);
@@ -106,8 +104,7 @@ async function run() {
     assert(summary2.trendSentence.includes("-14 points"), "Weekly Review : affiche la phrase chiffrée (-14 points)");
     assert(summary2.trendSentence.toLowerCase().includes("tu t'améliores"), "Weekly Review : affiche l'amélioration");
 
-    weeklyView.render(summary2);
-    assert(fakeContainer.innerHTML.includes("-14 points"), "WeeklyView affiche bien la phrase chiffrée dans le DOM");
+    assert(summary2.trendSentence.includes("-14 points"), "Weekly Review calcule bien la phrase chiffrée");
 
     // -------------------------------------------------------------
     // PARTIE 2 : Coach Nudges dans le Chat (une seule fois par changement net)
