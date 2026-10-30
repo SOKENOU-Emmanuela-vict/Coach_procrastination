@@ -17,11 +17,19 @@ export class ProjectEngine {
 
     async saveProject(project) {
         const projects = await this.getProjects();
-        const index = projects.findIndex(p => p.id === project.id);
-        if (index !== -1) projects[index] = project;
-        else projects.push(project);
+        const toSave = project instanceof Project ? project : new Project(project);
+        const index = projects.findIndex(p => p.id === toSave.id);
+        if (index !== -1) {
+            if (projects[index].subjectId && !toSave.subjectId) {
+                toSave.subjectId = projects[index].subjectId;
+            }
+            projects[index] = toSave;
+        } else {
+            projects.push(toSave);
+        }
         await this.storage.saveData('projects', projects);
-        AppLogger.info(`ProjectEngine: Projet ${project.id} sauvegardé.`);
+        AppLogger.info(`ProjectEngine: Projet ${toSave.id} sauvegardé.`);
+        return toSave;
     }
 
     async deleteProject(id) {

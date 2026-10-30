@@ -1612,6 +1612,25 @@ export class App {
         return true;
     }
 
+    async refreshProjects() {
+        if (!this.projectEngine) return [];
+        this.state.projects = await this.projectEngine.getProjects();
+        return this.state.projects;
+    }
+
+    async saveProject(projectData) {
+        if (!this.projectEngine) return null;
+        const project = await this.projectEngine.saveProject(projectData);
+        await this.refreshProjects();
+        return project;
+    }
+
+    async deleteProject(id) {
+        if (!this.projectEngine) return;
+        await this.projectEngine.deleteProject(id);
+        await this.refreshProjects();
+    }
+
     async clearAcademicExample() {
         if (!this.academicEngine) return false;
         if (typeof this.academicEngine.clearAllData === 'function') {

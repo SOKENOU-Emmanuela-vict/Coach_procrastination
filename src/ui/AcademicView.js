@@ -1,5 +1,6 @@
 import { escapeHtml } from '../utils/html.js';
 import { DocumentsModal } from './DocumentsModal.js';
+import { Project } from '../models/Project.js';
 
 export class AcademicView {
     constructor(containerId, app) {
@@ -25,6 +26,7 @@ export class AcademicView {
         const allSemesters = state.academicSemesters || [];
         const allAssessments = state.academicAssessments || [];
         const allGrades = state.academicGrades || [];
+        const allProjects = state.projects || [];
 
         // Build list of semesters to display
         let semestersToDisplay = [];
@@ -169,6 +171,123 @@ export class AcademicView {
             }).join('');
         };
 
+        const renderProjectsAndStages = () => {
+            if (allProjects.length === 0) {
+                return `
+                <div id="projects-empty-state" class="academic-empty-container">
+                    <div class="academic-empty-icon">📁</div>
+                    <h3 class="academic-empty-title">Aucun projet ou stage</h3>
+                    <p class="academic-empty-desc">
+                        Crée un projet personnel ou ajoute un stage pour suivre tes étapes, durées et objectifs en toute autonomie.
+                    </p>
+                    <div class="academic-empty-actions">
+                        <button id="btn-empty-add-project" class="btn btn-primary btn-sm">
+                            <i class="bi bi-plus-circle"></i> + Nouveau Projet
+                        </button>
+                        <button id="btn-empty-add-stage" class="btn btn-secondary btn-sm">
+                            <i class="bi bi-briefcase"></i> + Nouveau Stage
+                        </button>
+                    </div>
+                </div>
+                `;
+            }
+
+            return `
+            <div class="academic-subjects-grid">
+                ${allProjects.map(p => {
+                    const isStage = p.type === 'stage' || (p.location && p.location.trim().length > 0);
+                    const typeLabel = isStage ? 'Stage' : 'Projet';
+                    const typeIcon = isStage ? 'bi-briefcase' : 'bi-kanban';
+                    const statusLabel = p.status === 'completed' ? 'Terminé' : (p.status === 'paused' ? 'En pause' : 'En cours');
+                    const tasks = p.tasks || p.steps || [];
+                    const doneTasksCount = tasks.filter(t => t.status === 'done' || t.completed === true).length;
+                    const progress = tasks.length > 0 ? Math.round((doneTasksCount / tasks.length) * 100) : (p.progress || 0);
+
+                    return `
+                    <article class="academic-subject-card project-card" data-project-id="${p.id}">
+                        <div class="academic-card-tools">
+                            <button class="academic-btn-icon btn-edit-project" data-id="${p.id}" title="Modifier">
+                                <i class="bi bi-pencil-square"></i>
+                            </button>
+                            <button class="academic-btn-icon danger btn-delete-project" data-id="${p.id}" title="Supprimer">
+                                <i class="bi bi-trash"></i>
+                            </button>
+                        </div>
+
+                        <div>
+                            <span class="academic-subject-meta">
+                                <i class="bi ${typeIcon}"></i> ${typeLabel} • <span class="academic-assessment-badge">${statusLabel}</span>
+                            </span>
+                            <h4 class="academic-subject-title">${escapeHtml(p.title || 'Sans titre')}</h4>
+                        </div>
+
+                        <!-- Métadonnées autonomes : Dates, Durée, Lieu -->
+                        <div class="project-autonomous-meta">
+                            ${(p.startDate || p.endDate || p.targetDate) ? `
+                                <div class="project-meta-row">
+                                    <i class="bi bi-calendar-event"></i>
+                                    <span>${p.startDate ? escapeHtml(p.startDate) : 'Début'} → ${escapeHtml(p.endDate || p.targetDate || 'Non fixée')}</span>
+                                </div>
+                            ` : ''}
+                            ${p.duration ? `
+                                <div class="project-meta-row">
+                                    <i class="bi bi-clock-history"></i>
+                                    <span>${escapeHtml(p.duration)}</span>
+                                </div>
+                            ` : ''}
+                            ${p.location ? `
+                                <div class="project-meta-row">
+                                    <i class="bi bi-geo-alt"></i>
+                                    <span>${escapeHtml(p.location)}</span>
+                                </div>
+                            ` : ''}
+                        </div>
+
+                        <!-- Notes libres -->
+                        ${(p.notes || p.description) ? `
+                            <div class="project-free-notes">
+                                <p>${escapeHtml(p.notes || p.description)}</p>
+                            </div>
+                        ` : ''}
+
+                        <!-- Section Étapes autonomes -->
+                        <div class="project-steps-section">
+                            <div class="project-steps-header">
+                                <span class="academic-subject-meta">Étapes (${doneTasksCount}/${tasks.length}) • ${progress}%</span>
+                            </div>
+                            <div class="project-progress-bar-bg">
+                                <div class="project-progress-bar-fill" style="width: ${progress}%;"></div>
+                            </div>
+                            <div class="project-steps-list">
+                                ${tasks.map(t => {
+                                    const isDone = t.status === 'done' || t.completed === true;
+                                    return `
+                                    <div class="project-step-item ${isDone ? 'done' : ''}">
+                                        <label class="project-step-label">
+                                            <input type="checkbox" class="step-toggle-checkbox" data-project-id="${p.id}" data-step-id="${t.id}" ${isDone ? 'checked' : ''}>
+                                            <span class="project-step-text">${escapeHtml(t.title || '')}</span>
+                                        </label>
+                                        <button class="academic-btn-icon danger btn-delete-step" data-project-id="${p.id}" data-step-id="${t.id}" title="Supprimer l'étape">
+                                            <i class="bi bi-x"></i>
+                                        </button>
+                                    </div>
+                                    `;
+                                }).join('')}
+                            </div>
+                            <form class="form-add-step" data-project-id="${p.id}">
+                                <input type="text" class="input-step-title form-input" placeholder="+ Ajouter une étape..." required>
+                                <button type="submit" class="btn btn-outline btn-sm">Ajouter</button>
+                            </form>
+                        </div>
+                    </article>
+                    `;
+                }).join('')}
+            </div>
+            `;
+        };
+
+        const isBlockProjects = this.selectedBlock === 1;
+
         let html = `
 <div class="bureau" data-univers="ecole">
     <!-- SIDEBAR -->
@@ -215,23 +334,32 @@ export class AcademicView {
     <main class="bureau-content">
         <div>
             <header class="academic-topbar">
-                <h1 class="academic-title">CURSUS ACADÉMIQUE</h1>
+                <h1 class="academic-title">${isBlockProjects ? 'PROJETS & STAGES' : 'CURSUS ACADÉMIQUE'}</h1>
                 <div class="academic-header-actions">
-                    <button type="button" id="btn-open-documents" class="btn btn-secondary btn-sm" title="Gérer mes documents et cours">
-                        <i class="bi bi-file-earmark-text"></i> Documents
-                    </button>
-                    <button type="button" id="btn-clear-example" class="btn btn-outline btn-sm" title="Effacer les données d'exemple du cursus">
-                        <i class="bi bi-trash"></i> Effacer les données d'exemple
-                    </button>
-                    <button type="button" id="btn-import-example" class="btn btn-secondary btn-sm" title="Importer le programme type (Exemple)">
-                        <i class="bi bi-download"></i> Exemple
-                    </button>
-                    <button type="button" id="btn-add-semester" class="btn btn-secondary btn-sm">
-                        <i class="bi bi-folder-plus"></i> + Semestre
-                    </button>
-                    <button type="button" id="btn-add-subject-top" class="btn btn-primary btn-sm">
-                        <i class="bi bi-plus-circle"></i> + Matière
-                    </button>
+                    ${isBlockProjects ? `
+                        <button type="button" id="btn-add-project" class="btn btn-primary btn-sm">
+                            <i class="bi bi-plus-circle"></i> + Projet
+                        </button>
+                        <button type="button" id="btn-add-stage" class="btn btn-secondary btn-sm">
+                            <i class="bi bi-briefcase"></i> + Stage
+                        </button>
+                    ` : `
+                        <button type="button" id="btn-open-documents" class="btn btn-secondary btn-sm" title="Gérer mes documents et cours">
+                            <i class="bi bi-file-earmark-text"></i> Documents
+                        </button>
+                        <button type="button" id="btn-clear-example" class="btn btn-outline btn-sm" title="Effacer les données d'exemple du cursus">
+                            <i class="bi bi-trash"></i> Effacer les données d'exemple
+                        </button>
+                        <button type="button" id="btn-import-example" class="btn btn-secondary btn-sm" title="Importer le programme type (Exemple)">
+                            <i class="bi bi-download"></i> Exemple
+                        </button>
+                        <button type="button" id="btn-add-semester" class="btn btn-secondary btn-sm">
+                            <i class="bi bi-folder-plus"></i> + Semestre
+                        </button>
+                        <button type="button" id="btn-add-subject-top" class="btn btn-primary btn-sm">
+                            <i class="bi bi-plus-circle"></i> + Matière
+                        </button>
+                    `}
                 </div>
             </header>
             
@@ -250,23 +378,23 @@ export class AcademicView {
         <div>
             <div class="academic-section-subhead">
                 <h2 class="academic-semester-title">
-                    <i class="bi bi-journal-bookmark"></i>
-                    <span>Détails du ${escapeHtml(blocks[this.selectedBlock].title)}</span>
+                    <i class="${isBlockProjects ? 'bi bi-briefcase' : 'bi bi-journal-bookmark'}"></i>
+                    <span>${isBlockProjects ? 'Mes Projets & Stages' : `Détails du ${escapeHtml(blocks[this.selectedBlock].title)}`}</span>
                 </h2>
                 <div id="btn-profile" class="bureau-profile-btn" title="Voir mon portfolio">
                     ${(state.userProfile?.name || 'E').charAt(0).toUpperCase()}
                 </div>
             </div>
 
-            <!-- Liste dynamique des semestres et matières -->
+            <!-- Contenu dynamique : Cursus ou Projets & Stages -->
             <div>
-                ${renderSemestersList()}
+                ${isBlockProjects ? renderProjectsAndStages() : renderSemestersList()}
             </div>
         </div>
     </main>
 </div>
 
-<!-- MODAL ACADEMIQUE (Semestres, Épreuves, Notes) -->
+<!-- MODAL ACADEMIQUE (Semestres, Épreuves, Projets, Stages) -->
 <div id="academic-modal" class="academic-modal-overlay hidden">
     <div class="academic-modal-window">
         <div class="academic-modal-header">
@@ -327,6 +455,253 @@ export class AcademicView {
             modalContent.innerHTML = contentHtml;
             modal.classList.remove('hidden');
         };
+
+        // --- GESTION DES PROJETS ET DES STAGES (BLOC 1) ---
+        const openProjectForm = (item = null, defaultType = 'project') => {
+            const isEdit = !!(item && item.id);
+            const itemType = item ? (item.type || (item.location ? 'stage' : 'project')) : defaultType;
+            const itemStatus = item?.status || 'active';
+            const modalTitleText = isEdit
+                ? (itemType === 'stage' ? 'Modifier le stage' : 'Modifier le projet')
+                : (defaultType === 'stage' ? 'Nouveau stage' : 'Nouveau projet');
+
+            openModal(
+                `<i class="bi ${itemType === 'stage' ? 'bi-briefcase' : 'bi-kanban'}"></i> <span>${modalTitleText}</span>`,
+                `
+                <form id="form-project-stage" class="academic-form">
+                    <div class="form-group">
+                        <label class="form-label" for="proj-type-input">Type</label>
+                        <select id="proj-type-input" class="form-select">
+                            <option value="project" ${itemType === 'project' ? 'selected' : ''}>Projet</option>
+                            <option value="stage" ${itemType === 'stage' ? 'selected' : ''}>Stage</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label" for="proj-title-input">Titre / Intitulé *</label>
+                        <input type="text" id="proj-title-input" required value="${escapeHtml(item?.title || '')}" placeholder="Ex: Refonte Portfolio, Stage Data Analyst..." class="form-input">
+                    </div>
+
+                    <div class="academic-form-grid">
+                        <div class="form-group">
+                            <label class="form-label" for="proj-status-input">Statut</label>
+                            <select id="proj-status-input" class="form-select">
+                                <option value="active" ${itemStatus === 'active' ? 'selected' : ''}>En cours</option>
+                                <option value="paused" ${itemStatus === 'paused' ? 'selected' : ''}>En pause</option>
+                                <option value="completed" ${itemStatus === 'completed' ? 'selected' : ''}>Terminé</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label" for="proj-duration-input">Durée estimée</label>
+                            <input type="text" id="proj-duration-input" value="${escapeHtml(item?.duration || '')}" placeholder="Ex: 3 mois, 35h/semaine..." class="form-input">
+                        </div>
+                    </div>
+
+                    <div class="academic-form-grid">
+                        <div class="form-group">
+                            <label class="form-label" for="proj-start-input">Date de début</label>
+                            <input type="date" id="proj-start-input" value="${escapeHtml(item?.startDate || '')}" class="form-input">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label" for="proj-end-input">Date de fin / Échéance</label>
+                            <input type="date" id="proj-end-input" value="${escapeHtml(item?.endDate || item?.targetDate || '')}" class="form-input">
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label" for="proj-location-input">Lieu (stage / entreprise / télétravail)</label>
+                        <input type="text" id="proj-location-input" value="${escapeHtml(item?.location || '')}" placeholder="Ex: Paris, Télétravail, Lyon..." class="form-input">
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label" for="proj-notes-input">Notes libres</label>
+                        <textarea id="proj-notes-input" rows="3" class="form-input" placeholder="Objectifs, contacts, remarques...">${escapeHtml(item?.notes || item?.description || '')}</textarea>
+                    </div>
+
+                    <div class="academic-form-actions">
+                        <button type="button" id="btn-cancel-project" class="btn btn-secondary btn-sm">Annuler</button>
+                        <button type="submit" class="btn btn-primary btn-sm">Sauvegarder</button>
+                    </div>
+                </form>
+                `
+            );
+
+            modalContent.querySelector('#btn-cancel-project')?.addEventListener('click', closeModal);
+            modalContent.querySelector('#form-project-stage')?.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const type = modalContent.querySelector('#proj-type-input').value;
+                const title = modalContent.querySelector('#proj-title-input').value.trim();
+                const status = modalContent.querySelector('#proj-status-input').value;
+                const duration = modalContent.querySelector('#proj-duration-input').value.trim();
+                const startDate = modalContent.querySelector('#proj-start-input').value || null;
+                const endDate = modalContent.querySelector('#proj-end-input').value || null;
+                const location = modalContent.querySelector('#proj-location-input').value.trim();
+                const notes = modalContent.querySelector('#proj-notes-input').value.trim();
+
+                if (!title) return;
+
+                const payload = {
+                    ...(item || {}),
+                    id: item?.id || `proj_${Date.now()}_${Math.floor(Math.random() * 10000)}`,
+                    title,
+                    type,
+                    status,
+                    duration,
+                    startDate,
+                    endDate,
+                    targetDate: endDate,
+                    location,
+                    notes,
+                    description: notes,
+                    tasks: item?.tasks || item?.steps || []
+                };
+
+                // Preserving existing subjectId silently if it existed in the database:
+                if (item && item.subjectId) {
+                    payload.subjectId = item.subjectId;
+                }
+
+                if (typeof this.app.saveProject === 'function') {
+                    await this.app.saveProject(payload);
+                } else if (this.app.projectEngine) {
+                    await this.app.projectEngine.saveProject(payload);
+                    if (this.app.refreshProjects) await this.app.refreshProjects();
+                }
+
+                closeModal();
+                if (this.app.renderView) {
+                    await this.app.renderView('academic');
+                } else {
+                    this.render(this.app.state);
+                }
+            });
+        };
+
+        // Attach buttons in Projets & Stages block
+        const btnAddProject = this.container.querySelector('#btn-add-project');
+        if (btnAddProject) btnAddProject.addEventListener('click', () => openProjectForm(null, 'project'));
+
+        const btnAddStage = this.container.querySelector('#btn-add-stage');
+        if (btnAddStage) btnAddStage.addEventListener('click', () => openProjectForm(null, 'stage'));
+
+        const btnEmptyAddProject = this.container.querySelector('#btn-empty-add-project');
+        if (btnEmptyAddProject) btnEmptyAddProject.addEventListener('click', () => openProjectForm(null, 'project'));
+
+        const btnEmptyAddStage = this.container.querySelector('#btn-empty-add-stage');
+        if (btnEmptyAddStage) btnEmptyAddStage.addEventListener('click', () => openProjectForm(null, 'stage'));
+
+        this.container.querySelectorAll('.btn-edit-project').forEach(btn => {
+            btn.addEventListener('click', async (e) => {
+                const id = e.currentTarget.getAttribute('data-id');
+                const projects = this.app.state.projects || (this.app.projectEngine ? await this.app.projectEngine.getProjects() : []);
+                const item = projects.find(p => p.id === id);
+                if (item) openProjectForm(item);
+            });
+        });
+
+        this.container.querySelectorAll('.btn-delete-project').forEach(btn => {
+            btn.addEventListener('click', async (e) => {
+                const id = e.currentTarget.getAttribute('data-id');
+                if (confirm('Êtes-vous sûr de vouloir supprimer cet élément ?')) {
+                    if (typeof this.app.deleteProject === 'function') {
+                        await this.app.deleteProject(id);
+                    } else if (this.app.projectEngine) {
+                        await this.app.projectEngine.deleteProject(id);
+                        if (this.app.refreshProjects) await this.app.refreshProjects();
+                    }
+                    if (this.app.renderView) {
+                        await this.app.renderView('academic');
+                    } else {
+                        this.render(this.app.state);
+                    }
+                }
+            });
+        });
+
+        // Steps toggle
+        this.container.querySelectorAll('.step-toggle-checkbox').forEach(cb => {
+            cb.addEventListener('change', async (e) => {
+                const projectId = e.currentTarget.getAttribute('data-project-id');
+                const stepId = e.currentTarget.getAttribute('data-step-id');
+                const projects = this.app.state.projects || (this.app.projectEngine ? await this.app.projectEngine.getProjects() : []);
+                const p = projects.find(proj => proj.id === projectId);
+                if (p) {
+                    const tasks = p.tasks || p.steps || [];
+                    const t = tasks.find(step => step.id === stepId);
+                    if (t) {
+                        const isDone = e.currentTarget.checked;
+                        t.status = isDone ? 'done' : 'todo';
+                        t.completed = isDone;
+                        if (typeof this.app.saveProject === 'function') {
+                            await this.app.saveProject(p);
+                        } else if (this.app.projectEngine) {
+                            await this.app.projectEngine.saveProject(p);
+                        }
+                        if (this.app.renderView) {
+                            await this.app.renderView('academic');
+                        } else {
+                            this.render(this.app.state);
+                        }
+                    }
+                }
+            });
+        });
+
+        // Steps delete
+        this.container.querySelectorAll('.btn-delete-step').forEach(btn => {
+            btn.addEventListener('click', async (e) => {
+                const projectId = e.currentTarget.getAttribute('data-project-id');
+                const stepId = e.currentTarget.getAttribute('data-step-id');
+                const projects = this.app.state.projects || (this.app.projectEngine ? await this.app.projectEngine.getProjects() : []);
+                const p = projects.find(proj => proj.id === projectId);
+                if (p) {
+                    p.tasks = (p.tasks || p.steps || []).filter(step => step.id !== stepId);
+                    if (typeof this.app.saveProject === 'function') {
+                        await this.app.saveProject(p);
+                    } else if (this.app.projectEngine) {
+                        await this.app.projectEngine.saveProject(p);
+                    }
+                    if (this.app.renderView) {
+                        await this.app.renderView('academic');
+                    } else {
+                        this.render(this.app.state);
+                    }
+                }
+            });
+        });
+
+        // Steps add inline form
+        this.container.querySelectorAll('.form-add-step').forEach(form => {
+            form.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const projectId = form.getAttribute('data-project-id');
+                const input = form.querySelector('.input-step-title');
+                const title = input ? input.value.trim() : '';
+                if (!title) return;
+
+                const projects = this.app.state.projects || (this.app.projectEngine ? await this.app.projectEngine.getProjects() : []);
+                const p = projects.find(proj => proj.id === projectId);
+                if (p) {
+                    const projectObj = p instanceof Project ? p : new Project(p);
+                    projectObj.addTask({
+                        id: `step_${Date.now()}_${Math.floor(Math.random() * 1000)}`,
+                        title,
+                        status: 'todo',
+                        completed: false
+                    });
+                    if (typeof this.app.saveProject === 'function') {
+                        await this.app.saveProject(projectObj);
+                    } else if (this.app.projectEngine) {
+                        await this.app.projectEngine.saveProject(projectObj);
+                    }
+                    if (this.app.renderView) {
+                        await this.app.renderView('academic');
+                    } else {
+                        this.render(this.app.state);
+                    }
+                }
+            });
+        });
 
         // --- IMPORT PROGRAMME TYPE (EXEMPLE) ---
         const handleImportExample = async () => {
