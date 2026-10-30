@@ -527,9 +527,6 @@ export class PlanningView {
             <div class="bureau-nav-item" data-view="weekly" style="display:flex; align-items:center; gap:12px; cursor:pointer; padding:12px 15px; color:var(--text-muted); font-weight:500;">
                 <i class="bi bi-journal-check" style="font-size:18px;"></i> Hebdo
             </div>
-            <div class="bureau-nav-item" data-view="portfolio" style="display:flex; align-items:center; gap:12px; cursor:pointer; padding:12px 15px; color:var(--text-muted); font-weight:500;">
-                <i class="bi bi-award" style="font-size:18px;"></i> Portfolio
-            </div>
         </div>
     </div>
 

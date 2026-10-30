@@ -324,9 +324,6 @@ export class AcademicView {
             <div class="bureau-nav-item" data-view="weekly">
                 <i class="bi bi-journal-check"></i> <span>Hebdo</span>
             </div>
-            <div class="bureau-nav-item" data-view="portfolio">
-                <i class="bi bi-award"></i> <span>Portfolio</span>
-            </div>
         </nav>
     </aside>
 
@@ -381,7 +378,7 @@ export class AcademicView {
                     <i class="${isBlockProjects ? 'bi bi-briefcase' : 'bi bi-journal-bookmark'}"></i>
                     <span>${isBlockProjects ? 'Mes Projets & Stages' : `Détails du ${escapeHtml(blocks[this.selectedBlock].title)}`}</span>
                 </h2>
-                <div id="btn-profile" class="bureau-profile-btn" title="Voir mon portfolio">
+                <div id="btn-profile" class="bureau-profile-btn" title="Mon profil">
                     ${(state.userProfile?.name || 'E').charAt(0).toUpperCase()}
                 </div>
             </div>
@@ -436,7 +433,7 @@ export class AcademicView {
         const btnProfile = this.container.querySelector('#btn-profile');
         if (btnProfile) {
             btnProfile.addEventListener('click', () => {
-                if (this.app.renderView) this.app.renderView('portfolio');
+                if (this.app.renderView) this.app.renderView('desktop');
             });
         }
 

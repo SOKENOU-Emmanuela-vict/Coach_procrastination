@@ -75,9 +75,6 @@ export class DesktopView {
             <div class="bureau-nav-item" data-view="weekly">
                 <i class="bi bi-journal-check"></i> Hebdo
             </div>
-            <div class="bureau-nav-item" data-view="portfolio">
-                <i class="bi bi-award"></i> Portfolio
-            </div>
         </nav>
 
         <!-- WIDGET XP / NIVEAU -->
@@ -105,7 +102,10 @@ export class DesktopView {
                     <i class="bi bi-clock"></i>
                     <span>${currentTimeDisplay}</span>
                 </div>
-                <div id="btn-profile" class="bureau-profile-btn" title="Voir mon portfolio">
+                <button type="button" id="btn-backup-modal" class="btn btn-secondary btn-sm" title="Sauvegarde et restauration des données">
+                    <i class="bi bi-shield-check"></i> <span>Sauvegarde</span>
+                </button>
+                <div id="btn-profile" class="bureau-profile-btn" title="Mon profil & Sauvegarde">
                     ${(state.userProfile?.name || 'T').charAt(0).toUpperCase()}
                 </div>
             </div>
@@ -345,6 +345,31 @@ export class DesktopView {
         </div>
     </main>
 </div>
+
+<!-- MODALE SAUVEGARDE & RESTAURATION (ex-Portfolio) -->
+<div id="backup-modal" class="academic-modal-overlay hidden">
+    <div class="academic-modal-window" style="max-width: 500px;">
+        <div class="academic-modal-header">
+            <h3 class="academic-modal-title"><i class="bi bi-shield-check"></i> <span>Sauvegarde & Données</span></h3>
+            <button id="backup-modal-close" class="academic-modal-close-btn" aria-label="Fermer">&times;</button>
+        </div>
+        <div class="academic-modal-body" style="padding: 20px;">
+            <p style="color: var(--text-secondary); margin-bottom: 20px; font-size: 14px; line-height: 1.5;">
+                Toutes tes données (planning, cours, notes, examens, projets, sessions, habitudes, langues, chat) sont conservées en local sur cet appareil.
+            </p>
+            <div style="display: flex; flex-direction: column; gap: 12px;">
+                <button type="button" id="btn-export-data" class="btn btn-primary" style="justify-content: center; padding: 12px; font-weight: 600;">
+                    <i class="bi bi-download"></i> Exporter mes données (.json)
+                </button>
+                <div style="text-align: center; font-size: 12px; color: var(--text-tertiary); text-transform: uppercase;">ou</div>
+                <label for="input-import-data" class="btn btn-outline" style="justify-content: center; padding: 12px; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 8px;">
+                    <i class="bi bi-upload"></i> Importer une sauvegarde (.json)
+                </label>
+                <input type="file" id="input-import-data" accept=".json" style="display: none;">
+            </div>
+        </div>
+    </div>
+</div>
         `;
         
         this.container.innerHTML = html;
@@ -405,11 +430,75 @@ export class DesktopView {
             });
         }
 
+        // MODALE SAUVEGARDE & RESTAURATION
+        const backupModal = this.container.querySelector('#backup-modal');
+        const btnOpenBackup = this.container.querySelector('#btn-backup-modal');
+        const btnCloseBackup = this.container.querySelector('#backup-modal-close');
         const btnProfile = this.container.querySelector('#btn-profile');
-        if (btnProfile) {
-            btnProfile.addEventListener('click', () => {
-                if (this.app.renderView) {
-                    this.app.renderView('portfolio');
+
+        const openBackup = () => {
+            if (backupModal) backupModal.classList.remove('hidden');
+        };
+        const closeBackup = () => {
+            if (backupModal) backupModal.classList.add('hidden');
+        };
+
+        if (btnOpenBackup) btnOpenBackup.addEventListener('click', openBackup);
+        if (btnCloseBackup) btnCloseBackup.addEventListener('click', closeBackup);
+        if (btnProfile) btnProfile.addEventListener('click', openBackup);
+        if (backupModal) {
+            backupModal.addEventListener('click', (e) => {
+                if (e.target === backupModal) closeBackup();
+            });
+        }
+
+        // EXPORT DONNÉES
+        const btnExport = this.container.querySelector('#btn-export-data');
+        if (btnExport) {
+            btnExport.addEventListener('click', async () => {
+                try {
+                    const exportData = await this.app.exportAllData();
+                    const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = `backup_coach_procrastination_${new Date().toISOString().slice(0, 10)}.json`;
+                    document.body.appendChild(a);
+                    a.click();
+                    a.remove();
+                    setTimeout(() => URL.revokeObjectURL(url), 1000);
+                } catch (e) {
+                    alert("Erreur lors de l'exportation: " + e.message);
+                }
+            });
+        }
+
+        // IMPORT DONNÉES
+        const inputImport = this.container.querySelector('#input-import-data');
+        if (inputImport) {
+            inputImport.addEventListener('change', (e) => {
+                const file = e.target.files && e.target.files[0];
+                if (!file) return;
+
+                if (confirm("⚠️ Attention : l'importation va remplacer vos données actuelles par celles de la sauvegarde. Voulez-vous continuer ?")) {
+                    const reader = new FileReader();
+                    reader.onload = async (event) => {
+                        try {
+                            const importedData = JSON.parse(event.target.result);
+                            await this.app.importAllData(importedData);
+                            alert("Données importées avec succès ! L'application va redémarrer.");
+                            if (typeof window !== 'undefined' && window.location && typeof window.location.reload === 'function') {
+                                window.location.reload();
+                            } else if (this.app.renderView) {
+                                await this.app.renderView('desktop');
+                            }
+                        } catch (err) {
+                            alert("Fichier de sauvegarde invalide ou corrompu.");
+                        }
+                    };
+                    reader.readAsText(file);
+                } else {
+                    inputImport.value = '';
                 }
             });
         }

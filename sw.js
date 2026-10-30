@@ -1,4 +1,4 @@
-const CACHE_NAME = 'learning-os-v2.7';
+const CACHE_NAME = 'learning-os-v2.8';
 const ASSETS_TO_CACHE = [
   './',
   './index.html',
@@ -92,7 +92,6 @@ const ASSETS_TO_CACHE = [
   './src/ui/LanguageView.js',
   './src/ui/LifeView.js',
   './src/ui/PlanningView.js',
-  './src/ui/PortfolioView.js',
   './src/ui/styles/main.css',
   './src/ui/styles/univers-bureau.css',
   './src/ui/styles/univers-ecole.css',

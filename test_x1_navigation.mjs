@@ -13,7 +13,7 @@ import { PlanningView } from './src/ui/PlanningView.js';
 // CalendarView fusionné dans PlanningView
 import { DashboardView } from './src/ui/DashboardView.js';
 import { WeeklyView } from './src/ui/WeeklyView.js';
-import { PortfolioView } from './src/ui/PortfolioView.js';
+// PortfolioView supprimé
 import { FocusView } from './src/ui/FocusView.js';
 
 let passed = 0;
@@ -247,7 +247,7 @@ async function testNavigation() {
     assert(viewsAvailable.includes('planning'), "Planning accessible en 1 clic dans la barre latérale (fusionné avec Calendrier)");
     assert(viewsAvailable.includes('dashboard'), "Tableau de bord accessible en 1 clic dans la barre latérale");
     assert(viewsAvailable.includes('weekly'), "Hebdo accessible en 1 clic dans la barre latérale");
-    assert(viewsAvailable.includes('portfolio'), "Portfolio accessible en 1 clic dans la barre latérale");
+    assert(mockContainer.innerHTML.includes('id="btn-backup-modal"'), "Bouton Sauvegarde accessible en 1 clic depuis le Bureau");
     assert(viewsAvailable.includes('planning'), "Planning accessible en 1 clic dans la barre latérale");
     assert(viewsAvailable.includes('academic'), "École accessible en 1 clic dans la barre latérale");
     assert(viewsAvailable.includes('languages'), "Langues accessible en 1 clic dans la barre latérale");
@@ -267,9 +267,9 @@ async function testNavigation() {
     await app.renderView('weekly');
     assert(mockContainer.innerHTML.includes('Weekly Review') && mockContainer.innerHTML.includes('btn-weekly-desktop'), "Hebdo se rend avec bouton retour Bureau");
 
-    // 3.4 Portfolio (avec checkin pour valider le fix hasVoice)
+    // 3.4 Portfolio redirigé vers Bureau avec bouton Sauvegarde
     await app.renderView('portfolio');
-    assert(mockContainer.innerHTML.includes('Mon Portfolio') && mockContainer.innerHTML.includes('btn-portfolio-back'), "Portfolio se rend sans erreur hasVoice et avec bouton retour");
+    assert(mockContainer.innerHTML.includes('Bonjour, ') && mockContainer.innerHTML.includes('id="btn-backup-modal"'), "Navigation 'portfolio' redirige vers Bureau avec bouton Sauvegarde");
 
     // 4. Focus : Démarrage depuis la carte du Bureau
     await app.renderView('desktop');

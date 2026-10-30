@@ -27,7 +27,7 @@ global.document = {
 
 const { DesktopView } = await import('./src/ui/DesktopView.js');
 const { LifeView } = await import('./src/ui/LifeView.js');
-const { PortfolioView } = await import('./src/ui/PortfolioView.js');
+// PortfolioView supprimé
 const { WeeklyView } = await import('./src/ui/WeeklyView.js');
 const { BilanView } = await import('./src/ui/BilanView.js');
 const { FocusView } = await import('./src/ui/FocusView.js');
@@ -114,41 +114,23 @@ console.log("\n[2] Test LifeView sans données inventées");
     console.log("  ✔ LifeView validé (calories/pas/titres supprimés, états vides explicites)");
 }
 
-// 3. Portfolio (PortfolioView)
-console.log("\n[3] Test PortfolioView sans données inventées");
+// 3. Sauvegarde sur Bureau (ex-Portfolio)
+console.log("\n[3] Test Sauvegarde sur Bureau (ex-Portfolio)");
 {
-    const container = createMockContainer('portfolio-container');
-    const app = {};
-    const view = new PortfolioView('portfolio-container', app);
+    const container = createMockContainer('desktop-container');
+    const { DesktopView } = await import('./src/ui/DesktopView.js');
+    const view = new DesktopView('desktop-container', {});
     view.container = container;
-    view.attachPortfolioTabs = () => {};
-
-    // Rendu état vide
     view.render({
-        monthlyReport: null,
-        learningGraph: null,
-        userLanguages: [],
-        academicSubjects: []
+        userProfile: { name: 'Emma' },
+        calendarData: { events: [] },
+        academicSummary: {},
+        todayCheckIn: null
     });
-
-    // Vérifier l'absence des badges statiques en dur
-    assert.strictEqual(container.innerHTML.includes('🇬🇧 Anglais & Storytelling FR'), false, "PortfolioView ne doit pas avoir le badge hardcodé Storytelling FR");
-    assert.strictEqual(container.innerHTML.includes('🛡️ Cybersécurité & TryHackMe'), false, "PortfolioView ne doit pas avoir le badge hardcodé Cybersécurité");
-    assert.strictEqual(container.innerHTML.includes('🤖 IA & Code Python'), false, "PortfolioView ne doit pas avoir le badge hardcodé IA & Code Python");
-    assert.strictEqual(container.innerHTML.includes('📊 Excel & Analyse de données'), false, "PortfolioView ne doit pas avoir le badge hardcodé Excel");
-    assert.strictEqual(container.innerHTML.includes('Progression constante sur 4 semaines.'), false, "PortfolioView ne doit pas afficher le texte placeholder mensuel");
-    assert.strictEqual(container.innerHTML.includes('Aucune activité enregistrée ce mois-ci.'), true, "PortfolioView affiche l'état vide pour le rapport mensuel");
-    assert.strictEqual(container.innerHTML.includes('-- / 5'), true, "PortfolioView affiche -- / 5 quand aucune note de qualité n'existe");
-    assert.strictEqual(container.innerHTML.includes('Aucune matière ou langue enregistrée.'), true, "PortfolioView affiche l'état vide pour les badges");
-
-    // Rendu avec de vraies langues/matières
-    view.render({
-        userLanguages: [{ name: 'Japonais', icon: '🇯🇵' }],
-        academicSubjects: [{ name: 'Algèbre Linéaire' }]
-    });
-    assert.strictEqual(container.innerHTML.includes('🇯🇵 Japonais'), true, "PortfolioView affiche dynamiquement la vraie langue");
-    assert.strictEqual(container.innerHTML.includes('Algèbre Linéaire'), true, "PortfolioView affiche dynamiquement la vraie matière");
-    console.log("  ✔ PortfolioView validé (badges statiques supprimés, états vides explicites)");
+    assert.strictEqual(container.innerHTML.includes('id="btn-backup-modal"'), true, "DesktopView propose le bouton Sauvegarde");
+    assert.strictEqual(container.innerHTML.includes('id="btn-export-data"'), true, "Modale Sauvegarde propose l'export de données");
+    assert.strictEqual(container.innerHTML.includes('id="input-import-data"'), true, "Modale Sauvegarde propose l'import de données");
+    console.log("  ✔ Sauvegarde Bureau validée (remplace Portfolio sans perte de données)");
 }
 
 // 4. Weekly (WeeklyView)
