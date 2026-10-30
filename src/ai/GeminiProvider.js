@@ -1,8 +1,8 @@
 import { LLMProvider } from './LLMProvider.js';
 
 /** Modèle principal puis modèles de secours, essayés dans l'ordre quand Gemini est saturé (503/429/500/504) ou absent (404). */
-export const GEMINI_PRIMARY_MODEL = "gemini-2.5-flash";
-export const GEMINI_FALLBACK_MODELS = ["gemini-2.0-flash", "gemini-1.5-flash"];
+export const GEMINI_PRIMARY_MODEL = "gemini-3.5-flash";
+export const GEMINI_FALLBACK_MODELS = ["gemini-3.5-flash-lite", "gemini-3.8-flash", "gemini-2.5-flash", "gemini-2.0-flash", "gemini-1.5-flash"];
 const RETRYABLE_STATUS = [429, 500, 502, 503, 504];
 
 /**
@@ -57,9 +57,9 @@ export class GeminiProvider extends LLMProvider {
         return typeof this.apiKey === 'string' && this.apiKey.startsWith('AQ.');
     }
 
-    _url(model) {
+    _url(model, useStudioFallback = false) {
         const keyParam = encodeURIComponent(this.apiKey);
-        if (this.isVertexExpressKey()) {
+        if (this.isVertexExpressKey() && !useStudioFallback) {
             return `https://aiplatform.googleapis.com/v1/publishers/google/models/${model}:generateContent?key=${keyParam}`;
         }
         return `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${keyParam}`;
@@ -68,12 +68,12 @@ export class GeminiProvider extends LLMProvider {
     /**
      * Un appel generateContent sur UN modèle. Lève une GeminiError (status, code) en cas d'échec.
      */
-    async _callOnce(model, body, timeoutMs) {
+    async _callOnce(model, body, timeoutMs, useStudioFallback = false) {
         const controller = typeof AbortController === 'function' ? new AbortController() : null;
         const timer = controller ? setTimeout(() => controller.abort(), timeoutMs) : null;
         let response;
         try {
-            response = await fetch(this._url(model), {
+            response = await fetch(this._url(model, useStudioFallback), {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(body),
@@ -94,6 +94,17 @@ export class GeminiProvider extends LLMProvider {
                 const err = await response.json();
                 if (err && err.error && err.error.message) raw = err.error.message;
             } catch (e) { /* ignore parse error on error response */ }
+
+            // Si c'est une clé AQ. qui échoue sur aiplatform (ex. 403 API disabled ou 404),
+            // repli transparent et immédiat sur Google AI Studio (generativelanguage.googleapis.com)
+            if (this.isVertexExpressKey() && !useStudioFallback) {
+                try {
+                    return await this._callOnce(model, body, timeoutMs, true);
+                } catch (_) {
+                    // Si le repli AI Studio échoue également, on continue vers le traitement d'erreur normal
+                }
+            }
+
             const d = describeGeminiFailure(response.status, raw);
             throw new GeminiError(d.text, { status: response.status, code: d.code, model, detail: this._safe(raw) });
         }
