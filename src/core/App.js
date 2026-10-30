@@ -1825,7 +1825,7 @@ export class App {
         }
 
         await this.refreshCalendarData();
-        const targetView = (this.state && this.state.currentView === 'planning') ? 'planning' : 'calendar';
+        const targetView = (this.state && this.state.currentView && this.state.currentView !== 'calendar') ? this.state.currentView : 'planning';
         if (typeof this.renderView === 'function') {
             await this.renderView(targetView);
         }
@@ -1834,7 +1834,7 @@ export class App {
     async deleteCalendarEvent(eventId) {
         await this.planningEngine.deleteEvent(eventId);
         await this.refreshCalendarData();
-        const targetView = (this.state && this.state.currentView === 'planning') ? 'planning' : 'calendar';
+        const targetView = (this.state && this.state.currentView && this.state.currentView !== 'calendar') ? this.state.currentView : 'planning';
         if (typeof this.renderView === 'function') {
             await this.renderView(targetView);
         }

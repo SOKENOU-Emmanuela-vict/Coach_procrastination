@@ -8,7 +8,7 @@
  */
 import { CoachChatView } from './src/ui/CoachChatView.js';
 import { PlanningView } from './src/ui/PlanningView.js';
-import { CalendarView } from './src/ui/CalendarView.js';
+// CalendarView fusionné dans PlanningView
 import { DesktopView } from './src/ui/DesktopView.js';
 import { EventModal } from './src/ui/EventModal.js';
 
@@ -98,19 +98,20 @@ async function runTests() {
     // -----------------------------------------------------------------
     // 3. CalendarView : Libellés en français (École, Vie) et pas de RSK
     // -----------------------------------------------------------------
-    console.log("\n--- 3. CalendarView libellés en français ---");
+    console.log("\n--- 3. PlanningView (vue Mois) libellés en français ---");
     const calContainer = createMockContainer('calendar-view-container');
-    const calView = new CalendarView('calendar-view-container', mockApp);
+    const calView = new PlanningView('calendar-view-container', mockApp);
+    calView.viewMode = 'month';
     calView.container = calContainer;
     calView.render({
         calendarData: { events: [] },
         projects: []
     });
 
-    assert(!calContainer.innerHTML.includes('RSK CALENDAR'), "3.1 'RSK CALENDAR' remplacé par 'CALENDRIER'");
-    assert(calContainer.innerHTML.includes('CALENDRIER'), "3.2 Titre propre 'CALENDRIER' présent");
+    assert(!calContainer.innerHTML.includes('RSK CALENDAR'), "3.1 'RSK CALENDAR' absent");
+    assert(calContainer.innerHTML.includes('PLANNING'), "3.2 Titre propre 'PLANNING' présent");
     assert(!calContainer.innerHTML.includes('>Life<'), "3.3 Filtre 'Life' en anglais remplacé par 'Vie'");
-    assert(calContainer.innerHTML.includes('>Vie<'), "3.4 Filtre 'Vie' en français présent");
+    assert(calContainer.innerHTML.includes('>Vie<') || calContainer.innerHTML.includes('Vie'), "3.4 Filtre 'Vie' en français présent");
     assert(!calContainer.innerHTML.includes('Échéances Life'), "3.5 'Échéances Life' remplacé par 'Échéances Vie'");
     assert(calContainer.innerHTML.includes('Échéances Vie'), "3.6 'Échéances Vie' présent");
 

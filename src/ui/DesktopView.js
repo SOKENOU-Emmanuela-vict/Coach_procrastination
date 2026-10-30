@@ -57,9 +57,6 @@ export class DesktopView {
             <div class="bureau-nav-item" data-view="planning">
                 <i class="bi bi-calendar3"></i> Planning
             </div>
-            <div class="bureau-nav-item" data-view="calendar">
-                <i class="bi bi-calendar-month"></i> Calendrier
-            </div>
             <div class="bureau-nav-item" data-view="academic">
                 <i class="bi bi-mortarboard"></i> École
             </div>

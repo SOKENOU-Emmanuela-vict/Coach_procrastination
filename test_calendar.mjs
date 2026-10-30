@@ -130,7 +130,7 @@ async function runTests() {
     assert(evPrio.lockStatus === 'flexible' && evPrio.priority === 'high', "15-16. Événements locked/flexible et priorité indépendante");
 
     // Test 17: Navigation Calendar
-    assert(app.router.views['calendar'] !== undefined, "17. Route calendar ajoutée dans Router");
+    assert(app.router.views['planning'] !== undefined, "17. Route planning disponible dans Router (fusion Calendrier)");
 
     // Test 18: PlanningView intacte
     assert(app.router.views['planning'] !== undefined && app.router.views['planning'].constructor.name === 'PlanningView', "18. PlanningView (Bootcamp) intacte");
@@ -172,9 +172,9 @@ async function runTests() {
     assert(evNoDur.targetDuration === null, "27. targetDuration absent → comportement compatible avec Event.js");
 
     // Test 28: CalendarView ne réalise plus d'accès direct au Storage
-    const uiSource = fs.readFileSync(path.join(process.cwd(), 'src/ui/CalendarView.js'), 'utf8');
+    const uiSource = fs.readFileSync(path.join(process.cwd(), 'src/ui/PlanningView.js'), 'utf8');
     const directAccessRemoved = !uiSource.includes('this.app.academicEngine.storage.loadDataSync');
-    assert(directAccessRemoved, "28. CalendarView ne réalise plus d'accès direct au Storage pour charger les Subjects");
+    assert(directAccessRemoved, "28. PlanningView (fusionnant CalendarView) ne réalise plus d'accès direct au Storage pour charger les Subjects");
 
     console.log(`\n=== RÉSULTATS : ${passed}/${total} TESTS PASSÉS ===`);
     if (passed !== total) process.exit(1);

@@ -1,6 +1,5 @@
 import { DashboardView } from '../ui/DashboardView.js?v=99';
 import { DesktopView } from '../ui/DesktopView.js?v=101';
-import { CalendarView } from '../ui/CalendarView.js?v=101';
 import { AcademicView } from '../ui/AcademicView.js?v=102';
 import { PlanningView } from '../ui/PlanningView.js?v=101';
 import { FocusView } from '../ui/FocusView.js?v=10';
@@ -17,7 +16,6 @@ export class Router {
         this.app = app;
         this.views = {
             desktop: new DesktopView(containerId, app),
-            calendar: new CalendarView(containerId, app),
             academic: new AcademicView(containerId, app),
             life: new LifeView(containerId, app),
             languages: new LanguageView(containerId, app),
@@ -60,21 +58,28 @@ export class Router {
         const renderToken = Date.now();
         this.currentRenderToken = renderToken;
         
-        const view = this.views[viewName];
+        // Redirection des anciennes vues supprimées vers leur remplaçant ou vers le Bureau
+        let resolvedViewName = viewName;
+        if (viewName === 'calendar') {
+            resolvedViewName = 'planning';
+        }
+        if (!this.views[resolvedViewName]) {
+            resolvedViewName = 'desktop';
+        }
+
+        const view = this.views[resolvedViewName];
         if (view) {
             let data = state;
-            if (viewName === 'planning') data = state;
-            if (viewName === 'focus') {
+            if (resolvedViewName === 'planning') data = state;
+            if (resolvedViewName === 'focus') {
                 data = state.activeFocusSession || (state.dailyPlan && state.dailyPlan.sessions ? state.dailyPlan.sessions.find(s => !s.completed) : null) || null;
             }
-            if (viewName === 'bilan') data = { summary: state.dailySummary, checkIn: state.todayCheckIn, stats: state.dailyStats };
-            if (viewName === 'portfolio') data = state;
-            if (viewName === 'desktop') data = state;
-            if (viewName === 'calendar') data = state;
-            if (viewName === 'academic') data = state;
-            if (viewName === 'weekly') data = state.weeklySummary;
-            if (viewName === 'chat') {
-                // Fetch chat history asynchronously inside the router
+            if (resolvedViewName === 'bilan') data = { summary: state.dailySummary, checkIn: state.todayCheckIn, stats: state.dailyStats };
+            if (resolvedViewName === 'portfolio') data = state;
+            if (resolvedViewName === 'desktop') data = state;
+            if (resolvedViewName === 'academic') data = state;
+            if (resolvedViewName === 'weekly') data = state.weeklySummary;
+            if (resolvedViewName === 'chat') {
                 const messages = await this.app.chatHistoryEngine.getConversation('default');
                 if (this.currentRenderToken === renderToken) {
                     await view.render(messages);

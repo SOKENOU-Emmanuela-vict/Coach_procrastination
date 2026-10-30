@@ -30,13 +30,6 @@ export class LifeView {
                 <i class="bi bi-house-door" style="font-size:18px;"></i> Bureau
             </div>
             <div class="bureau-nav-item" data-view="planning" style="display:flex; align-items:center; gap:12px; cursor:pointer; padding:12px 15px; color:var(--text-muted); font-weight:500;">
-                <i class="bi bi-calendar3" style="font-size:18px;"></i> Planning
-            </div>
-            <div class="bureau-nav-item" data-view="calendar" style="display:flex; align-items:center; gap:12px; cursor:pointer; padding:12px 15px; color:var(--text-muted); font-weight:500;">
-                <i class="bi bi-calendar-month" style="font-size:18px;"></i> Calendrier
-            </div>
-                <i class="bi bi-calendar3" style="font-size:18px;"></i> Planning
-            </div>
             <div class="bureau-nav-item" data-view="academic" style="display:flex; align-items:center; gap:12px; cursor:pointer; padding:12px 15px; color:var(--text-muted); font-weight:500;">
                 <i class="bi bi-mortarboard" style="font-size:18px;"></i> École
             </div>

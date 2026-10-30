@@ -10,7 +10,7 @@ import { App } from './src/core/App.js';
 import { Router } from './src/core/Router.js';
 import { DesktopView } from './src/ui/DesktopView.js';
 import { PlanningView } from './src/ui/PlanningView.js';
-import { CalendarView } from './src/ui/CalendarView.js';
+// CalendarView fusionné dans PlanningView
 import { DashboardView } from './src/ui/DashboardView.js';
 import { WeeklyView } from './src/ui/WeeklyView.js';
 import { PortfolioView } from './src/ui/PortfolioView.js';
@@ -244,7 +244,7 @@ async function testNavigation() {
     const navItems = mockContainer.querySelectorAll('.bureau-nav-item');
     const viewsAvailable = navItems.map(n => n.getAttribute('data-view')).filter(Boolean);
 
-    assert(viewsAvailable.includes('calendar'), "Calendrier accessible en 1 clic dans la barre latérale");
+    assert(viewsAvailable.includes('planning'), "Planning accessible en 1 clic dans la barre latérale (fusionné avec Calendrier)");
     assert(viewsAvailable.includes('dashboard'), "Tableau de bord accessible en 1 clic dans la barre latérale");
     assert(viewsAvailable.includes('weekly'), "Hebdo accessible en 1 clic dans la barre latérale");
     assert(viewsAvailable.includes('portfolio'), "Portfolio accessible en 1 clic dans la barre latérale");
@@ -255,9 +255,9 @@ async function testNavigation() {
     assert(viewsAvailable.includes('chat'), "Coach accessible en 1 clic dans la barre latérale");
 
     // 3. Tester la navigation vers chaque écran cible et vérifier qu'il rend correctement
-    // 3.1 Calendrier
+    // 3.1 Calendrier (redirigé automatiquement vers planning)
     await app.renderView('calendar');
-    assert(mockContainer.innerHTML.includes('RSK CALENDAR') || mockContainer.innerHTML.includes('calendar'), "Calendrier se rend correctement");
+    assert(mockContainer.innerHTML.includes('PLANNING'), "Navigation 'calendar' redirige vers Planning fusionné");
 
     // 3.2 Tableau de bord
     await app.renderView('dashboard');

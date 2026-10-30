@@ -34,7 +34,7 @@ import { App } from './src/core/App.js';
 import { Event } from './src/models/Event.js';
 import { EventModal } from './src/ui/EventModal.js';
 import { PlanningView } from './src/ui/PlanningView.js';
-import { CalendarView } from './src/ui/CalendarView.js';
+// CalendarView fusionné dans PlanningView
 
 class MockStorage {
     constructor() {
@@ -176,8 +176,9 @@ async function runTests() {
     assert.ok(mockContainer.innerHTML.includes('btn-delete-event'), "Boutons supprimer présents dans PlanningView");
     console.log("✅ 6. Contrôles PlanningView validés (ajouter, modifier, supprimer)");
 
-    const calendarView = new CalendarView(mockContainer, app);
-    calendarView.render({
+    const planningMonthView = new PlanningView(mockContainer, app);
+    planningMonthView.viewMode = 'month';
+    planningMonthView.render({
         calendarData: {
             events: [
                 { id: "e2", title: "Test Calendar", date: "2026-10-15", startTime: "10:00", endTime: "11:00", type: "course" }
@@ -188,10 +189,10 @@ async function runTests() {
         }
     });
 
-    assert.ok(mockContainer.innerHTML.includes('id="btn-add-event-calendar"'), "Bouton ajouter événement présent dans CalendarView");
-    assert.ok(mockContainer.innerHTML.includes('btn-edit-event'), "Boutons modifier présents dans CalendarView");
-    assert.ok(mockContainer.innerHTML.includes('btn-delete-event'), "Boutons supprimer présents dans CalendarView");
-    console.log("✅ 7. Contrôles CalendarView validés (ajouter, modifier, supprimer)");
+    assert.ok(mockContainer.innerHTML.includes('id="btn-add-event-planning"') || mockContainer.innerHTML.includes('id="btn-add-event-calendar"'), "Bouton ajouter événement présent dans PlanningView (vue mois)");
+    assert.ok(mockContainer.innerHTML.includes('btn-edit-event'), "Boutons modifier présents dans PlanningView (vue mois)");
+    assert.ok(mockContainer.innerHTML.includes('btn-delete-event'), "Boutons supprimer présents dans PlanningView (vue mois)");
+    console.log("✅ 7. Contrôles PlanningView (vue mois fusionnée) validés (ajouter, modifier, supprimer)");
 
     // 8. EventModal initialisation
     const eventModal = new EventModal(app);

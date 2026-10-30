@@ -187,9 +187,6 @@ export class AcademicView {
             <div class="bureau-nav-item" data-view="planning">
                 <i class="bi bi-calendar3"></i> <span>Planning</span>
             </div>
-            <div class="bureau-nav-item" data-view="calendar">
-                <i class="bi bi-calendar-month"></i> <span>Calendrier</span>
-            </div>
             <div class="bureau-nav-item active" data-view="academic">
                 <i class="bi bi-mortarboard"></i> <span>École</span>
             </div>
