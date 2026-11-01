@@ -47,82 +47,84 @@ export function clearCspViolation() {
     if (typeof window !== 'undefined') window.__lastCspViolationForGemini = false;
 }
 
-/** Extrait le nom d'hôte cible joint (generativelanguage, aiplatform, etc.) */
-export function extractTargetHostname(url) {
-    const s = String(url || '');
-    if (s.includes('aiplatform.googleapis.com') || s.includes('aiplatform')) return 'aiplatform.googleapis.com';
-    if (s.includes('generativelanguage.googleapis.com') || s.includes('generativelanguage')) return 'generativelanguage.googleapis.com';
-    try {
-        const u = new URL(s);
-        if (u.hostname) return u.hostname;
-    } catch (_) {}
-    return 'generativelanguage.googleapis.com';
-}
+/**
+ * Sonde de connectivité réseau vers Google via fetch({ mode: 'no-cors' }).
+ * Dans un navigateur, un échec de fetch normal donne un "TypeError: Failed to fetch"
+ * opaque qui ne distingue pas DNS, coupure réseau, VPN ou CORS.
+ * En tentant une requête en mode 'no-cors' vers l'origine :
+ * - Si elle échoue aussi : le navigateur n'arrive pas à établir la connexion (réseau, DNS, proxy, antivirus).
+ * - Si elle réussit (réponse opaque sans erreur) : le serveur Google est joignable, l'échec initial est un refus applicatif (CORS ou clé bloquée).
+ */
+export async function probeGoogleReachability(key = '') {
+    const isAq = typeof key === 'string' && key.trim().startsWith('AQ.');
+    const targets = isAq
+        ? ['https://generativelanguage.googleapis.com/', 'https://aiplatform.googleapis.com/']
+        : ['https://generativelanguage.googleapis.com/'];
 
-/** Identifie le type de clé (AIza, AQ., sk-, ou personnalisé) sans jamais révéler la clé */
-export function detectKeyType(key) {
-    const k = String(key || '').trim();
-    if (k.startsWith('AQ.')) return 'AQ.';
-    if (k.startsWith('AIza')) return 'AIza';
-    if (/^sk-/i.test(k)) return 'sk-';
-    if (k.length > 0) return 'Personnalisée';
-    return 'Aucune';
+    for (const target of targets) {
+        try {
+            await fetch(target, { mode: 'no-cors', method: 'GET' });
+            return true;
+        } catch (_) {
+            // Échec sur cette cible
+        }
+    }
+    return false;
 }
 
 /**
- * Analyse la cause réelle d'un échec de fetch (status 0).
- * Distingue : CSP, hors-ligne, extension, DNS/connexion refusée, CORS/réponse opaque, timeout.
+ * Diagnostic honnête d'un échec de fetch (status 0).
+ * Ne prétend pas distinguer ce qu'un navigateur ne peut pas distinguer :
+ * 1. Cas réellement détectables :
+ *    - Événement securitypolicyviolation (CSP)
+ *    - navigator.onLine === false (appareil déconnecté)
+ *    - Timeout (délai dépassé / signal abort)
+ * 2. Sonde no-cors :
+ *    - Échoue -> problème d'accès réseau/DNS/antivirus/VPN
+ *    - Réussit -> Google est joignable mais refuse l'appel (CORS ou clé AQ.)
  */
-export function diagnoseFetchFailure(error, targetUrl = '', key = '') {
+export async function diagnoseNetworkFailure(error, key = '') {
     const raw = String((error && error.message) || error || '');
-    const cause = error && error.cause ? String(error.cause.message || error.cause) : '';
-    const detail = error && error.detail ? String(error.detail) : '';
-    const full = `${raw} ${cause} ${detail}`;
-    const hostname = extractTargetHostname(targetUrl);
-    const keyType = detectKeyType(key);
 
-    let reason = '';
-    let code = 'NETWORK';
-
+    // 1. Violation de la CSP détectée
     const recentCsp = (lastCspViolation && (Date.now() - lastCspViolation.timestamp < 10000)) ||
                       (typeof window !== 'undefined' && window.__lastCspViolationForGemini);
-    const isCsp = recentCsp || /securitypolicyviolation|content security policy|csp|policy violation/i.test(full) || (error && error.name === 'SecurityError');
-
+    const isCsp = recentCsp || /securitypolicyviolation|content security policy|csp/i.test(raw) || (error && error.name === 'SecurityError');
     if (isCsp) {
-        reason = "Requête bloquée par la politique de sécurité (CSP) du navigateur";
-        code = 'CSP_BLOCKED';
-    } else if ((typeof navigator !== 'undefined' && navigator && navigator.onLine === false) || /navigator\.onLine === false|hors-ligne|offline/i.test(full)) {
-        reason = "Navigateur hors-ligne (pas de connexion Internet sur l'appareil)";
-        code = 'OFFLINE';
-    } else if (/ERR_BLOCKED_BY_CLIENT|blocked by client|extension|adblock|ublock/i.test(full)) {
-        reason = "Requête bloquée par une extension du navigateur (bloqueur de publicités ou antivirus)";
-        code = 'EXTENSION_BLOCKED';
-    } else if (/ENOTFOUND|getaddrinfo|ERR_NAME_NOT_RESOLVED/i.test(full)) {
-        reason = "Nom d'hôte introuvable (échec de résolution DNS)";
-        code = 'DNS_NOT_FOUND';
-    } else if (/ECONNREFUSED|ERR_CONNECTION_REFUSED|connexion refusée/i.test(full)) {
-        reason = "Connexion refusée par le serveur distant";
-        code = 'CONN_REFUSED';
-    } else if (/cors|opaque|access-control-allow-origin/i.test(full) || (typeof window !== 'undefined' && /failed to fetch|fetch failed/i.test(full))) {
-        reason = "Erreur CORS ou réponse opaque (l'accès direct depuis le navigateur est bloqué par Google sur cet hôte)";
-        code = 'CORS_ERROR';
-    } else if (/timeout|délai|abort/i.test(full)) {
-        reason = "Gemini n'a pas répondu à temps (délai dépassé)";
-        code = 'TIMEOUT';
-    } else {
-        reason = "Connexion impossible à l'API";
-        code = 'NETWORK';
+        return {
+            code: 'CSP_BLOCKED',
+            message: "Requête bloquée par la politique de sécurité (CSP) du navigateur."
+        };
     }
 
-    const hostNote = ` [Hôte joint : ${hostname} | Type de clé : ${keyType}]`;
-    const message = `${reason}${hostNote}`;
+    // 2. Navigateur hors-ligne
+    if ((typeof navigator !== 'undefined' && navigator && navigator.onLine === false) || /navigator\.onLine === false|hors-ligne|offline/i.test(raw)) {
+        return {
+            code: 'OFFLINE',
+            message: "Navigateur hors-ligne : ton appareil n'est pas connecté à Internet."
+        };
+    }
+
+    // 3. Timeout / Délai dépassé
+    if (/timeout|délai|abort/i.test(raw)) {
+        return {
+            code: 'TIMEOUT',
+            message: "Gemini n'a pas répondu à temps (délai dépassé)."
+        };
+    }
+
+    // 4. Sonde no-cors pour déterminer la joignabilité
+    const reachable = await probeGoogleReachability(key);
+    if (!reachable) {
+        return {
+            code: 'NETWORK',
+            message: "Ton navigateur n'arrive pas à joindre Google (connexion, DNS, VPN/proxy, antivirus ou extension). Essaie une fenêtre privée, un autre réseau, ou change le DNS."
+        };
+    }
 
     return {
-        code,
-        reason,
-        hostname,
-        keyType,
-        text: message
+        code: 'CORS_OR_AQ',
+        message: "Google est joignable mais refuse l'appel depuis le navigateur (CORS ou clé de type AQ.). Utilise une clé AIza créée dans Google AI Studio."
     };
 }
 
@@ -152,7 +154,7 @@ export function describeGeminiFailure(status, rawMessage = '', context = {}) {
     }
     if (status === 403) {
         if (/has not been used|disabled|PERMISSION_DENIED|API not enabled|not activated|SERVICE_DISABLED/i.test(raw)) {
-            return { code: 'AUTH', text: "l'API Gemini n'est pas activée sur ce projet Google Cloud" };
+            return { code: 'AUTH', text: "l'API Gemini n'est pas activée sur ce projet Google Cloud (active l'API dans la console Google Cloud)" };
         }
         return { code: 'AUTH', text: 'la clé Gemini est refusée (invalide ou révoquée)' };
     }
@@ -161,8 +163,10 @@ export function describeGeminiFailure(status, rawMessage = '', context = {}) {
     if (status >= 500) return { code: 'SERVER', text: 'Gemini a rencontré une erreur interne' };
     if (status === 0 && /timeout|délai|abort/i.test(raw)) return { code: 'TIMEOUT', text: "Gemini n'a pas répondu à temps" };
     if (status === 0) {
-        const diag = diagnoseFetchFailure(rawMessage, context.url, context.key);
-        return { code: diag.code === 'TIMEOUT' ? 'TIMEOUT' : 'NETWORK', text: diag.text, diag };
+        if (context.message) {
+            return { code: context.code || 'NETWORK', text: context.message };
+        }
+        return { code: 'NETWORK', text: raw || "ton navigateur n'arrive pas à joindre Google (connexion, DNS, VPN/proxy, antivirus ou extension)" };
     }
     return { code: 'UNKNOWN', text: 'erreur inattendue de Gemini' };
 }
@@ -244,9 +248,8 @@ export class GeminiProvider extends LLMProvider {
         } catch (e) {
             const aborted = e && (e.name === 'AbortError' || /abort/i.test(String(e.message)));
             const raw = aborted ? 'timeout' : e;
-            const d = describeGeminiFailure(0, raw, { url: targetUrl, key });
-            const errDetail = e && e.cause ? `${(e && e.message) || e} (${e.cause.message || e.cause})` : String((e && e.message) || e);
-            throw new GeminiError(d.text, { status: 0, code: d.code, detail: this._safe(errDetail, key) });
+            const diag = await diagnoseNetworkFailure(raw, key);
+            throw new GeminiError(diag.message, { status: 0, code: diag.code, detail: this._safe(String((e && e.message) || e), key) });
         } finally {
             if (timer) clearTimeout(timer);
         }
@@ -257,7 +260,7 @@ export class GeminiProvider extends LLMProvider {
                 const err = await response.json();
                 if (err && err.error && err.error.message) raw = err.error.message;
             } catch (_) {}
-            const d = describeGeminiFailure(response.status, raw, { url: targetUrl, key });
+            const d = describeGeminiFailure(response.status, raw);
             throw new GeminiError(d.text, { status: response.status, code: d.code, detail: this._safe(raw, key) });
         }
 
@@ -321,8 +324,9 @@ export class GeminiProvider extends LLMProvider {
         }
 
         // Cas d'une clé AQ. (Vertex AI Express Mode) :
-        // Tente l'adresse aiplatform, puis l'autre adresse (generativelanguage).
-        // Si les deux échouent : message d'aide limpide vers Google AI Studio.
+        // 1. Tente l'adresse aiplatform.
+        // 2. Tente l'autre adresse generativelanguage.
+        // 3. Si les deux échouent : vérifie la joignabilité via la sonde no-cors.
         if (key.startsWith('AQ.')) {
             let aiplatformErr = null;
             let studioErr = null;
@@ -358,12 +362,13 @@ export class GeminiProvider extends LLMProvider {
                 studioErr = e;
             }
 
-            // Les deux adresses ont échoué pour la clé AQ.
+            // Les deux ont échoué : sonde no-cors pour distinguer coupure réseau vs refus Google
+            const diag = await diagnoseNetworkFailure(aiplatformErr || studioErr, key);
             return {
                 ok: false,
                 status: (aiplatformErr && aiplatformErr.status) || (studioErr && studioErr.status) || 0,
-                code: 'AQ_BROWSER_UNSUPPORTED',
-                message: "Cette clé de type AQ. ne fonctionne pas depuis le navigateur ; crée une clé AIza dans Google AI Studio"
+                code: diag.code,
+                message: diag.message
             };
         }
 
@@ -393,8 +398,9 @@ export class GeminiProvider extends LLMProvider {
             } else if (status === 404) {
                 msg = `Erreur 404 : Modèle ou service Google introuvable.`;
             } else if (status === 0) {
-                const diag = diagnoseFetchFailure(err, this._modelsUrl(key), key);
-                msg = `Erreur réseau : ${diag.text}`;
+                // Utilise le diagnostic réseau honnête
+                const diag = await diagnoseNetworkFailure(err, key);
+                msg = diag.message;
             } else {
                 msg = `Erreur ${status || code} : ${msg}`;
             }
@@ -429,12 +435,8 @@ export class GeminiProvider extends LLMProvider {
 
             const aborted = e && (e.name === 'AbortError' || /abort/i.test(String(e.message)));
             const raw = aborted ? 'timeout' : e;
-            const d = describeGeminiFailure(0, raw, { url: targetUrl, key: this.apiKey });
-            let finalMsg = d.text;
-            if (this.isVertexExpressKey()) {
-                finalMsg += ". Cette clé de type AQ. ne fonctionne pas depuis le navigateur ; crée une clé AIza dans Google AI Studio";
-            }
-            throw new GeminiError(finalMsg, { status: 0, code: d.code, model, detail: this._safe(String((e && e.message) || e)) });
+            const diag = await diagnoseNetworkFailure(raw, this.apiKey);
+            throw new GeminiError(diag.message, { status: 0, code: diag.code, model, detail: this._safe(String((e && e.message) || e)) });
         } finally {
             if (timer) clearTimeout(timer);
         }
@@ -455,12 +457,8 @@ export class GeminiProvider extends LLMProvider {
                 }
             }
 
-            const d = describeGeminiFailure(response.status, raw, { url: targetUrl, key: this.apiKey });
-            let finalMsg = d.text;
-            if (this.isVertexExpressKey()) {
-                finalMsg += ". Cette clé de type AQ. ne fonctionne pas depuis le navigateur ; crée une clé AIza dans Google AI Studio";
-            }
-            throw new GeminiError(finalMsg, { status: response.status, code: d.code, model, detail: this._safe(raw) });
+            const d = describeGeminiFailure(response.status, raw);
+            throw new GeminiError(d.text, { status: response.status, code: d.code, model, detail: this._safe(raw) });
         }
 
         const data = await response.json();
@@ -477,7 +475,7 @@ export class GeminiProvider extends LLMProvider {
      */
     async _callWithFallback(body, { model = null, timeoutMs }) {
         if (typeof this.apiKey === 'string' && /^sk-/i.test(this.apiKey)) {
-            const d = describeGeminiFailure(401, 'sk- openai key', { key: this.apiKey });
+            const d = describeGeminiFailure(401, 'sk- openai key');
             throw this._finalError(new GeminiError(d.text, { status: 401, code: d.code }));
         }
 

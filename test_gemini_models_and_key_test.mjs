@@ -161,121 +161,136 @@ console.log("✅ PASS: 1. Modèle principal gemini-3.8-flash et liste de repli c
     const lineQuota = CoachLocalReply.llmStatusLine({ ok: false, status: 429, code: 'QUOTA', message: 'Rate limit' });
     assert(lineQuota.includes("Teste ta clé dans les réglages"), "Le message de chat pour quota doit aussi conseiller de tester la clé");
 
+    const lineNetwork = CoachLocalReply.llmStatusLine({
+        ok: false,
+        status: 0,
+        code: 'NETWORK',
+        message: "Ton navigateur n'arrive pas à joindre Google (connexion, DNS, VPN/proxy, antivirus ou extension). Essaie une fenêtre privée, un autre réseau, ou change le DNS."
+    });
+    assert(lineNetwork.includes("Teste ta clé dans les réglages"));
+    assert(lineNetwork.includes("Ton navigateur n'arrive pas à joindre Google"));
+
+    const lineCorsAQ = CoachLocalReply.llmStatusLine({
+        ok: false,
+        status: 0,
+        code: 'CORS_OR_AQ',
+        message: "Google est joignable mais refuse l'appel depuis le navigateur (CORS ou clé de type AQ.). Utilise une clé AIza créée dans Google AI Studio."
+    });
+    assert(lineCorsAQ.includes("Teste ta clé dans les réglages"));
+    assert(lineCorsAQ.includes("Google est joignable mais refuse l'appel depuis le navigateur"));
+
     console.log("✅ PASS: 5. Message d'erreur du chat clair, en français avec conseil 'Teste ta clé dans les réglages'");
 }
 
-// 6. Diagnostic précis des erreurs fetch (status 0) : CSP, CORS, hors-ligne, DNS, extension
+// 6. Diagnostic honnête des échecs fetch (status 0) : sonde no-cors et cas réellement détectables
 {
     const originalFetch = globalThis.fetch;
     const testKeyAIza = "AIzaSySecretKey999";
 
-    // 6a. Bloqué par la CSP
+    // 6a. Échec fetch + sonde no-cors échoue aussi -> navigateur n'arrive pas à joindre Google
+    globalThis.fetch = async () => {
+        throw new TypeError('Failed to fetch');
+    };
+    const pNetFail = new GeminiProvider(testKeyAIza);
+    const resNetFail = await pNetFail.testKey();
+    assert.strictEqual(resNetFail.ok, false);
+    assert.strictEqual(resNetFail.status, 0);
+    assert.strictEqual(resNetFail.code, 'NETWORK');
+    assert.strictEqual(resNetFail.message, "Ton navigateur n'arrive pas à joindre Google (connexion, DNS, VPN/proxy, antivirus ou extension). Essaie une fenêtre privée, un autre réseau, ou change le DNS.");
+    assert(!resNetFail.message.includes(testKeyAIza));
+    console.log("✅ PASS: 6a. Sonde no-cors échoue : diagnostic honnête d'impossibilité de joindre Google");
+
+    // 6b. Échec fetch + sonde no-cors réussit -> Google est joignable mais refuse l'appel (CORS / clé AQ)
+    globalThis.fetch = async (url, options) => {
+        if (options && options.mode === 'no-cors') {
+            return { ok: false, type: 'opaque', status: 0 };
+        }
+        throw new TypeError('Failed to fetch');
+    };
+    const pCors = new GeminiProvider(testKeyAIza);
+    const resCors = await pCors.testKey();
+    assert.strictEqual(resCors.ok, false);
+    assert.strictEqual(resCors.status, 0);
+    assert.strictEqual(resCors.code, 'CORS_OR_AQ');
+    assert.strictEqual(resCors.message, "Google est joignable mais refuse l'appel depuis le navigateur (CORS ou clé de type AQ.). Utilise une clé AIza créée dans Google AI Studio.");
+    assert(!resCors.message.includes(testKeyAIza));
+    console.log("✅ PASS: 6b. Sonde no-cors réussit : diagnostic honnête de refus navigateur (CORS ou clé AQ.)");
+
+    // 6c. Clé commençant par AQ. : essai aiplatform puis generativelanguage, sonde réussit
+    const triedUrlsAQ = [];
+    globalThis.fetch = async (url, options) => {
+        triedUrlsAQ.push(String(url));
+        if (options && options.mode === 'no-cors') {
+            return { ok: false, type: 'opaque', status: 0 };
+        }
+        throw new TypeError('Failed to fetch');
+    };
+    const pAQReachable = new GeminiProvider("AQ.TestVertexReach123");
+    const resAQReachable = await pAQReachable.testKey();
+    assert.strictEqual(resAQReachable.ok, false);
+    assert(triedUrlsAQ.some(u => u.includes('aiplatform.googleapis.com')), "Doit avoir tenté l'adresse aiplatform");
+    assert(triedUrlsAQ.some(u => u.includes('generativelanguage.googleapis.com')), "Doit avoir tenté generativelanguage");
+    assert.strictEqual(resAQReachable.code, 'CORS_OR_AQ');
+    assert.strictEqual(resAQReachable.message, "Google est joignable mais refuse l'appel depuis le navigateur (CORS ou clé de type AQ.). Utilise une clé AIza créée dans Google AI Studio.");
+    assert(!resAQReachable.message.includes("AQ.TestVertexReach123"));
+    console.log("✅ PASS: 6c. Clé AQ. : tentative double endpoint + sonde no-cors orientant vers clé AIza");
+
+    // 6d. Clé AQ. avec coupure réseau totale (sonde échoue aussi)
+    globalThis.fetch = async () => {
+        throw new TypeError('Failed to fetch');
+    };
+    const pAQNoNet = new GeminiProvider("AQ.TestVertexNoNet");
+    const resAQNoNet = await pAQNoNet.testKey();
+    assert.strictEqual(resAQNoNet.ok, false);
+    assert.strictEqual(resAQNoNet.code, 'NETWORK');
+    assert.strictEqual(resAQNoNet.message, "Ton navigateur n'arrive pas à joindre Google (connexion, DNS, VPN/proxy, antivirus ou extension). Essaie une fenêtre privée, un autre réseau, ou change le DNS.");
+    console.log("✅ PASS: 6d. Clé AQ. : sonde no-cors échoue -> message réseau honnête sans fausse accusation");
+
+    // 6e. Cas réellement détectable : Bloqué par la CSP (securitypolicyviolation)
     notifyCspViolation('https://generativelanguage.googleapis.com');
-    globalThis.fetch = async () => { throw new TypeError('Failed to fetch due to CSP'); };
+    globalThis.fetch = async () => { throw new TypeError('Failed to fetch'); };
     const pCSP = new GeminiProvider(testKeyAIza);
     const resCSP = await pCSP.testKey();
     assert.strictEqual(resCSP.ok, false);
+    assert.strictEqual(resCSP.code, 'CSP_BLOCKED');
     assert(resCSP.message.includes("CSP") || resCSP.message.includes("politique de sécurité"), "Doit identifier le blocage CSP");
-    assert(resCSP.message.includes("generativelanguage"), "Doit mentionner l'hôte joint");
-    assert(resCSP.message.includes("AIza"), "Doit mentionner le type de clé AIza");
     assert(!resCSP.message.includes(testKeyAIza), "Ne doit JAMAIS révéler la clé secrète");
     clearCspViolation();
-    console.log("✅ PASS: 6a. Diagnostic échec fetch : bloqué par la CSP (securitypolicyviolation)");
+    console.log("✅ PASS: 6e. Cas réellement détectable : bloqué par la CSP (securitypolicyviolation)");
 
-    // 6b. Erreur CORS ou réponse opaque
-    globalThis.fetch = async () => { throw new TypeError('Failed to fetch (CORS header missing)'); };
-    const pCORS = new GeminiProvider(testKeyAIza);
-    const resCORS = await pCORS.testKey();
-    assert.strictEqual(resCORS.ok, false);
-    assert(resCORS.message.includes("CORS") || resCORS.message.includes("opaque"), "Doit identifier une erreur CORS");
-    assert(resCORS.message.includes("generativelanguage"), "Doit mentionner l'hôte generativelanguage");
-    assert(resCORS.message.includes("AIza"), "Doit mentionner le type AIza");
-    assert(!resCORS.message.includes(testKeyAIza), "Ne doit pas révéler la clé");
-    console.log("✅ PASS: 6b. Diagnostic échec fetch : erreur CORS / opaque");
-
-    // 6c. Navigateur hors-ligne (navigator.onLine === false)
+    // 6f. Cas réellement détectable : Navigateur hors-ligne (navigator.onLine === false)
     const originalOnLineDesc = Object.getOwnPropertyDescriptor(globalThis.navigator || {}, 'onLine');
     try {
         Object.defineProperty(globalThis.navigator, 'onLine', { value: false, configurable: true });
     } catch (_) {}
-    globalThis.fetch = async () => { throw new TypeError('Failed to fetch (offline)'); };
+    globalThis.fetch = async () => { throw new TypeError('Failed to fetch'); };
     const pOffline = new GeminiProvider(testKeyAIza);
     const resOffline = await pOffline.testKey();
     assert.strictEqual(resOffline.ok, false);
+    assert.strictEqual(resOffline.code, 'OFFLINE');
     assert(resOffline.message.includes("hors-ligne") || resOffline.message.includes("connexion Internet"), "Doit identifier le mode hors-ligne");
-    assert(resOffline.message.includes("generativelanguage") && resOffline.message.includes("AIza"));
     assert(!resOffline.message.includes(testKeyAIza));
     if (originalOnLineDesc) {
         Object.defineProperty(globalThis.navigator, 'onLine', originalOnLineDesc);
     } else {
         try { Object.defineProperty(globalThis.navigator, 'onLine', { value: true, configurable: true }); } catch (_) {}
     }
-    console.log("✅ PASS: 6c. Diagnostic échec fetch : navigateur hors-ligne (navigator.onLine === false)");
+    console.log("✅ PASS: 6f. Cas réellement détectable : navigateur hors-ligne (navigator.onLine === false)");
 
-    // 6d. Nom d'hôte introuvable / échec DNS
+    // 6g. Cas réellement détectable : Timeout / Délai dépassé
     globalThis.fetch = async () => {
-        const err = new TypeError('fetch failed');
-        err.cause = new Error('getaddrinfo ENOTFOUND generativelanguage.googleapis.com');
+        const err = new Error('The user aborted a request.');
+        err.name = 'AbortError';
         throw err;
     };
-    const pDNS = new GeminiProvider(testKeyAIza);
-    const resDNS = await pDNS.testKey();
-    assert.strictEqual(resDNS.ok, false);
-    assert(resDNS.message.includes("Nom d'hôte introuvable") || resDNS.message.includes("DNS"), "Doit identifier l'erreur DNS/hôte introuvable");
-    assert(resDNS.message.includes("generativelanguage") && resDNS.message.includes("AIza"));
-    assert(!resDNS.message.includes(testKeyAIza));
-    console.log("✅ PASS: 6d. Diagnostic échec fetch : nom d'hôte introuvable (échec DNS)");
-
-    // 6e. Connexion refusée (ECONNREFUSED)
-    globalThis.fetch = async () => {
-        const err = new TypeError('fetch failed');
-        err.cause = new Error('connect ECONNREFUSED 127.0.0.1:443');
-        throw err;
-    };
-    const pRefused = new GeminiProvider(testKeyAIza);
-    const resRefused = await pRefused.testKey();
-    assert.strictEqual(resRefused.ok, false);
-    assert(resRefused.message.includes("refusée"), "Doit identifier la connexion refusée");
-    assert(resRefused.message.includes("generativelanguage") && resRefused.message.includes("AIza"));
-    console.log("✅ PASS: 6e. Diagnostic échec fetch : connexion refusée");
-
-    // 6f. Extension qui bloque (ERR_BLOCKED_BY_CLIENT)
-    globalThis.fetch = async () => { throw new TypeError('net::ERR_BLOCKED_BY_CLIENT'); };
-    const pExt = new GeminiProvider(testKeyAIza);
-    const resExt = await pExt.testKey();
-    assert.strictEqual(resExt.ok, false);
-    assert(resExt.message.includes("extension") || resExt.message.includes("bloqueur"), "Doit identifier le blocage par une extension");
-    assert(resExt.message.includes("generativelanguage") && resExt.message.includes("AIza"));
-    assert(!resExt.message.includes(testKeyAIza));
-    console.log("✅ PASS: 6f. Diagnostic échec fetch : extension qui bloque (ERR_BLOCKED_BY_CLIENT)");
+    const pTimeout = new GeminiProvider(testKeyAIza);
+    const resTimeout = await pTimeout.testKey();
+    assert.strictEqual(resTimeout.ok, false);
+    assert.strictEqual(resTimeout.code, 'TIMEOUT');
+    assert(resTimeout.message.includes("délai dépassé"), "Doit identifier le dépassement de délai");
+    console.log("✅ PASS: 6g. Cas réellement détectable : délai dépassé (timeout)");
 
     globalThis.fetch = originalFetch;
-}
-
-// 7. Clé commençant par AQ. : essai vers aiplatform puis generativelanguage puis message d'aide limpide
-{
-    const originalFetch = globalThis.fetch;
-    const testKeyAQ = "AQ.TokenSecretVertex123";
-    const triedUrls = [];
-
-    globalThis.fetch = async (url) => {
-        triedUrls.push(String(url));
-        // Échec sur les deux endpoints
-        return { ok: false, status: 403, json: async () => ({ error: { message: "Permission denied for this origin" } }) };
-    };
-
-    const pAQ = new GeminiProvider(testKeyAQ);
-    const resAQ = await pAQ.testKey();
-
-    assert.strictEqual(resAQ.ok, false, "testKey doit échouer pour la clé AQ. bloquée");
-    assert(triedUrls.some(u => u.includes('aiplatform.googleapis.com')), "Doit avoir tenté l'adresse aiplatform");
-    assert(triedUrls.some(u => u.includes('generativelanguage.googleapis.com')), "Doit avoir tenté l'autre adresse (generativelanguage)");
-    assert(resAQ.message.includes("Cette clé de type AQ. ne fonctionne pas depuis le navigateur ; crée une clé AIza dans Google AI Studio"),
-        "Doit donner exactement le message d'aide attendu pour les clés AQ.");
-    assert(!resAQ.message.includes(testKeyAQ), "La clé AQ. ne doit jamais être affichée");
-
-    globalThis.fetch = originalFetch;
-    console.log("✅ PASS: 7. Clé AQ. : essai sur les deux adresses + message d'orientation vers Google AI Studio");
 }
 
 // 8. Distinction fine de l'erreur 403 : API non activée vs Clé refusée
