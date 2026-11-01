@@ -1,4 +1,5 @@
 import { parseLocalDate } from '../utils/dateUtils.js';
+import { Motion } from './motion.js';
 
 /**
  * EventModal
@@ -10,6 +11,8 @@ import { parseLocalDate } from '../utils/dateUtils.js';
  *  - Type (cours, révision, examen, projet, langue, sport, personnel, autre)
  *  - Répétition (aucune, quotidienne 7j, hebdomadaire 4 sem, hebdomadaire 8 sem)
  *  - Verrouillé / Flexible
+ * 
+ * 0 style inline (charte CSS univers-planning.css).
  */
 export class EventModal {
     constructor(app) {
@@ -24,41 +27,43 @@ export class EventModal {
 
         modal = document.createElement('div');
         modal.id = this.modalId;
-        modal.style.cssText = 'display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.7); z-index:99999; justify-content:center; align-items:center; font-family:"Inter", sans-serif;';
+        modal.className = 'event-modal-backdrop';
+        modal.hidden = true;
+        modal.style.display = 'none';
         modal.innerHTML = `
-        <div style="background:#152b36; border:1px solid #00f2fe; border-radius:16px; padding:25px; width:440px; max-width:90%; box-shadow:0 20px 40px rgba(0,0,0,0.6); color:#e0e0e0; box-sizing:border-box;">
-            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
-                <h3 id="event-modal-title" style="color:#00f2fe; margin:0; font-size:18px; font-weight:700;">Ajouter un événement</h3>
-                <button type="button" id="event-modal-close-btn" style="background:transparent; border:none; color:#88a7b7; font-size:20px; cursor:pointer;">&times;</button>
+        <div class="event-modal-card">
+            <div class="event-modal-header">
+                <h3 id="event-modal-title" class="event-modal-title">Ajouter un événement</h3>
+                <button type="button" id="event-modal-close-btn" class="event-modal-close-btn" aria-label="Fermer">&times;</button>
             </div>
             
             <input type="hidden" id="event-modal-id">
 
-            <div style="margin-bottom:14px;">
-                <label style="color:#88a7b7; font-size:12px; display:block; margin-bottom:5px;">Titre de l'événement *</label>
-                <input type="text" id="event-modal-field-title" placeholder="Ex: Cours d'Algorithmie, Révision TD..." style="width:100%; padding:9px 12px; border-radius:6px; background:#0f2027; color:#fff; border:1px solid #2a5268; box-sizing:border-box; font-size:13px;">
+            <div class="event-modal-group">
+                <label for="event-modal-field-title" class="event-modal-label">Titre de l'événement *</label>
+                <input type="text" id="event-modal-field-title" class="event-modal-input" placeholder="Ex: Cours d'Algorithmie, Révision TD...">
             </div>
 
-            <div style="margin-bottom:14px;">
-                <label style="color:#88a7b7; font-size:12px; display:block; margin-bottom:5px;">Date *</label>
-                <input type="date" id="event-modal-field-date" style="width:100%; padding:9px 12px; border-radius:6px; background:#0f2027; color:#fff; border:1px solid #2a5268; box-sizing:border-box; font-size:13px;">
+            <div class="event-modal-group">
+                <label for="event-modal-field-date" class="event-modal-label">Date *</label>
+                <input type="date" id="event-modal-field-date" class="event-modal-input">
             </div>
 
-            <div style="display:flex; gap:12px; margin-bottom:14px;">
-                <div style="flex:1;">
-                    <label style="color:#88a7b7; font-size:12px; display:block; margin-bottom:5px;">Heure début *</label>
-                    <input type="time" id="event-modal-field-start" value="09:00" style="width:100%; padding:9px 12px; border-radius:6px; background:#0f2027; color:#fff; border:1px solid #2a5268; box-sizing:border-box; font-size:13px;">
+            <div class="event-modal-row">
+                <div class="event-modal-col">
+                    <label for="event-modal-field-start" class="event-modal-label">Heure début *</label>
+                    <input type="time" id="event-modal-field-start" class="event-modal-input" value="09:00">
                 </div>
-                <div style="flex:1;">
-                    <label style="color:#88a7b7; font-size:12px; display:block; margin-bottom:5px;">Heure fin *</label>
-                    <input type="time" id="event-modal-field-end" value="10:00" style="width:100%; padding:9px 12px; border-radius:6px; background:#0f2027; color:#fff; border:1px solid #2a5268; box-sizing:border-box; font-size:13px;">
+                <div class="event-modal-col">
+                    <label for="event-modal-field-end" class="event-modal-label">Heure fin *</label>
+                    <input type="time" id="event-modal-field-end" class="event-modal-input" value="10:00">
                 </div>
             </div>
 
-            <div style="display:flex; gap:12px; margin-bottom:14px;">
-                <div style="flex:1;">
-                    <label style="color:#88a7b7; font-size:12px; display:block; margin-bottom:5px;">Type d'événement</label>
-                    <select id="event-modal-field-type" style="width:100%; padding:9px 12px; border-radius:6px; background:#0f2027; color:#fff; border:1px solid #2a5268; box-sizing:border-box; font-size:13px;">
+            <div class="event-modal-row">
+                <div class="event-modal-col">
+                    <label for="event-modal-field-type" class="event-modal-label">Type d'événement</label>
+                    <select id="event-modal-field-type" class="event-modal-select">
                         <option value="course">Cours / TD</option>
                         <option value="revision">Révision</option>
                         <option value="exam">Examen / Évaluation</option>
@@ -69,18 +74,18 @@ export class EventModal {
                         <option value="other">Autre</option>
                     </select>
                 </div>
-                <div style="flex:1;">
-                    <label style="color:#88a7b7; font-size:12px; display:block; margin-bottom:5px;">Statut (IA / Conflits)</label>
-                    <select id="event-modal-field-lock" style="width:100%; padding:9px 12px; border-radius:6px; background:#0f2027; color:#fff; border:1px solid #2a5268; box-sizing:border-box; font-size:13px;">
+                <div class="event-modal-col">
+                    <label for="event-modal-field-lock" class="event-modal-label">Statut (IA / Conflits)</label>
+                    <select id="event-modal-field-lock" class="event-modal-select">
                         <option value="flexible">Flexible (ajustable)</option>
                         <option value="locked">Verrouillé (fixe)</option>
                     </select>
                 </div>
             </div>
 
-            <div style="margin-bottom:22px;">
-                <label style="color:#88a7b7; font-size:12px; display:block; margin-bottom:5px;">Répétition</label>
-                <select id="event-modal-field-repetition" style="width:100%; padding:9px 12px; border-radius:6px; background:#0f2027; color:#fff; border:1px solid #2a5268; box-sizing:border-box; font-size:13px;">
+            <div class="event-modal-group">
+                <label for="event-modal-field-repetition" class="event-modal-label">Répétition</label>
+                <select id="event-modal-field-repetition" class="event-modal-select">
                     <option value="none">Aucune répétition</option>
                     <option value="daily">Chaque jour (7 jours)</option>
                     <option value="weekly">Chaque semaine (4 semaines)</option>
@@ -88,13 +93,13 @@ export class EventModal {
                 </select>
             </div>
 
-            <div style="display:flex; justify-content:space-between; align-items:center;">
-                <button type="button" id="event-modal-delete-btn" style="background:#ef4444; color:white; border:none; padding:9px 16px; border-radius:6px; cursor:pointer; font-size:13px; font-weight:600; display:none;">
+            <div class="event-modal-footer">
+                <button type="button" id="event-modal-delete-btn" class="event-modal-btn-del" hidden>
                     Supprimer
                 </button>
-                <div style="display:flex; gap:10px; margin-left:auto;">
-                    <button type="button" id="event-modal-cancel-btn" style="background:transparent; color:#88a7b7; border:1px solid #2a5268; padding:9px 16px; border-radius:6px; cursor:pointer; font-size:13px;">Annuler</button>
-                    <button type="button" id="event-modal-save-btn" style="background:#00f2fe; color:#0f2027; border:none; padding:9px 18px; border-radius:6px; cursor:pointer; font-weight:bold; font-size:13px;">Enregistrer</button>
+                <div class="event-modal-actions-right">
+                    <button type="button" id="event-modal-cancel-btn" class="event-modal-btn-cancel">Annuler</button>
+                    <button type="button" id="event-modal-save-btn" class="event-modal-btn-save">Enregistrer</button>
                 </div>
             </div>
         </div>
@@ -115,6 +120,7 @@ export class EventModal {
         const saveBtn = modal.querySelector('#event-modal-save-btn');
         if (saveBtn) {
             saveBtn.addEventListener('click', async () => {
+                Motion.buttonTap(saveBtn);
                 await this.handleSave();
             });
         }
@@ -170,14 +176,22 @@ export class EventModal {
         if (repField) repField.value = data.repetition || 'none';
 
         const delBtn = document.getElementById('event-modal-delete-btn');
-        if (delBtn) delBtn.style.display = isEdit ? 'inline-block' : 'none';
+        if (delBtn) {
+            delBtn.hidden = !isEdit;
+            delBtn.style.display = isEdit ? 'inline-block' : 'none';
+        }
 
+        modal.hidden = false;
         modal.style.display = 'flex';
+        Motion.modalOpen(modal);
     }
 
     close() {
         const modal = document.getElementById(this.modalId);
-        if (modal) modal.style.display = 'none';
+        if (modal) {
+            modal.hidden = true;
+            modal.style.display = 'none';
+        }
     }
 
     async handleSave() {

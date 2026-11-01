@@ -1,5 +1,6 @@
 import { escapeHtml } from '../utils/html.js';
 import { parseLocalDate, timeToMinutes } from '../utils/dateUtils.js';
+import { Motion } from './motion.js';
 
 export class PlanningView {
     constructor(containerId, app) {
@@ -22,6 +23,7 @@ export class PlanningView {
         this.currentYear = now.getFullYear();
         this.currentMonth = now.getMonth();
         this.weekOffset = 0;
+        this._userNavigatedMonth = false;
 
         // Filtres pour la vue mois
         this.filters = {
@@ -46,6 +48,25 @@ export class PlanningView {
         const rawEvents = state.calendarData?.events || [];
         const projects = state.calendarData?.projects || [];
         const assessments = state.calendarData?.assessments || [];
+
+        // Synchronisation robuste du mois si l'utilisateur n'a pas navigué manuellement
+        if (state.selectedDate && !this._userNavigatedMonth) {
+            this.currentYear = now.getFullYear();
+            this.currentMonth = now.getMonth();
+        } else if (!this._userNavigatedMonth && rawEvents.length > 0) {
+            const hasEventsThisMonth = rawEvents.some(e => {
+                if (!e.date) return false;
+                const d = parseLocalDate(e.date);
+                return d.getFullYear() === this.currentYear && d.getMonth() === this.currentMonth;
+            });
+            if (!hasEventsThisMonth) {
+                const firstEventDate = parseLocalDate(rawEvents[0].date);
+                if (firstEventDate && !isNaN(firstEventDate.getTime())) {
+                    this.currentYear = firstEventDate.getFullYear();
+                    this.currentMonth = firstEventDate.getMonth();
+                }
+            }
+        }
 
         // Fonctions de classification unifiées
         const isSchool = (e) => {
@@ -83,11 +104,6 @@ export class PlanningView {
         const firstDayIndex = new Date(this.currentYear, this.currentMonth, 1).getDay(); // 0 (DIM) à 6 (SAM)
         const todayStr = new Date().toLocaleDateString('fr-CA');
 
-        // Couleurs univers
-        const schoolColor = '#00f2fe';
-        const lifeColor = '#f093fb';
-        const langColor = '#ff9800';
-
         // 1. Grille hebdomadaire (Timeline)
         const eventsHtml = rawEvents.filter(e => {
             if (!e.date || !e.startTime) return false;
@@ -114,19 +130,19 @@ export class PlanningView {
             const height = (durationMinutes / 60) * 51 - 2;
 
             const isSch = isSchool(e);
-            const bgColor = isSch ? '#0ea5e9' : (e.type === 'Force-N' ? '#ef4444' : '#10b981');
+            const blockClass = isSch ? 'event-school' : (e.type === 'Force-N' ? 'event-force' : 'event-default');
 
             return `
-            <div style="position: absolute; left: calc(60px + ${dayIndex} * ((100% - 60px) / 7) + 2px); width: calc(((100% - 60px) / 7) - 4px); top: ${top}px; height: ${height}px; background: ${bgColor}; color: white; border-radius: 6px; padding: 4px 6px; font-size: 11px; overflow: hidden; box-shadow: 0 2px 4px rgba(0,0,0,0.1); z-index: 10;">
-                <div style="display:flex; justify-content:space-between; align-items:center; gap:2px;">
-                    <strong style="display:block; text-overflow:ellipsis; white-space:nowrap; overflow:hidden; flex:1;">${escapeHtml(e.title || e.type)}</strong>
-                    <div style="display:inline-flex; gap:2px;">
-                        ${isSch ? `<button type="button" class="btn-start-focus" data-id="${escapeHtml(e.id)}" title="Démarrer une session" style="background:transparent; border:none; color:#a7f3d0; cursor:pointer; font-size:10px; padding:0; line-height:1;">▶️</button>` : ''}
-                        <button type="button" class="btn-edit-event" data-id="${escapeHtml(e.id)}" title="Modifier" style="background:transparent; border:none; color:white; cursor:pointer; font-size:10px; padding:0; line-height:1;">✏️</button>
-                        <button type="button" class="btn-delete-event" data-id="${escapeHtml(e.id)}" title="Supprimer" style="background:transparent; border:none; color:#fca5a5; cursor:pointer; font-size:10px; padding:0; line-height:1;">🗑️</button>
+            <div class="planning-event-block ${blockClass}" style="left: calc(60px + ${dayIndex} * ((100% - 60px) / 7) + 2px); width: calc(((100% - 60px) / 7) - 4px); top: ${top}px; height: ${height}px;">
+                <div class="planning-event-block-header">
+                    <strong class="planning-event-block-title">${escapeHtml(e.title || e.type)}</strong>
+                    <div class="planning-event-block-actions">
+                        ${isSch ? `<button type="button" class="btn-start-focus planning-icon-btn icon-focus" data-id="${escapeHtml(e.id)}" title="Démarrer une session">▶️</button>` : ''}
+                        <button type="button" class="btn-edit-event planning-icon-btn" data-id="${escapeHtml(e.id)}" title="Modifier">✏️</button>
+                        <button type="button" class="btn-delete-event planning-icon-btn icon-del" data-id="${escapeHtml(e.id)}" title="Supprimer">🗑️</button>
                     </div>
                 </div>
-                <span style="opacity:0.8; font-size:10px;">${escapeHtml(e.startTime)} - ${escapeHtml(e.endTime || '')}</span>
+                <span class="planning-event-block-time">${escapeHtml(e.startTime)} - ${escapeHtml(e.endTime || '')}</span>
             </div>
             `;
         }).join('');
@@ -135,9 +151,9 @@ export class PlanningView {
         const todayEvents = rawEvents.filter(e => e.date === currentDateStr);
         todayEvents.sort((a, b) => (a.startTime || '').localeCompare(b.startTime || ''));
 
-        let currentSessionHtml = '<div style="text-align:center; padding:20px 0; color:var(--text-muted); font-size:14px;">Aucune session en ce moment.</div>';
-        let upcomingHtml = '<div style="color:var(--text-muted); font-size:14px;">Rien de prévu pour le reste de la journée.</div>';
-        let aVenirHtml = '<div style="color:var(--text-muted); font-size:14px;">Aucun CC en vue.</div>';
+        let currentSessionHtml = '<div class="planning-side-empty">Aucune session en ce moment.</div>';
+        let upcomingHtml = '<div class="planning-side-empty">Rien de prévu pour le reste de la journée.</div>';
+        let aVenirHtml = '<div class="planning-side-empty">Aucun CC en vue.</div>';
 
         const upcomingList = [];
         let currentEvent = null;
@@ -168,16 +184,16 @@ export class PlanningView {
 
         if (currentEvent) {
             currentSessionHtml = `
-            <div style="background: rgba(14, 165, 233, 0.1); border: 1px solid var(--accent-primary); border-radius: 8px; padding: 15px;">
-                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:5px;">
-                    <strong style="color:var(--accent-primary);">${escapeHtml(currentEvent.title || currentEvent.type)}</strong>
-                    <div style="display:inline-flex; gap:6px;">
-                        <button type="button" class="btn-edit-event" data-id="${escapeHtml(currentEvent.id)}" title="Modifier" style="background:transparent; border:none; color:var(--accent-primary); cursor:pointer; font-size:12px; padding:0;">✏️</button>
-                        <button type="button" class="btn-delete-event" data-id="${escapeHtml(currentEvent.id)}" title="Supprimer" style="background:transparent; border:none; color:#ef4444; cursor:pointer; font-size:12px; padding:0;">🗑️</button>
+            <div class="planning-current-box">
+                <div class="planning-current-header">
+                    <strong class="planning-current-title">${escapeHtml(currentEvent.title || currentEvent.type)}</strong>
+                    <div class="planning-event-block-actions">
+                        <button type="button" class="btn-edit-event planning-btn-icon-inline" data-id="${escapeHtml(currentEvent.id)}" title="Modifier">✏️</button>
+                        <button type="button" class="btn-delete-event planning-btn-icon-inline danger" data-id="${escapeHtml(currentEvent.id)}" title="Supprimer">🗑️</button>
                     </div>
                 </div>
-                <div style="font-size:12px; color:var(--text-main); margin-bottom:10px;"><i class="bi bi-clock"></i> ${currentEvent.startTime} - ${currentEvent.endTimeStr}</div>
-                <button type="button" class="btn-start-focus btn btn-primary" data-id="${escapeHtml(currentEvent.id)}" style="background:var(--accent-primary); color:white; border:none; padding:6px 12px; border-radius:6px; cursor:pointer; font-size:12px; font-weight:600; display:inline-flex; align-items:center; gap:6px;">
+                <div class="planning-current-time"><i class="bi bi-clock"></i> ${currentEvent.startTime} - ${currentEvent.endTimeStr}</div>
+                <button type="button" class="btn-start-focus btn btn-primary" data-id="${escapeHtml(currentEvent.id)}">
                     <i class="bi bi-play-fill"></i> Démarrer une session
                 </button>
             </div>`;
@@ -187,19 +203,19 @@ export class PlanningView {
             upcomingHtml = upcomingList.map(e => {
                 let isSchoolEv = isSchool(e);
                 const focusBtn = isSchoolEv ? `
-                    <button type="button" class="btn-start-focus" data-id="${escapeHtml(e.id)}" title="Démarrer une session" style="background:rgba(14,165,233,0.15); color:var(--accent-primary); border:1px solid var(--accent-primary); padding:3px 8px; border-radius:5px; cursor:pointer; font-size:11px; font-weight:600; display:inline-flex; align-items:center; gap:4px;">
+                    <button type="button" class="btn-start-focus planning-btn-start-focus-inline" data-id="${escapeHtml(e.id)}" title="Démarrer une session">
                         <i class="bi bi-play-fill"></i> Démarrer une session
                     </button>
                 ` : '';
 
                 return `
-                <div style="display:flex; justify-content:space-between; align-items:center; padding: 10px 0; border-bottom: 1px solid var(--border-color); gap:8px;">
-                    <div style="font-size:13px; font-weight:500; color:var(--text-main); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; flex:1;">${escapeHtml(e.title || e.type)}</div>
-                    <div style="display:flex; align-items:center; gap:8px;">
-                        <span style="font-size:12px; color:var(--text-muted);">${e.startTime}</span>
+                <div class="planning-upcoming-row">
+                    <div class="planning-upcoming-title">${escapeHtml(e.title || e.type)}</div>
+                    <div class="planning-upcoming-meta">
+                        <span class="planning-upcoming-time">${e.startTime}</span>
                         ${focusBtn}
-                        <button type="button" class="btn-edit-event" data-id="${escapeHtml(e.id)}" title="Modifier" style="background:transparent; border:none; color:var(--accent-primary); cursor:pointer; font-size:12px; padding:0;">✏️</button>
-                        <button type="button" class="btn-delete-event" data-id="${escapeHtml(e.id)}" title="Supprimer" style="background:transparent; border:none; color:#ef4444; cursor:pointer; font-size:12px; padding:0;">🗑️</button>
+                        <button type="button" class="btn-edit-event planning-btn-icon-inline" data-id="${escapeHtml(e.id)}" title="Modifier">✏️</button>
+                        <button type="button" class="btn-delete-event planning-btn-icon-inline danger" data-id="${escapeHtml(e.id)}" title="Supprimer">🗑️</button>
                     </div>
                 </div>
                 `;
@@ -220,9 +236,9 @@ export class PlanningView {
                 const ed = parseLocalDate(e.date);
                 const dateStr = ed.toLocaleDateString('fr-FR', { weekday: 'short', day: '2-digit', month: 'short' });
                 return `
-                <div style="display:flex; justify-content:space-between; padding: 10px 0; border-bottom: 1px solid var(--border-color);">
-                    <div style="font-size:13px; font-weight:500; color:#ef4444; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${escapeHtml(e.title || e.type)}</div>
-                    <div style="font-size:12px; color:var(--text-muted);">${dateStr}</div>
+                <div class="planning-cc-row">
+                    <div class="planning-cc-title">${escapeHtml(e.title || e.type)}</div>
+                    <div class="planning-cc-date">${dateStr}</div>
                 </div>
                 `;
             }).join('');
@@ -255,20 +271,20 @@ export class PlanningView {
 
             mainViewContent = `
             <!-- FILTRES ET NAVIGATION MOIS -->
-            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px; flex-wrap:wrap; gap:10px;">
-                <div style="display:flex; align-items:center; gap:8px;">
-                    <span style="font-size:12px; font-weight:700; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.5px;">Filtres :</span>
-                    <button type="button" id="filter-school" class="btn btn-sm ${this.filters.school ? 'btn-primary' : 'btn-ghost'}" style="display:inline-flex; align-items:center; gap:6px;">
-                        <span style="display:inline-block; width:8px; height:8px; border-radius:50%; background:${schoolColor};"></span> École
+            <div class="planning-month-topbar">
+                <div class="planning-filters">
+                    <span class="planning-filter-label">Filtres :</span>
+                    <button type="button" id="filter-school" class="btn btn-sm ${this.filters.school ? 'btn-primary' : 'btn-ghost'} planning-filter-pill">
+                        <span class="planning-dot school"></span> École
                     </button>
-                    <button type="button" id="filter-life" class="btn btn-sm ${this.filters.life ? 'btn-primary' : 'btn-ghost'}" style="display:inline-flex; align-items:center; gap:6px;">
-                        <span style="display:inline-block; width:8px; height:8px; border-radius:50%; background:${lifeColor};"></span> Vie
+                    <button type="button" id="filter-life" class="btn btn-sm ${this.filters.life ? 'btn-primary' : 'btn-ghost'} planning-filter-pill">
+                        <span class="planning-dot life"></span> Vie
                     </button>
-                    <button type="button" id="filter-lang" class="btn btn-sm ${this.filters.lang ? 'btn-primary' : 'btn-ghost'}" style="display:inline-flex; align-items:center; gap:6px;">
-                        <span style="display:inline-block; width:8px; height:8px; border-radius:50%; background:${langColor};"></span> Langues
+                    <button type="button" id="filter-lang" class="btn btn-sm ${this.filters.lang ? 'btn-primary' : 'btn-ghost'} planning-filter-pill">
+                        <span class="planning-dot lang"></span> Langues
                     </button>
                 </div>
-                <div style="display:flex; align-items:center; gap:8px;">
+                <div class="planning-topbar-actions">
                     <button type="button" id="btn-prev-month" class="btn btn-secondary btn-sm" title="Mois précédent"><i class="bi bi-chevron-left"></i></button>
                     <button type="button" id="btn-today-month" class="btn btn-ghost btn-sm" title="Ce mois-ci">Aujourd'hui</button>
                     <button type="button" id="btn-next-month" class="btn btn-secondary btn-sm" title="Mois suivant"><i class="bi bi-chevron-right"></i></button>
@@ -276,21 +292,17 @@ export class PlanningView {
             </div>
 
             <!-- GRILLE DU MOIS -->
-            <div class="bureau-card" style="background:var(--bg-card); border-radius:12px; border:1px solid var(--border-color); padding:20px; margin-bottom:24px;">
-                <div style="display:grid; grid-template-columns: repeat(7, 1fr); margin-bottom:12px;">
-                    ${['DIM','LUN','MAR','MER','JEU','VEN','SAM'].map(d => `<div style="text-align:center; color:var(--text-muted); font-size:12px; font-weight:700;">${d}</div>`).join('')}
+            <div class="planning-card planning-month-card">
+                <div class="planning-month-weekdays">
+                    ${['DIM','LUN','MAR','MER','JEU','VEN','SAM'].map(d => `<div>${d}</div>`).join('')}
                 </div>
-                <div style="display:grid; grid-template-columns: repeat(7, 1fr); gap:8px; auto-rows: minmax(90px, auto);">
-                    ${[...Array(firstDayIndex)].map(() => `<div style="background:transparent;"></div>`).join('')}
+                <div class="planning-month-grid">
+                    ${[...Array(firstDayIndex)].map(() => `<div class="planning-empty-day-cell"></div>`).join('')}
                     ${[...Array(daysInMonth)].map((_, i) => {
                         const day = i + 1;
                         const dateIter = new Date(this.currentYear, this.currentMonth, day);
                         const dateStr = dateIter.toLocaleDateString('fr-CA');
                         const isCurrentDay = (dateStr === todayStr);
-
-                        const dayStyle = isCurrentDay
-                            ? 'background:var(--accent-primary); color:#fff; width:26px; height:26px; border-radius:50%; display:flex; align-items:center; justify-content:center; margin:0 auto 4px auto;'
-                            : 'text-align:center; color:var(--text-main); margin-bottom:4px; font-weight:600;';
 
                         const dayEvents = rawEvents.filter(e => e.date === dateStr).filter(e => {
                             if (isLang(e) && !this.filters.lang) return false;
@@ -301,30 +313,26 @@ export class PlanningView {
 
                         let pillsHtml = '';
                         dayEvents.slice(0, 4).forEach(e => {
-                            let color = schoolColor;
-                            if (isLang(e)) color = langColor;
-                            else if (isLife(e)) color = lifeColor;
-
-                            let bgColor = 'rgba(14, 165, 233, 0.15)';
-                            if (color === langColor) bgColor = 'rgba(255, 152, 0, 0.15)';
-                            if (color === lifeColor) bgColor = 'rgba(240, 147, 251, 0.15)';
+                            let pillModifier = 'pill-school';
+                            if (isLang(e)) pillModifier = 'pill-lang';
+                            else if (isLife(e)) pillModifier = 'pill-life';
 
                             pillsHtml += `
-                            <div class="calendar-event-pill" data-id="${escapeHtml(e.id)}" style="background:${bgColor}; border-left:3px solid ${color}; color:var(--text-main); font-size:10px; padding:2px 4px; border-radius:4px; margin-bottom:3px; display:flex; justify-content:space-between; align-items:center; cursor:default;" title="${escapeHtml(e.title || '')} (${escapeHtml(e.startTime || '')}-${escapeHtml(e.endTime || '')})">
-                                <span style="white-space:nowrap; overflow:hidden; text-overflow:ellipsis; flex:1;">${escapeHtml(e.startTime || '')} ${escapeHtml(e.title || e.type || '')}</span>
-                                <span style="display:inline-flex; gap:2px; margin-left:3px;">
-                                    <button type="button" class="btn-edit-event" data-id="${escapeHtml(e.id)}" title="Modifier" style="background:transparent; border:none; cursor:pointer; font-size:9px; padding:0; line-height:1;">✏️</button>
-                                    <button type="button" class="btn-delete-event" data-id="${escapeHtml(e.id)}" title="Supprimer" style="background:transparent; border:none; cursor:pointer; font-size:9px; padding:0; line-height:1;">🗑️</button>
+                            <div class="calendar-event-pill ${pillModifier}" data-id="${escapeHtml(e.id)}" title="${escapeHtml(e.title || '')} (${escapeHtml(e.startTime || '')}-${escapeHtml(e.endTime || '')})">
+                                <span class="calendar-event-pill-title">${escapeHtml(e.startTime || '')} ${escapeHtml(e.title || e.type || '')}</span>
+                                <span class="calendar-event-pill-btns">
+                                    <button type="button" class="btn-edit-event calendar-event-pill-btn" data-id="${escapeHtml(e.id)}" title="Modifier">✏️</button>
+                                    <button type="button" class="btn-delete-event calendar-event-pill-btn" data-id="${escapeHtml(e.id)}" title="Supprimer">🗑️</button>
                                 </span>
                             </div>`;
                         });
                         if (dayEvents.length > 4) {
-                            pillsHtml += `<div style="color:var(--text-muted); font-size:10px; text-align:center;">+${dayEvents.length - 4} autres</div>`;
+                            pillsHtml += `<div class="planning-more-pills">+${dayEvents.length - 4} autres</div>`;
                         }
 
                         return `
-                        <div class="planning-day-cell" data-date="${dateStr}" style="background:var(--bg-main); border:1px solid var(--border-color); border-radius:8px; padding:6px; overflow:hidden; min-height:85px; cursor:pointer;" title="Cliquer pour ajouter un événement">
-                            <div style="${dayStyle} font-size:11px;">${day}</div>
+                        <div class="planning-day-cell" data-date="${dateStr}" title="Cliquer pour ajouter un événement">
+                            <div class="planning-day-cell-num ${isCurrentDay ? 'today' : ''}">${day}</div>
                             ${pillsHtml}
                         </div>`;
                     }).join('')}
@@ -332,71 +340,71 @@ export class PlanningView {
             </div>
 
             <!-- RECAPITULATIFS INFERIEURS -->
-            <div style="display:grid; grid-template-columns: repeat(3, 1fr); gap:20px;">
+            <div class="planning-month-bottom-grid">
                 <!-- COLONNE 1: Échéances École -->
-                <div class="bureau-card" style="background:var(--bg-card); border-radius:12px; border:1px solid var(--border-color); padding:20px;">
-                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
-                        <strong style="font-size:12px; color:var(--text-muted); text-transform:uppercase; letter-spacing:1px;">Échéances École</strong>
-                        <i class="bi bi-mortarboard" style="color:${schoolColor};"></i>
+                <div class="planning-card planning-summary-card">
+                    <div class="planning-summary-header">
+                        <strong class="planning-summary-label">Échéances École</strong>
+                        <i class="bi bi-mortarboard planning-icon-school"></i>
                     </div>
-                    <div style="display:flex; flex-direction:column; gap:12px;">
+                    <div class="planning-summary-list">
                         ${futureAssessments.length > 0 ? futureAssessments.map(a => {
                             const dParts = assessmentDate(a).split('-');
                             const day = dParts[2] || '';
                             return `
-                            <div style="display:flex; gap:12px; align-items:center;">
-                                <div style="width:32px; height:32px; border-radius:50%; background:rgba(0, 242, 254, 0.1); border:1px solid ${schoolColor}; display:flex; align-items:center; justify-content:center; font-weight:bold; color:var(--text-main); font-size:12px;">${day}</div>
-                                <div style="overflow:hidden; flex:1;">
-                                    <strong style="display:block; color:var(--text-main); font-size:13px; white-space:nowrap; text-overflow:ellipsis; overflow:hidden;">${escapeHtml(a.title || a.name || '')}</strong>
-                                    <span style="font-size:11px; color:var(--text-muted);">Coef ${escapeHtml(a.coefficient || a.weight || 1)}</span>
+                            <div class="planning-summary-row">
+                                <div class="planning-summary-badge school">${day}</div>
+                                <div class="planning-summary-info">
+                                    <strong class="planning-summary-item-title">${escapeHtml(a.title || a.name || '')}</strong>
+                                    <span class="planning-summary-item-sub">Coef ${escapeHtml(a.coefficient || a.weight || 1)}</span>
                                 </div>
                             </div>`;
-                        }).join('') : '<div style="font-size:13px; color:var(--text-muted);">Aucune évaluation à venir.</div>'}
+                        }).join('') : '<div class="planning-side-empty">Aucune évaluation à venir.</div>'}
                     </div>
                 </div>
 
                 <!-- COLONNE 2: Échéances Vie -->
-                <div class="bureau-card" style="background:var(--bg-card); border-radius:12px; border:1px solid var(--border-color); padding:20px;">
-                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
-                        <strong style="font-size:12px; color:var(--text-muted); text-transform:uppercase; letter-spacing:1px;">Échéances Vie</strong>
-                        <i class="bi bi-heart" style="color:${lifeColor};"></i>
+                <div class="planning-card planning-summary-card">
+                    <div class="planning-summary-header">
+                        <strong class="planning-summary-label">Échéances Vie</strong>
+                        <i class="bi bi-heart planning-icon-life"></i>
                     </div>
-                    <div style="display:flex; flex-direction:column; gap:12px;">
+                    <div class="planning-summary-list">
                         ${topLifeTasks.length > 0 ? topLifeTasks.map(t => `
-                            <div style="display:flex; gap:12px; align-items:center;">
-                                <div style="width:32px; height:32px; border-radius:50%; background:rgba(240, 147, 251, 0.1); border:1px solid ${lifeColor}; display:flex; align-items:center; justify-content:center; color:${lifeColor}; font-size:13px;"><i class="bi bi-star-fill"></i></div>
-                                <div style="overflow:hidden; flex:1;">
-                                    <strong style="display:block; color:var(--text-main); font-size:13px; white-space:nowrap; text-overflow:ellipsis; overflow:hidden;">${escapeHtml(t.task)}</strong>
-                                    <span style="font-size:11px; color:var(--text-muted);">${escapeHtml(t.project)}</span>
+                            <div class="planning-summary-row">
+                                <div class="planning-summary-badge life"><i class="bi bi-star-fill"></i></div>
+                                <div class="planning-summary-info">
+                                    <strong class="planning-summary-item-title">${escapeHtml(t.task)}</strong>
+                                    <span class="planning-summary-item-sub">${escapeHtml(t.project)}</span>
                                 </div>
                             </div>
-                        `).join('') : '<div style="font-size:13px; color:var(--text-muted);">Aucune tâche en cours.</div>'}
+                        `).join('') : '<div class="planning-side-empty">Aucune tâche en cours.</div>'}
                     </div>
                 </div>
 
                 <!-- COLONNE 3: Sessions Langue -->
-                <div class="bureau-card" style="background:var(--bg-card); border-radius:12px; border:1px solid var(--border-color); padding:20px;">
-                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
-                        <strong style="font-size:12px; color:var(--text-muted); text-transform:uppercase; letter-spacing:1px;">Sessions Langue</strong>
-                        <i class="bi bi-globe" style="color:${langColor};"></i>
+                <div class="planning-card planning-summary-card">
+                    <div class="planning-summary-header">
+                        <strong class="planning-summary-label">Sessions Langue</strong>
+                        <i class="bi bi-globe planning-icon-lang"></i>
                     </div>
-                    <div style="display:flex; flex-direction:column; gap:12px;">
+                    <div class="planning-summary-list">
                         ${futureLangEvents.length > 0 ? futureLangEvents.map(e => {
                             const dParts = (e.date || '').split('-');
                             const day = dParts[2] || '';
                             return `
-                            <div style="display:flex; gap:12px; align-items:center;">
-                                <div style="width:32px; height:32px; border-radius:50%; background:rgba(255, 152, 0, 0.1); border:1px solid ${langColor}; display:flex; align-items:center; justify-content:center; font-weight:bold; color:var(--text-main); font-size:12px;">${day}</div>
-                                <div style="overflow:hidden; flex:1;">
-                                    <strong style="display:block; color:var(--text-main); font-size:13px; white-space:nowrap; text-overflow:ellipsis; overflow:hidden;">${escapeHtml(e.title || '')}</strong>
-                                    <span style="font-size:11px; color:var(--text-muted);">${escapeHtml(e.startTime || '')} - ${escapeHtml(e.endTime || '')}</span>
+                            <div class="planning-summary-row">
+                                <div class="planning-summary-badge lang">${day}</div>
+                                <div class="planning-summary-info">
+                                    <strong class="planning-summary-item-title">${escapeHtml(e.title || '')}</strong>
+                                    <span class="planning-summary-item-sub">${escapeHtml(e.startTime || '')} - ${escapeHtml(e.endTime || '')}</span>
                                 </div>
-                                <div style="display:inline-flex; gap:4px;">
-                                    <button type="button" class="btn-edit-event" data-id="${escapeHtml(e.id)}" title="Modifier" style="background:transparent; border:none; cursor:pointer; font-size:12px; padding:0;">✏️</button>
-                                    <button type="button" class="btn-delete-event" data-id="${escapeHtml(e.id)}" title="Supprimer" style="background:transparent; border:none; cursor:pointer; font-size:12px; padding:0;">🗑️</button>
+                                <div class="planning-event-block-actions">
+                                    <button type="button" class="btn-edit-event planning-btn-icon-inline" data-id="${escapeHtml(e.id)}" title="Modifier">✏️</button>
+                                    <button type="button" class="btn-delete-event planning-btn-icon-inline danger" data-id="${escapeHtml(e.id)}" title="Supprimer">🗑️</button>
                                 </div>
                             </div>`;
-                        }).join('') : '<div style="font-size:13px; color:var(--text-muted);">Aucune session prévue.</div>'}
+                        }).join('') : '<div class="planning-side-empty">Aucune session prévue.</div>'}
                     </div>
                 </div>
             </div>
@@ -404,52 +412,49 @@ export class PlanningView {
         } else {
             // Rendu Vue Semaine (par défaut)
             mainViewContent = `
-            <div style="display:flex; justify-content:flex-end; align-items:center; margin-bottom:15px; gap:8px;">
+            <div class="planning-nav-bar">
                 <button type="button" id="btn-prev-week" class="btn btn-secondary btn-sm" title="Semaine précédente"><i class="bi bi-chevron-left"></i></button>
                 <button type="button" id="btn-today-week" class="btn btn-ghost btn-sm" title="Cette semaine">Aujourd'hui</button>
                 <button type="button" id="btn-next-week" class="btn btn-secondary btn-sm" title="Semaine suivante"><i class="bi bi-chevron-right"></i></button>
             </div>
 
-            <div style="display: grid; grid-template-columns: 1fr 300px; gap: 30px;">
+            <div class="planning-week-layout">
                 <!-- TIMELINE -->
-                <div class="bureau-card" style="background: var(--bg-card); border-radius: 12px; border: 1px solid var(--border-color); overflow: hidden; padding:0;">
+                <div class="planning-card planning-timeline-wrapper">
                     <!-- HEADER DAYS -->
-                    <div style="display:grid; grid-template-columns: 60px repeat(7, 1fr); border-bottom: 1px solid var(--border-color); background: #f8fafc;">
-                        <div style="border-right: 1px solid var(--border-color);"></div>
+                    <div class="planning-timeline-header">
+                        <div class="planning-timeline-corner"></div>
                         ${weekDays.map((d) => {
                             const isToday = d.toDateString() === now.toDateString();
                             const parts = formatter.formatToParts(d);
                             const weekdayName = parts.find(p => p.type === 'weekday').value;
                             const dayNum = parts.find(p => p.type === 'day').value;
-                            const colorStyle = isToday ? 'color:var(--accent-primary);' : 'color:var(--text-muted);';
-                            const numStyle = isToday ? 'color:var(--accent-primary);' : 'color:var(--text-main);';
-                            const bgStyle = isToday ? 'background: rgba(14, 165, 233, 0.1);' : '';
 
                             return `
-                            <div style="text-align:center; padding: 15px 0; border-right: 1px solid var(--border-color); ${bgStyle}">
-                                <div style="font-size:11px; font-weight:bold; ${colorStyle} text-transform:uppercase;">${weekdayName}</div>
-                                <strong style="font-size:18px; ${numStyle}">${dayNum}</strong>
+                            <div class="planning-day-col ${isToday ? 'is-today' : ''}">
+                                <div class="planning-day-name">${weekdayName}</div>
+                                <strong class="planning-day-num">${dayNum}</strong>
                             </div>
                             `;
                         }).join('')}
                     </div>
 
                     <!-- TIME BLOCKS GRID -->
-                    <div style="display:flex; flex-direction:column; position: relative;">
+                    <div class="planning-timeline-grid">
                         ${eventsHtml}
                         ${[7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22].map(hour => {
                             return `
-                            <div style="display:grid; grid-template-columns: 60px repeat(7, 1fr); border-bottom: 1px solid var(--border-color); height: 51px; box-sizing: border-box;">
-                                <div style="border-right: 1px solid var(--border-color); text-align:right; padding: 5px 10px; font-size:11px; color:var(--text-muted);">
+                            <div class="planning-hour-row">
+                                <div class="planning-hour-cell">
                                     ${hour.toString().padStart(2, '0')}:00
                                 </div>
-                                <div style="border-right: 1px solid var(--border-color);"></div>
-                                <div style="border-right: 1px solid var(--border-color);"></div>
-                                <div style="border-right: 1px solid var(--border-color);"></div>
-                                <div style="border-right: 1px solid var(--border-color); background: rgba(14, 165, 233, 0.02);"></div>
-                                <div style="border-right: 1px solid var(--border-color);"></div>
-                                <div style="border-right: 1px solid var(--border-color);"></div>
-                                <div></div>
+                                <div class="planning-slot-cell"></div>
+                                <div class="planning-slot-cell"></div>
+                                <div class="planning-slot-cell"></div>
+                                <div class="planning-slot-cell"></div>
+                                <div class="planning-slot-cell"></div>
+                                <div class="planning-slot-cell"></div>
+                                <div class="planning-slot-cell"></div>
                             </div>
                             `;
                         }).join('')}
@@ -457,29 +462,31 @@ export class PlanningView {
                 </div>
 
                 <!-- RIGHT PANEL -->
-                <div style="display:flex; flex-direction:column; gap:20px;">
+                <div class="planning-side-panel">
                     <!-- SESSION ACTUELLE -->
-                    <div class="bureau-card" style="background: var(--bg-card); border-radius: 12px; border: 1px solid var(--border-color); padding:20px;">
-                        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
-                            <strong style="font-size:13px; color:var(--text-muted); text-transform:uppercase; letter-spacing:1px;">Session Actuelle</strong>
-                            <i class="bi bi-life-preserver" style="color:var(--text-muted);"></i>
+                    <div class="planning-card planning-side-card">
+                        <div class="planning-side-header">
+                            <strong class="planning-side-label">Session Actuelle</strong>
+                            <i class="bi bi-life-preserver text-tertiary"></i>
                         </div>
                         ${currentSessionHtml}
                     </div>
 
                     <!-- SUITE DU PROGRAMME -->
-                    <div class="bureau-card" style="background: var(--bg-card); border-radius: 12px; border: 1px solid var(--border-color); padding:20px;">
-                        <div style="margin-bottom:20px;">
-                            <strong style="font-size:13px; color:var(--text-muted); text-transform:uppercase; letter-spacing:1px;">Suite du programme</strong>
+                    <div class="planning-card planning-side-card">
+                        <div class="planning-side-header">
+                            <strong class="planning-side-label">Suite du programme</strong>
                         </div>
                         ${upcomingHtml}
                     </div>
 
                     <!-- À VENIR -->
-                    <div class="bureau-card" style="background: var(--bg-card); border-radius: 12px; border: 1px solid var(--border-color); padding:20px;">
-                        <div style="display:flex; align-items:center; gap:8px; margin-bottom:20px; color:#ef4444;">
-                            <i class="bi bi-bell-fill"></i>
-                            <strong style="font-size:13px; text-transform:uppercase; letter-spacing:1px;">À Venir</strong>
+                    <div class="planning-card planning-side-card">
+                        <div class="planning-side-header text-danger">
+                            <div class="d-flex align-center gap-2">
+                                <i class="bi bi-bell-fill"></i>
+                                <strong class="planning-side-label text-danger">À Venir</strong>
+                            </div>
                         </div>
                         ${aVenirHtml}
                     </div>
@@ -491,73 +498,71 @@ export class PlanningView {
         const subtitleText = this.viewMode === 'month' ? `${monthName} ${this.currentYear}` : semaineStr;
 
         let html = `
-<div class="bureau" style="display:flex; height:100vh;">
+<div class="bureau planning-layout">
     <!-- SIDEBAR -->
-    <div class="bureau-sidebar" style="width: 250px; background: var(--bg-sidebar); border-right: 1px solid var(--border-color); padding: 20px; display: flex; flex-direction: column;">
-        <div style="font-size:24px; font-weight:bold; margin-bottom:40px; display:flex; align-items:center; gap:10px;">
-            <div style="width:30px; height:30px; border-radius:8px; background:var(--bg-main); border:1px solid var(--border-color); display:flex; align-items:center; justify-content:center; color:var(--accent-primary);">
+    <div class="bureau-sidebar">
+        <div class="bureau-brand">
+            <div class="bureau-brand-icon">
                 <i class="bi bi-check2-square"></i>
             </div>
             Learning OS
         </div>
         
         <!-- ONGLETS -->
-        <div style="display:flex; flex-direction:column; gap:5px; flex-grow:1; padding-right:15px;">
-            <div class="bureau-nav-item" data-view="desktop" style="display:flex; align-items:center; gap:12px; cursor:pointer; padding:12px 15px; color:var(--text-muted); font-weight:500;">
-                <i class="bi bi-house-door" style="font-size:18px;"></i> Bureau
+        <div class="bureau-nav">
+            <div class="bureau-nav-item" data-view="desktop">
+                <i class="bi bi-house-door"></i> Bureau
             </div>
-            <div class="bureau-nav-item active" data-view="planning" style="display:flex; align-items:center; gap:12px; cursor:pointer; background:rgba(14, 165, 233, 0.1); border-left:4px solid var(--accent-primary); border-radius:0 8px 8px 0; padding:12px 15px 12px 11px; color:var(--text-main); font-weight:600;">
-                <i class="bi bi-calendar3" style="font-size:18px; color:var(--accent-primary);"></i> Planning
+            <div class="bureau-nav-item active" data-view="planning">
+                <i class="bi bi-calendar3"></i> Planning
             </div>
-            <div class="bureau-nav-item" data-view="academic" style="display:flex; align-items:center; gap:12px; cursor:pointer; padding:12px 15px; color:var(--text-muted); font-weight:500;">
-                <i class="bi bi-mortarboard" style="font-size:18px;"></i> École
+            <div class="bureau-nav-item" data-view="academic">
+                <i class="bi bi-mortarboard"></i> École
             </div>
-            <div class="bureau-nav-item" data-view="languages" style="display:flex; align-items:center; gap:12px; cursor:pointer; padding:12px 15px; color:var(--text-muted); font-weight:500;">
-                <i class="bi bi-globe" style="font-size:18px;"></i> Langues
+            <div class="bureau-nav-item" data-view="languages">
+                <i class="bi bi-globe"></i> Langues
             </div>
-            <div class="bureau-nav-item" data-view="life" style="display:flex; align-items:center; gap:12px; cursor:pointer; padding:12px 15px; color:var(--text-muted); font-weight:500;">
-                <i class="bi bi-heart" style="font-size:18px;"></i> Vie
+            <div class="bureau-nav-item" data-view="life">
+                <i class="bi bi-heart"></i> Vie
             </div>
-            <div class="bureau-nav-item" data-view="chat" style="display:flex; align-items:center; gap:12px; cursor:pointer; padding:12px 15px; color:var(--text-muted); font-weight:500;">
-                <i class="bi bi-robot" style="font-size:18px;"></i> Coach
+            <div class="bureau-nav-item" data-view="chat">
+                <i class="bi bi-robot"></i> Coach
             </div>
         </div>
     </div>
 
     <!-- MAIN CONTENT -->
-    <div class="bureau-content" style="flex: 1; padding: 30px; overflow-y: auto; background: var(--bg-main);">
+    <div class="bureau-content planning-content">
         <!-- TOPBAR -->
-        <div class="bureau-topbar" style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 25px; flex-wrap:wrap; gap:15px;">
+        <div class="planning-topbar">
             <div>
-                <h1 style="font-size: 24px; font-weight: 700; color:var(--text-main); letter-spacing:1px; margin:0;">PLANNING</h1>
-                <p style="color: var(--text-muted); font-size:14px; margin:5px 0 0 0;">${subtitleText}</p>
+                <h1 class="planning-header-title">PLANNING</h1>
+                <p class="planning-header-subtitle">${subtitleText}</p>
             </div>
-            <div class="bureau-topbar-actions" style="display:flex; gap:12px; align-items:center; flex-wrap:wrap;">
+            <div class="planning-topbar-actions">
                 <!-- SELECTEUR DE VUE SEMAINE / MOIS -->
-                <div class="btn-group" style="display:inline-flex; border:1px solid var(--border-color); border-radius:8px; overflow:hidden;">
-                    <button type="button" class="btn btn-sm ${this.viewMode === 'week' ? 'btn-primary' : 'btn-ghost'}" data-planning-mode="week" style="border-radius:0;">
+                <div class="planning-view-switcher">
+                    <button type="button" class="planning-view-btn ${this.viewMode === 'week' ? 'active' : ''}" data-planning-mode="week">
                         <i class="bi bi-calendar3"></i> Semaine
                     </button>
-                    <button type="button" class="btn btn-sm ${this.viewMode === 'month' ? 'btn-primary' : 'btn-ghost'}" data-planning-mode="month" style="border-radius:0;">
+                    <button type="button" class="planning-view-btn ${this.viewMode === 'month' ? 'active' : ''}" data-planning-mode="month">
                         <i class="bi bi-calendar-month"></i> Mois
                     </button>
                 </div>
 
-                <button id="btn-add-event-planning" style="background:#00f2fe; color:#0f2027; border:none; padding:10px 16px; border-radius:8px; font-weight:bold; cursor:pointer; font-size:13px; display:inline-flex; align-items:center; gap:6px;">
+                <button id="btn-add-event-planning" class="planning-btn-add">
                     <i class="bi bi-plus-lg"></i> Ajouter un événement
                 </button>
-                <button id="btn-add-event-calendar" style="display:none;" aria-hidden="true"></button>
+                <button id="btn-add-event-calendar" class="sr-only" hidden aria-hidden="true"></button>
                 
-                <button id="btn-import-timetable" style="background:var(--accent-primary); color:white; border:none; padding:10px 16px; border-radius:8px; font-weight:bold; cursor:pointer; font-size:13px;">
+                <button id="btn-import-timetable" class="planning-btn-import">
                     <i class="bi bi-file-earmark-arrow-up"></i> Importer l'emploi du temps
                 </button>
-                <input type="file" id="input-import-timetable" accept="application/pdf,image/*,.docx,.xlsx,.csv" style="display:none;">
+                <input type="file" id="input-import-timetable" accept="application/pdf,image/*,.docx,.xlsx,.csv" class="sr-only" hidden>
                 
-                <div style="text-align:right;">
-                    <strong style="display:block; font-size:14px; color:var(--text-main);">${escapeHtml(state.userProfile?.name || 'Étudiant')}</strong>
-                </div>
-                <div class="bureau-profile-avatar" style="width:40px; height:40px; border-radius:12px; background:var(--accent-primary); display:flex; align-items:center; justify-content:center; font-weight:bold; color:white; font-size:18px;">
-                    É
+                <div class="planning-user-profile">
+                    <strong class="planning-user-name">${escapeHtml(state.userProfile?.name || 'Étudiant')}</strong>
+                    <div class="planning-user-avatar">É</div>
                 </div>
             </div>
         </div>
@@ -579,6 +584,16 @@ export class PlanningView {
 `;
 
         this.container.innerHTML = html;
+
+        // Animations Motion sobres
+        Motion.fadeIn(this.container.querySelector('.planning-content') || this.container);
+        if (this.viewMode === 'week') {
+            const events = this.container.querySelectorAll('.planning-event-block');
+            if (events.length > 0) Motion.staggerIn(events, { stagger: 0.02, duration: 0.2 });
+        } else if (this.viewMode === 'month') {
+            const pills = this.container.querySelectorAll('.calendar-event-pill');
+            if (pills.length > 0) Motion.staggerIn(pills, { stagger: 0.015, duration: 0.2 });
+        }
 
         // BINDINGS NAVIGATION SIDEBAR
         this.container.querySelectorAll('.bureau-nav-item').forEach(btn => {
@@ -633,6 +648,7 @@ export class PlanningView {
         const btnPrevMonth = this.container.querySelector('#btn-prev-month');
         if (btnPrevMonth) {
             btnPrevMonth.addEventListener('click', () => {
+                this._userNavigatedMonth = true;
                 this.currentMonth--;
                 if (this.currentMonth < 0) {
                     this.currentMonth = 11;
@@ -644,6 +660,7 @@ export class PlanningView {
         const btnNextMonth = this.container.querySelector('#btn-next-month');
         if (btnNextMonth) {
             btnNextMonth.addEventListener('click', () => {
+                this._userNavigatedMonth = true;
                 this.currentMonth++;
                 if (this.currentMonth > 11) {
                     this.currentMonth = 0;
@@ -655,6 +672,7 @@ export class PlanningView {
         const btnTodayMonth = this.container.querySelector('#btn-today-month');
         if (btnTodayMonth) {
             btnTodayMonth.addEventListener('click', () => {
+                this._userNavigatedMonth = false;
                 const n = new Date();
                 this.currentYear = n.getFullYear();
                 this.currentMonth = n.getMonth();
@@ -694,6 +712,7 @@ export class PlanningView {
         const btnAdd = this.container.querySelector('#btn-add-event-planning');
         if (btnAdd) {
             btnAdd.addEventListener('click', () => {
+                Motion.buttonTap(btnAdd);
                 this.app.openEventEditor({ date: currentDateStr });
             });
         }
@@ -730,6 +749,7 @@ export class PlanningView {
         this.container.querySelectorAll('.btn-start-focus').forEach(btn => {
             btn.addEventListener('click', (e) => {
                 e.stopPropagation();
+                Motion.buttonTap(e.currentTarget);
                 const eventId = e.currentTarget.getAttribute('data-id');
                 const eventObj = rawEvents.find(ev => String(ev.id) === String(eventId));
                 if (this.app.startFocusSession) {
@@ -762,6 +782,7 @@ export class PlanningView {
         const open = () => {
             modal.hidden = false;
             modal.style.display = 'flex';
+            Motion.modalOpen(modal);
         };
 
         if (btnClose) btnClose.addEventListener('click', close);
@@ -775,6 +796,7 @@ export class PlanningView {
         };
 
         btn.addEventListener('click', () => {
+            Motion.buttonTap(btn);
             this.renderTimetableTabs(modal, content, input, ui, 'file');
         });
 
@@ -817,11 +839,11 @@ export class PlanningView {
         container.innerHTML = `
             <p class="modal-hint">Dépose ton emploi du temps (PDF, Image, Word .docx, Excel .xlsx, CSV). Les fichiers Word, Excel et CSV sont lus localement sans clé Gemini.</p>
             <div class="file-dropzone" id="tt-file-dropzone" tabindex="0">
-                <i class="bi bi-cloud-arrow-up" style="font-size:36px; color:var(--accent-primary); display:block; margin-bottom:8px;"></i>
+                <i class="bi bi-cloud-arrow-up planning-modal-dropzone-icon"></i>
                 <strong>Dépose un fichier ou clique pour choisir</strong>
                 <p class="modal-hint">PDF, PNG, JPEG, WebP, DOCX, XLSX, CSV (max 15 Mo)</p>
             </div>
-            <div id="tt-file-feedback" style="margin-top:12px;"></div>
+            <div id="tt-file-feedback" class="mt-2"></div>
             <div class="modal-actions">
                 <button type="button" class="btn btn-ghost tt-cancel">Annuler</button>
             </div>
@@ -877,7 +899,7 @@ export class PlanningView {
                         <strong>Pour lire un PDF scanné ou une photo, configure une clé Gemini dans Réglages, ou colle le texte / utilise la grille.</strong>
                     </div>
                 </div>
-                <div class="btn-group" style="margin-top:12px; display:flex; flex-wrap:wrap; gap:8px;">
+                <div class="btn-group mt-2">
                     <button type="button" class="btn btn-secondary tt-btn-go-text"><i class="bi bi-clipboard"></i> Coller le texte</button>
                     <button type="button" class="btn btn-secondary tt-btn-go-grid"><i class="bi bi-grid-3x3"></i> Utiliser la grille</button>
                     <button type="button" class="btn btn-secondary tt-btn-go-csv"><i class="bi bi-file-earmark-spreadsheet"></i> Fichier CSV / XLSX / DOCX</button>
@@ -958,10 +980,10 @@ export class PlanningView {
                     <code>Jeudi 14h-16h : Analyse numérique</code>
                 </div>
             </div>
-            <div class="form-group" style="margin-top:12px;">
+            <div class="form-group mt-2">
                 <textarea id="tt-text-input" class="form-input" rows="7" placeholder="Colle ton emploi du temps ici..."></textarea>
             </div>
-            <div id="tt-text-feedback" style="margin-top:8px;"></div>
+            <div id="tt-text-feedback" class="mt-1"></div>
             <div class="modal-actions">
                 <button type="button" class="btn btn-ghost tt-cancel">Annuler</button>
                 <button type="button" class="btn btn-primary tt-parse-text-btn"><i class="bi bi-search"></i> Voir l'aperçu</button>
@@ -992,26 +1014,26 @@ export class PlanningView {
     renderGridTab(container, modal, content, input, ui) {
         container.innerHTML = `
             <p class="modal-hint">Saisis directement tes séances de la semaine dans la grille ci-dessous.</p>
-            <div class="table-container" style="max-height:280px; overflow-y:auto;">
+            <div class="table-container planning-modal-grid-container">
                 <table class="tt-grid-table">
                     <thead>
                         <tr>
-                            <th style="width:110px;">Jour</th>
-                            <th style="width:90px;">Début</th>
-                            <th style="width:90px;">Fin</th>
+                            <th>Jour</th>
+                            <th>Début</th>
+                            <th>Fin</th>
                             <th>Matière</th>
-                            <th style="width:100px;">Salle</th>
-                            <th style="width:90px;">Type</th>
-                            <th style="width:40px;"></th>
+                            <th>Salle</th>
+                            <th>Type</th>
+                            <th></th>
                         </tr>
                     </thead>
                     <tbody id="tt-grid-tbody"></tbody>
                 </table>
             </div>
-            <div style="margin-top:10px; display:flex; gap:8px;">
+            <div class="mt-2">
                 <button type="button" class="btn btn-secondary btn-sm" id="tt-grid-add-row"><i class="bi bi-plus-lg"></i> Ajouter une ligne</button>
             </div>
-            <div id="tt-grid-feedback" style="margin-top:10px;"></div>
+            <div id="tt-grid-feedback" class="mt-2"></div>
             <div class="modal-actions">
                 <button type="button" class="btn btn-ghost tt-cancel">Annuler</button>
                 <button type="button" class="btn btn-primary" id="tt-grid-preview-btn"><i class="bi bi-check2"></i> Voir l'aperçu</button>
@@ -1047,8 +1069,8 @@ export class PlanningView {
                         ${types.map(t => `<option value="${t.id}" ${(data.type || 'course') === t.id ? 'selected' : ''}>${t.label}</option>`).join('')}
                     </select>
                 </td>
-                <td style="text-align:center;">
-                    <button type="button" class="btn btn-danger btn-sm tt-row-del" title="Supprimer la ligne" style="padding:2px 6px;">🗑️</button>
+                <td class="text-center">
+                    <button type="button" class="btn btn-danger btn-sm tt-row-del" title="Supprimer la ligne">🗑️</button>
                 </td>
             `;
             tr.querySelector('.tt-row-del').addEventListener('click', () => {
@@ -1133,20 +1155,20 @@ export class PlanningView {
             const options = [`<option value="">— non reliée —</option>`].concat(subjects.map(s =>
                 `<option value="${escapeHtml(s.id)}" ${s.id === r.subjectId ? 'selected' : ''}>${escapeHtml(s.code ? s.code + ' · ' : '')}${escapeHtml(s.name)}</option>`)).join('');
             const hoursCol = hasHourlyVolume ? `
-                <td style="padding:8px 6px; white-space:nowrap; font-size:12px;">${r.hoursDone !== null && r.hoursDone !== undefined ? escapeHtml(r.hoursDone) : '?'} h / ${r.hoursTotal !== null && r.hoursTotal !== undefined ? escapeHtml(r.hoursTotal) : '?'} h</td>
+                <td class="tt-cell-hours">${r.hoursDone !== null && r.hoursDone !== undefined ? escapeHtml(r.hoursDone) : '?'} h / ${r.hoursTotal !== null && r.hoursTotal !== undefined ? escapeHtml(r.hoursTotal) : '?'} h</td>
             ` : '';
             return `
-                <tr data-row="${escapeHtml(r.id)}" style="border-bottom:1px solid var(--border-color); ${r.status === 'invalid' ? 'opacity:0.5;' : ''}">
-                    <td style="padding:8px 6px;"><input type="checkbox" class="tt-include" ${r.include ? 'checked' : ''} ${r.status === 'invalid' ? 'disabled' : ''}></td>
-                    <td style="padding:8px 6px; white-space:nowrap; font-size:12px;">${escapeHtml(fmt(r.date))}<br><span style="color:var(--text-muted);">${escapeHtml(r.startTime || '?')}–${escapeHtml(r.endTime || '?')}</span></td>
-                    <td style="padding:8px 6px; font-size:13px;"><strong>${escapeHtml(r.title || '?')}</strong>${r.teacher ? `<br><span style="font-size:11px; color:var(--text-muted);">${escapeHtml(r.teacher)}</span>` : ''}${r.room ? `<br><span style="font-size:11px; color:var(--text-muted);">📍 ${escapeHtml(r.room)}</span>` : ''}${flags.length ? `<br><span style="font-size:11px; color:#f59e0b;">⚠ ${escapeHtml(flags.join(', '))}</span>` : ''}</td>
+                <tr data-row="${escapeHtml(r.id)}" class="${r.status === 'invalid' ? 'planning-modal-row-invalid' : ''}">
+                    <td><input type="checkbox" class="tt-include" ${r.include ? 'checked' : ''} ${r.status === 'invalid' ? 'disabled' : ''}></td>
+                    <td class="tt-cell-time">${escapeHtml(fmt(r.date))}<br><span class="text-muted">${escapeHtml(r.startTime || '?')}–${escapeHtml(r.endTime || '?')}</span></td>
+                    <td><strong>${escapeHtml(r.title || '?')}</strong>${r.teacher ? `<br><span class="text-sm text-muted">${escapeHtml(r.teacher)}</span>` : ''}${r.room ? `<br><span class="text-sm text-muted">📍 ${escapeHtml(r.room)}</span>` : ''}${flags.length ? `<br><span class="planning-flag-warning">⚠ ${escapeHtml(flags.join(', '))}</span>` : ''}</td>
                     ${hoursCol}
-                    <td style="padding:8px 6px;"><select class="tt-subject" style="max-width:200px; padding:6px; background:var(--bg-card); color:var(--text-main); border:1px solid var(--border-color); border-radius:8px; font-size:12px;">${options}</select>${r.componentName ? `<br><span style="font-size:11px; color:var(--text-muted);">${escapeHtml(r.componentName)}</span>` : ''}</td>
+                    <td><select class="tt-subject form-input form-select-sm">${options}</select>${r.componentName ? `<br><span class="text-sm text-muted">${escapeHtml(r.componentName)}</span>` : ''}</td>
                 </tr>`;
         }).join('');
 
         const unreadWarningHtml = preview.unreadLines && preview.unreadLines.length > 0 ? `
-            <div class="alert alert-warning" style="margin-bottom:8px;">
+            <div class="alert alert-warning mb-2">
                 <i class="bi bi-exclamation-triangle"></i>
                 <div>
                     <strong>${preview.unreadLines.length} ligne(s) non lue(s) :</strong>
@@ -1156,26 +1178,26 @@ export class PlanningView {
 
         content.innerHTML = `
             <div class="tt-preview-meta">
-                <div style="font-size:14px;">${preview.weekStart ? `Semaine du <strong>${escapeHtml(fmt(preview.weekStart))}</strong> au <strong>${escapeHtml(fmt(preview.weekEnd))}</strong>` : 'Semaine non reconnue'}</div>
-                <label style="font-size:13px; color:var(--text-muted);">Groupe :
-                    <select class="tt-group form-input" style="padding:6px; display:inline-block; width:auto;">
+                <div>${preview.weekStart ? `Semaine du <strong>${escapeHtml(fmt(preview.weekStart))}</strong> au <strong>${escapeHtml(fmt(preview.weekEnd))}</strong>` : 'Semaine non reconnue'}</div>
+                <label class="tt-group-label">Groupe :
+                    <select class="tt-group form-input form-select-sm">
                         ${groups.map(g => `<option value="${escapeHtml(g)}" ${g === preview.group ? 'selected' : ''}>${escapeHtml(g)}</option>`).join('')}
                     </select>
                 </label>
             </div>
-            ${preview.replacesExistingImport ? `<div class="alert alert-warning" style="margin-bottom:8px;"><i class="bi bi-arrow-repeat"></i> Cette semaine a déjà été importée : ses cours seront remplacés.</div>` : ''}
+            ${preview.replacesExistingImport ? `<div class="alert alert-warning mb-2"><i class="bi bi-arrow-repeat"></i> Cette semaine a déjà été importée : ses cours seront remplacés.</div>` : ''}
             ${unreadWarningHtml}
-            ${(preview.warnings || []).filter(w => !w.includes('ligne(s) non lue(s)')).map(w => `<div class="alert alert-warning" style="margin-bottom:4px;"><i class="bi bi-exclamation-triangle"></i> ⚠ ${escapeHtml(w)}</div>`).join('')}
-            <p class="modal-hint" style="margin:6px 0 10px 0;">Vérifie chaque ligne, coche les séances à ajouter, corrige la matière si besoin, puis valide.</p>
-            <div class="table-container" style="max-height:300px; overflow-y:auto;">
+            ${(preview.warnings || []).filter(w => !w.includes('ligne(s) non lue(s)')).map(w => `<div class="alert alert-warning mb-1"><i class="bi bi-exclamation-triangle"></i> ⚠ ${escapeHtml(w)}</div>`).join('')}
+            <p class="modal-hint my-2">Vérifie chaque ligne, coche les séances à ajouter, corrige la matière si besoin, puis valide.</p>
+            <div class="table-container planning-modal-preview-table-wrap">
                 <table class="data-table">
-                    <thead><tr style="text-align:left; font-size:11px; color:var(--text-muted); text-transform:uppercase;"><th></th><th>Jour</th><th>Cours</th>${hasHourlyVolume ? '<th>Heures</th>' : ''}<th>Matière</th></tr></thead>
-                    <tbody>${rowsHtml || `<tr><td colspan="${hasHourlyVolume ? 5 : 4}" style="padding:12px; color:var(--text-muted);">Aucune séance pour ce groupe.</td></tr>`}</tbody>
+                    <thead><tr><th></th><th>Jour</th><th>Cours</th>${hasHourlyVolume ? '<th>Heures</th>' : ''}<th>Matière</th></tr></thead>
+                    <tbody>${rowsHtml || `<tr><td colspan="${hasHourlyVolume ? 5 : 4}" class="text-muted p-3">Aucune séance pour ce groupe.</td></tr>`}</tbody>
                 </table>
             </div>
-            <div class="tt-error" style="color:#ef4444; font-size:13px; margin-top:10px;"></div>
+            <div class="tt-error mt-2"></div>
             <div class="modal-actions">
-                <button type="button" class="btn btn-secondary tt-back" style="margin-right:auto;"><i class="bi bi-arrow-left"></i> Retour</button>
+                <button type="button" class="btn btn-secondary tt-back me-auto"><i class="bi bi-arrow-left"></i> Retour</button>
                 <button type="button" class="btn btn-ghost tt-cancel">Annuler</button>
                 <button type="button" class="btn btn-primary tt-validate" ${preview.rows.length === 0 ? 'disabled' : ''}>Valider</button>
             </div>`;
@@ -1206,12 +1228,12 @@ export class PlanningView {
                 if (res.unmapped && res.unmapped.length) extra.push(`Non relié(s) au cursus : ${res.unmapped.join(', ')}.`);
                 if (res.overlaps && res.overlaps.length) extra.push(`Chevauchement(s) avec ton agenda : ${res.overlaps.map(o => `${o.course.title} / ${o.other.title} (${o.course.date})`).join(' ; ')}.`);
                 content.innerHTML = `
-                    <div style="text-align:center; padding:20px;">
-                        <i class="bi bi-check-circle" style="font-size:36px; color:#10b981; display:block; margin-bottom:10px;"></i>
+                    <div class="text-center p-4">
+                        <i class="bi bi-check-circle tt-success-icon"></i>
                         <strong>${escapeHtml(res.count)} cours enregistré(s)</strong> pour la semaine du ${escapeHtml(fmt(res.weekStart))}.
-                        <p class="modal-hint" style="margin-top:6px;">Le coach suit maintenant l'avancement de tes cours.</p>
-                        ${extra.map(x => `<p style="font-size:12px; color:#f59e0b; margin-top:4px;">${escapeHtml(x)}</p>`).join('')}
-                        <div class="modal-actions" style="justify-content:center; border:none; margin-top:20px;">
+                        <p class="modal-hint mt-2">Le coach suit maintenant l'avancement de tes cours.</p>
+                        ${extra.map(x => `<p class="planning-flag-warning mt-1">${escapeHtml(x)}</p>`).join('')}
+                        <div class="modal-actions justify-center border-0 mt-4">
                             <button type="button" class="btn btn-primary tt-done">Fermer</button>
                         </div>
                     </div>`;
