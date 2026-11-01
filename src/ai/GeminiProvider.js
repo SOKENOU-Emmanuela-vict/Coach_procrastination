@@ -18,9 +18,11 @@ const RETRYABLE_STATUS = [429, 500, 502, 503, 504];
 
 /** Cache mémoire de session pour le modèle sélectionné via ListModels */
 let sessionSelectedModel = null;
+let sessionUsesStudioOnly = false;
 
 export function resetSessionModel() {
     sessionSelectedModel = null;
+    sessionUsesStudioOnly = false;
 }
 
 /** Écoute de l'événement securitypolicyviolation (CSP) dans le navigateur */
@@ -184,10 +186,11 @@ export class GeminiProvider extends LLMProvider {
         this.primaryModel = GEMINI_PRIMARY_MODEL;
         this.fallbackModels = GEMINI_FALLBACK_MODELS.slice();
         this.retryDelayMs = 1500;
-        this.timeoutMs = 45000;
+        this.timeoutMs = 12000;
         this.fileTimeoutMs = 120000;
         this.lastModelUsed = null;
         this.selectedModel = null;
+        this.usesStudioOnly = sessionUsesStudioOnly;
     }
 
     /** Détecte une clé Google Cloud Vertex AI Express Mode (préfixe « AQ. »). */
@@ -197,7 +200,7 @@ export class GeminiProvider extends LLMProvider {
 
     _url(model, useStudioFallback = false) {
         const keyParam = encodeURIComponent(this.apiKey);
-        if (this.isVertexExpressKey() && !useStudioFallback) {
+        if (this.isVertexExpressKey() && !useStudioFallback && !this.usesStudioOnly && !sessionUsesStudioOnly) {
             return `https://aiplatform.googleapis.com/v1/publishers/google/models/${model}:generateContent?key=${keyParam}`;
         }
         return `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${keyParam}`;
@@ -357,6 +360,8 @@ export class GeminiProvider extends LLMProvider {
                 const chosen = PREFERRED_MODELS.find(p => available.includes(p)) || available[0] || GEMINI_PRIMARY_MODEL;
                 this.selectedModel = chosen;
                 sessionSelectedModel = chosen;
+                this.usesStudioOnly = true;
+                sessionUsesStudioOnly = true;
                 return { ok: true, model: chosen, message: `OK (modèle retenu : ${chosen})` };
             } catch (e) {
                 studioErr = e;
@@ -429,8 +434,13 @@ export class GeminiProvider extends LLMProvider {
             // Repli transparent sur l'autre adresse si clé AQ.
             if (this.isVertexExpressKey() && !useStudioFallback) {
                 try {
-                    return await this._callOnce(model, body, timeoutMs, true);
-                } catch (_) {}
+                    const res = await this._callOnce(model, body, timeoutMs, true);
+                    this.usesStudioOnly = true;
+                    sessionUsesStudioOnly = true;
+                    return res;
+                } catch (fallbackErr) {
+                    if (fallbackErr instanceof GeminiError) throw fallbackErr;
+                }
             }
 
             const aborted = e && (e.name === 'AbortError' || /abort/i.test(String(e.message)));
@@ -451,9 +461,12 @@ export class GeminiProvider extends LLMProvider {
             // Si c'est une clé AQ. qui échoue sur aiplatform, repli immédiat sur generativelanguage
             if (this.isVertexExpressKey() && !useStudioFallback) {
                 try {
-                    return await this._callOnce(model, body, timeoutMs, true);
-                } catch (_) {
-                    // Si le repli AI Studio échoue également, on continue vers le traitement d'erreur normal
+                    const res = await this._callOnce(model, body, timeoutMs, true);
+                    this.usesStudioOnly = true;
+                    sessionUsesStudioOnly = true;
+                    return res;
+                } catch (fallbackErr) {
+                    if (fallbackErr instanceof GeminiError) throw fallbackErr;
                 }
             }
 
