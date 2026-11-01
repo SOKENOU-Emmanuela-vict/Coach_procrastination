@@ -1,4 +1,4 @@
-const CACHE_NAME = 'learning-os-v2.12';
+const CACHE_NAME = 'learning-os-v2.13';
 const ASSETS_TO_CACHE = [
   './',
   './index.html',

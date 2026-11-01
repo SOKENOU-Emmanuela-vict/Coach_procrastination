@@ -102,15 +102,15 @@ export class App {
     async syncApiKeyFromFile() {
         try {
             if (typeof window !== 'undefined' && window.localStorage && typeof fetch === 'function') {
-                if (window.localStorage.getItem('gemini_api_key_disabled') === 'true') {
-                    return false;
-                }
                 const res = await fetch('/api/config/key');
                 if (res.ok) {
                     const data = await res.json();
                     if (data && data.apiKey) {
                         const currentKey = window.localStorage.getItem('gemini_api_key');
                         if (currentKey !== data.apiKey) {
+                            if (window.localStorage.getItem('gemini_api_key_disabled_key') === data.apiKey) {
+                                return false;
+                            }
                             this.setGeminiApiKey(data.apiKey);
                             return true;
                         }
@@ -151,10 +151,17 @@ export class App {
         if (typeof window !== 'undefined' && window.localStorage) {
             if (clean && typeof window.localStorage.setItem === 'function') {
                 window.localStorage.setItem('gemini_api_key', clean);
-                try { window.localStorage.removeItem('gemini_api_key_disabled'); } catch (_) {}
+                try {
+                    window.localStorage.removeItem('gemini_api_key_disabled');
+                    window.localStorage.removeItem('gemini_api_key_disabled_key');
+                } catch (_) {}
             } else if (!clean && typeof window.localStorage.removeItem === 'function') {
+                const prev = window.localStorage.getItem('gemini_api_key') || '';
                 window.localStorage.removeItem('gemini_api_key');
-                try { window.localStorage.setItem('gemini_api_key_disabled', 'true'); } catch (_) {}
+                try {
+                    window.localStorage.setItem('gemini_api_key_disabled', 'true');
+                    if (prev) window.localStorage.setItem('gemini_api_key_disabled_key', prev);
+                } catch (_) {}
             }
         }
         this.coachEngine = new CoachOrchestrator(this.planningIntelligence, this.knowledgeRetriever, this.riskEngine);
