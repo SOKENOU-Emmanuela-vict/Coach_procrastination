@@ -91,6 +91,10 @@ export class App {
         this.router = new Router('app-root', this);
     }
 
+    get planningView() {
+        return this.router && this.router.views ? this.router.views.planning : null;
+    }
+
     /**
      * Tente de synchroniser la clé IA depuis le fichier local (endpoint /api/config/key).
      * Si une clé est renvoyée et différente de la clé en cours, met à jour localStorage et les moteurs IA.
@@ -98,6 +102,9 @@ export class App {
     async syncApiKeyFromFile() {
         try {
             if (typeof window !== 'undefined' && window.localStorage && typeof fetch === 'function') {
+                if (window.localStorage.getItem('gemini_api_key_disabled') === 'true') {
+                    return false;
+                }
                 const res = await fetch('/api/config/key');
                 if (res.ok) {
                     const data = await res.json();
@@ -144,8 +151,10 @@ export class App {
         if (typeof window !== 'undefined' && window.localStorage) {
             if (clean && typeof window.localStorage.setItem === 'function') {
                 window.localStorage.setItem('gemini_api_key', clean);
+                try { window.localStorage.removeItem('gemini_api_key_disabled'); } catch (_) {}
             } else if (!clean && typeof window.localStorage.removeItem === 'function') {
                 window.localStorage.removeItem('gemini_api_key');
+                try { window.localStorage.setItem('gemini_api_key_disabled', 'true'); } catch (_) {}
             }
         }
         this.coachEngine = new CoachOrchestrator(this.planningIntelligence, this.knowledgeRetriever, this.riskEngine);

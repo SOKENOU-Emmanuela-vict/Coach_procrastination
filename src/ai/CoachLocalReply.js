@@ -121,6 +121,11 @@ export class CoachLocalReply {
             return 'today';
         }
 
+        // 6. Cours / emploi du temps de la semaine
+        if (/cours\s+(cette\s+semaine|de\s+la\s+semaine)|planning\s+de\s+la\s+semaine|emploi\s+du\s+temps\s*(de\s+la\s+semaine)?|mes\s+cours\s+cette\s+semaine|edt\s+(cette\s+semaine|de\s+la\s+semaine)/.test(q)) {
+            return 'week_courses';
+        }
+
         // 2. Quel est mon prochain examen ?
         if (/(prochain(e)?\s+(examen|eval|evaluation|devoir|partiel|controle)|quand\s+est\s+(mon\s+)?(prochain\s+)?(examen|eval|partiel|devoir)|(et\s+pour\s+)?mes\s+examens)/.test(q)) {
             return 'next_exam';
@@ -540,6 +545,33 @@ export class CoachLocalReply {
                 message,
                 question: questionText,
                 facts: { topic: 'courses', todaySessions: sortedEvents.length, exams: exams.length, gradeRequests: gradeRequests.length, needsImport: false }
+            };
+        }
+
+        // 1.1.5 Cours de la semaine : Quels sont mes cours cette semaine ?
+        if (exactIntent === 'week_courses') {
+            const allEvents = [...sessions, ...(planning.events || []), ...(context.temporalEvents || [])];
+            const schoolEvents = allEvents.filter(e => e && (e.source === 'school_schedule' || e.type === 'course'));
+            const uniqueMap = new Map();
+            for (const e of schoolEvents) {
+                const key = `${e.date || ''}_${e.startTime || ''}_${e.title || ''}`;
+                if (!uniqueMap.has(key)) {
+                    uniqueMap.set(key, e);
+                }
+            }
+            const sorted = Array.from(uniqueMap.values()).sort((a, b) => (String(a.date || '') + String(a.startTime || '')).localeCompare(String(b.date || '') + String(b.startTime || '')));
+            let answerText = '';
+            if (sorted.length > 0) {
+                const eventLines = sorted.map(e => `• ${CoachLocalReply._frDay(e.date)} ${e.startTime ? `${e.startTime}–${e.endTime || ''}` : ''} : ${CoachLocalReply._short(e.title, 45)}${e.room ? ` (${e.room})` : ''}`);
+                answerText = `Tes cours prévus (${sorted.length} séance${sorted.length > 1 ? 's' : ''}) :\n${eventLines.join('\n')}`;
+            } else {
+                answerText = "Aucun cours enregistré pour cette semaine. Tu peux importer ton emploi du temps dans l'écran Planning.";
+            }
+            const message = [statusLine, answerText].filter(Boolean).join('\n');
+            return {
+                message,
+                question: null,
+                facts: { topic: 'courses', count: sorted.length }
             };
         }
 
