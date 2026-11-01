@@ -32,32 +32,344 @@
     --shadow-lg: 0 10px 24px rgba(90, 70, 50, 0.08);
 }
 
-/* Mode sombre de l'univers Vie (Nuit d'argile et sauge sombre) */
-[data-univers="vie"][data-theme="dark"],
-[data-theme="dark"] [data-univers="vie"],
-body.theme-dark[data-univers="vie"],
-body.theme-dark [data-univers="vie"],
-.theme-dark [data-univers="vie"],
-[data-univers="vie"].theme-dark {
-    --bg-page: #1a1714;
-    --bg-surface: #24201c;
-    --bg-surface-alt: #2e2a24;
-    --bg-sidebar: #181512;
-    
-    --text-primary: #f0eae1;
-    --text-secondary: #b0a495;
-    --text-tertiary: #7d7265;
-    
-    --border-subtle: #3a332a;
-    --border-strong: #4f473c;
-    
-    --accent-primary: #76977e;
-    --accent-primary-hover: #8eaf96;
-    --accent-subtle: #243026;
-    --accent-text: #ffffff;
-    --accent-warm: #e38d72;
-    
-    --shadow-sm: 0 2px 4px rgba(0, 0, 0, 0.4);
-    --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.5);
-    --shadow-lg: 0 10px 24px rgba(0, 0, 0, 0.6);
+/* Layout */
+.life-layout {
+    display: flex;
+    min-height: 100vh;
+    background: var(--bg-page);
+    color: var(--text-primary);
+}
+
+.life-content {
+    flex: 1;
+    padding: var(--space-6) 40px;
+    overflow-y: auto;
+    background: var(--bg-page);
+}
+
+/* Hero card bien-être & citation */
+.life-hero-card {
+    display: flex;
+    margin-bottom: var(--space-6);
+    min-height: 240px;
+    border-radius: var(--card-radius);
+    overflow: hidden;
+    background: var(--bg-surface);
+    border: 1px solid var(--border-subtle);
+    box-shadow: var(--shadow-sm);
+}
+
+.life-hero-left {
+    flex: 1;
+    background: linear-gradient(135deg, #5c7562 0%, #3e5243 100%);
+    color: #ffffff;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+    padding: var(--space-6);
+    position: relative;
+}
+
+.life-hero-tag {
+    font-size: var(--text-xs);
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    opacity: 0.8;
+    margin-bottom: 6px;
+}
+
+.life-hero-headline {
+    color: #ffffff;
+    margin: 0;
+    font-size: var(--text-2xl);
+    font-weight: 700;
+    letter-spacing: 1px;
+}
+
+.life-hero-right {
+    flex: 1.2;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    padding: var(--space-6) var(--space-8);
+    position: relative;
+    background: var(--bg-surface-alt);
+}
+
+.life-hero-quote-icon {
+    position: absolute;
+    top: 20px;
+    left: 24px;
+    font-size: 52px;
+    color: var(--text-tertiary);
+    opacity: 0.25;
+}
+
+.life-hero-quote-text {
+    font-size: var(--text-lg);
+    font-weight: 500;
+    font-style: italic;
+    line-height: 1.5;
+    color: var(--text-primary);
+    margin: 0 0 var(--space-3) 0;
+    position: relative;
+    z-index: 1;
+}
+
+.life-hero-author {
+    text-align: right;
+    color: var(--accent-primary);
+    font-size: var(--text-base);
+    font-weight: 700;
+}
+
+/* Grille 3 colonnes */
+.life-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: var(--space-5);
+}
+
+.life-col {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-5);
+}
+
+/* Cartes */
+.life-card {
+    background: var(--bg-surface);
+    border-radius: var(--card-radius);
+    border: 1px solid var(--border-subtle);
+    padding: var(--space-5);
+    box-shadow: var(--shadow-sm);
+    display: flex;
+    flex-direction: column;
+}
+
+.life-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: var(--space-4);
+}
+
+.life-card-title-wrap {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+}
+
+.life-card-icon {
+    font-size: 18px;
+    color: var(--accent-primary);
+}
+
+.life-card-icon.rose { color: #f43f5e; }
+.life-card-icon.purple { color: #8b5cf6; }
+
+.life-card-title {
+    margin: 0;
+    font-size: var(--text-md);
+    font-weight: 700;
+    color: var(--text-primary);
+}
+
+.life-card-btn-add {
+    background: transparent;
+    border: none;
+    color: var(--accent-primary);
+    cursor: pointer;
+    font-size: 18px;
+    padding: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: transform 0.1s ease;
+}
+
+.life-card-btn-add:hover {
+    transform: scale(1.1);
+}
+
+.life-card-list {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-3);
+}
+
+.life-empty-text {
+    font-size: var(--text-sm);
+    color: var(--text-tertiary);
+    margin: 0;
+    font-style: italic;
+    padding: var(--space-2) 0;
+}
+
+/* Ligne d'habitude */
+.life-item-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: var(--space-3);
+    padding: 8px 10px;
+    border-radius: var(--btn-radius);
+    background: var(--bg-surface-alt);
+    border: 1px solid var(--border-subtle);
+}
+
+.life-item-title {
+    font-size: var(--text-sm);
+    font-weight: 500;
+    color: var(--text-primary);
+}
+
+.life-item-actions {
+    display: flex;
+    gap: 6px;
+}
+
+.life-icon-btn {
+    background: transparent;
+    border: none;
+    color: var(--text-tertiary);
+    cursor: pointer;
+    font-size: 13px;
+    padding: 2px 4px;
+    border-radius: 4px;
+    transition: color 0.15s ease;
+}
+
+.life-icon-btn:hover {
+    color: var(--accent-primary);
+}
+
+.life-icon-btn.danger:hover {
+    color: #ef4444;
+}
+
+/* Lignes Fitness & Bien-être */
+.life-kpi-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 0;
+    border-bottom: 1px solid var(--border-subtle);
+}
+
+.life-kpi-row:last-child {
+    border-bottom: none;
+}
+
+.life-kpi-label {
+    font-size: var(--text-sm);
+    color: var(--text-secondary);
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.life-kpi-val {
+    font-size: var(--text-sm);
+    color: var(--accent-primary);
+    font-weight: 700;
+}
+
+/* Spotify Card */
+.life-spotify-card {
+    background: #15803d; /* Vert émeraude sobre */
+    border-radius: var(--card-radius);
+    padding: var(--space-5);
+    color: #ffffff;
+    border: 1px solid rgba(0,0,0,0.06);
+    box-shadow: var(--shadow-sm);
+}
+
+.life-spotify-header {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    margin-bottom: var(--space-3);
+}
+
+.life-spotify-desc {
+    font-size: var(--text-sm);
+    opacity: 0.92;
+    margin: 0 0 var(--space-4) 0;
+    line-height: 1.45;
+}
+
+.life-spotify-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-2);
+    background: #ffffff;
+    color: #15803d;
+    font-weight: 700;
+    padding: 8px 18px;
+    border-radius: 20px;
+    text-decoration: none;
+    font-size: var(--text-sm);
+    box-shadow: 0 2px 6px rgba(0,0,0,0.15);
+    transition: transform 0.1s ease, box-shadow 0.15s ease;
+}
+
+.life-spotify-btn:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+}
+
+/* Ligne d'objectif */
+.life-goal-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 12px;
+    background: var(--bg-surface-alt);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--btn-radius);
+    gap: var(--space-2);
+}
+
+.life-goal-title {
+    font-size: var(--text-sm);
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.life-goal-sub {
+    font-size: var(--text-xs);
+    color: var(--text-tertiary);
+}
+
+.life-goal-meta {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.life-goal-progress {
+    font-size: var(--text-xs);
+    font-weight: 700;
+    color: var(--accent-primary);
+}
+
+.life-spotify-icon { font-size: 24px; color: #ffffff; }
+.life-spotify-title { color: #ffffff; margin: 0; }
+.text-success { color: #10b981 !important; }
+.text-warning { color: #f59e0b !important; }
+.text-danger { color: #ef4444 !important; }
+
+/* Responsive Mobile (< 768px) */
+@media (max-width: 900px) {
+    .life-grid {
+        grid-template-columns: 1fr;
+    }
+    .life-hero-card {
+        flex-direction: column;
+    }
+    .life-content {
+        padding: var(--space-4) var(--space-3);
+    }
 }
