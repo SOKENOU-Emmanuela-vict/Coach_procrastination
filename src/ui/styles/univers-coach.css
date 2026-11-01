@@ -1,0 +1,868 @@
+/* =========================================================
+   UNIVERS COACH & BILAN — CONVERSATION & SUIVI (data-univers="coach")
+   Ambiance messagerie claire, bulles nettes, accent neutre/bleu slate
+   ========================================================= */
+
+[data-univers="coach"] {
+    --bg-page: #f8fafc;
+    --bg-surface: #ffffff;
+    --bg-surface-alt: #f1f5f9;
+    --bg-sidebar: #f8fafc;
+    
+    --text-primary: #0f172a;
+    --text-secondary: #475569;
+    --text-tertiary: #94a3b8;
+    
+    --border-subtle: #e2e8f0;
+    --border-strong: #cbd5e1;
+    
+    --accent-primary: #2563eb;
+    --accent-primary-hover: #1d4ed8;
+    --accent-subtle: #eff6ff;
+    --accent-text: #ffffff;
+    
+    --font-heading: var(--font-sans);
+    --card-radius: 12px;
+    --btn-radius: 8px;
+    --input-radius: 8px;
+    
+    --shadow-sm: 0 1px 3px rgba(15, 23, 42, 0.05);
+    --shadow-md: 0 4px 12px rgba(15, 23, 42, 0.07);
+    --shadow-lg: 0 10px 25px rgba(15, 23, 42, 0.09);
+
+    /* Spécifiques au chat */
+    --chat-user-bg: #2563eb;
+    --chat-user-text: #ffffff;
+    --chat-coach-bg: #ffffff;
+    --chat-coach-border: #e2e8f0;
+    --chat-coach-text: #0f172a;
+}
+
+/* Layout général Coach */
+.coach-layout {
+    display: flex;
+    height: 100vh;
+    overflow: hidden;
+    background: var(--bg-page);
+}
+
+.coach-content {
+    flex: 1;
+    padding: 24px 32px;
+    display: flex;
+    flex-direction: column;
+    background: var(--bg-page);
+    min-height: 0;
+    overflow: hidden;
+}
+
+/* Topbar Coach */
+.coach-topbar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+    flex-shrink: 0;
+    gap: 16px;
+}
+
+.coach-header-title {
+    font-size: var(--text-xl);
+    font-weight: 700;
+    color: var(--text-primary);
+    letter-spacing: 0.3px;
+    margin: 0;
+}
+
+.coach-header-subtitle {
+    font-size: var(--text-sm);
+    color: var(--text-secondary);
+    margin: 4px 0 0 0;
+}
+
+.coach-topbar-actions {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+}
+
+.coach-avatar-topbar {
+    width: 38px;
+    height: 38px;
+    border-radius: 10px;
+    background: var(--accent-subtle);
+    border: 1px solid var(--border-subtle);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    color: var(--accent-primary);
+    font-size: 16px;
+}
+
+/* Grille principale : Chat à gauche, Contexte & Objectifs à droite */
+.coach-grid {
+    display: grid;
+    grid-template-columns: 1fr 340px;
+    gap: 24px;
+    flex: 1;
+    min-height: 0;
+}
+
+/* Carte Chat */
+.coach-chat-card {
+    display: flex;
+    flex-direction: column;
+    background: var(--bg-surface);
+    border-radius: var(--card-radius);
+    border: 1px solid var(--border-subtle);
+    box-shadow: var(--shadow-sm);
+    overflow: hidden;
+    min-height: 0;
+    height: 100%;
+}
+
+.coach-chat-header {
+    padding: 14px 20px;
+    border-bottom: 1px solid var(--border-subtle);
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    background: var(--bg-surface);
+    flex-shrink: 0;
+}
+
+.coach-avatar {
+    width: 38px;
+    height: 38px;
+    border-radius: 50%;
+    background: var(--accent-subtle);
+    color: var(--accent-primary);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+    flex-shrink: 0;
+}
+
+.coach-chat-header-info strong {
+    display: block;
+    font-size: 15px;
+    color: var(--text-primary);
+    font-weight: 600;
+}
+
+.coach-status-badge {
+    font-size: 12px;
+    color: var(--text-secondary);
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.coach-status-dot {
+    width: 8px;
+    height: 8px;
+    background: #10b981;
+    border-radius: 50%;
+    display: inline-block;
+}
+
+/* Zone des messages défilable */
+.coach-messages-container {
+    flex: 1;
+    padding: 20px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    background: var(--bg-page);
+    min-height: 0;
+}
+
+/* État vide du chat */
+.coach-empty-state {
+    text-align: center;
+    color: var(--text-secondary);
+    margin: auto 0;
+    padding: 30px;
+}
+
+.coach-empty-icon {
+    width: 52px;
+    height: 52px;
+    border-radius: 50%;
+    background: var(--accent-subtle);
+    color: var(--accent-primary);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 24px;
+    margin-bottom: 14px;
+}
+
+.coach-empty-title {
+    font-size: var(--text-md);
+    font-weight: 600;
+    color: var(--text-primary);
+    margin-bottom: 6px;
+}
+
+.coach-empty-subtitle {
+    font-size: var(--text-sm);
+    color: var(--text-secondary);
+    margin: 0;
+}
+
+/* Bulles de message */
+.coach-message {
+    max-width: 82%;
+    padding: 12px 18px;
+    font-size: var(--text-base);
+    line-height: 1.55;
+    box-shadow: var(--shadow-sm);
+    word-break: break-word;
+}
+
+.coach-message-user {
+    align-self: flex-end;
+    background: var(--chat-user-bg);
+    color: var(--chat-user-text);
+    border-radius: 18px 18px 4px 18px;
+}
+
+.coach-message-assistant {
+    align-self: flex-start;
+    background: var(--chat-coach-bg);
+    border: 1px solid var(--chat-coach-border);
+    color: var(--chat-coach-text);
+    border-radius: 18px 18px 18px 4px;
+}
+
+.coach-message-content {
+    line-height: 1.55;
+}
+
+/* Actions d'intention (Accepter / Ignorer) */
+.coach-intent-actions {
+    display: flex;
+    gap: 10px;
+    margin-top: 12px;
+    border-top: 1px solid var(--border-subtle);
+    padding-top: 12px;
+}
+
+.btn-accept-intent {
+    flex: 1;
+    background: #059669;
+    color: #ffffff;
+    border: none;
+    padding: 9px 14px;
+    border-radius: var(--btn-radius);
+    cursor: pointer;
+    font-weight: 600;
+    font-size: 13px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    transition: background 0.15s ease;
+}
+
+.btn-accept-intent:hover {
+    background: #047857;
+}
+
+.btn-refuse-intent {
+    flex: 1;
+    background: transparent;
+    border: 1px solid var(--border-strong);
+    color: var(--text-secondary);
+    padding: 9px 14px;
+    border-radius: var(--btn-radius);
+    cursor: pointer;
+    font-weight: 500;
+    font-size: 13px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    transition: background 0.15s ease, color 0.15s ease;
+}
+
+.btn-refuse-intent:hover {
+    background: var(--bg-surface-alt);
+    color: var(--text-primary);
+}
+
+.intent-feedback {
+    text-align: center;
+    font-weight: 600;
+    font-size: 13px;
+    width: 100%;
+    padding: 6px 0;
+}
+
+.intent-feedback-success {
+    color: #059669;
+}
+
+.intent-feedback-refused {
+    color: var(--text-secondary);
+}
+
+.intent-feedback-error {
+    color: #dc2626;
+}
+
+/* Actions Check-in Snooze */
+.coach-checkin-actions {
+    display: flex;
+    gap: 8px;
+    margin-top: 10px;
+}
+
+.btn-checkin-snooze {
+    background: var(--bg-surface-alt);
+    color: var(--text-secondary);
+    border: 1px solid var(--border-subtle);
+    padding: 5px 12px;
+    border-radius: 14px;
+    cursor: pointer;
+    font-size: 12px;
+    font-weight: 500;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    transition: background 0.15s ease;
+}
+
+.btn-checkin-snooze:hover {
+    background: var(--border-subtle);
+    color: var(--text-primary);
+}
+
+/* Zone de saisie du chat */
+.coach-input-area {
+    padding: 14px 20px;
+    border-top: 1px solid var(--border-subtle);
+    background: var(--bg-surface);
+    display: flex;
+    gap: 12px;
+    align-items: flex-end;
+    flex-shrink: 0;
+}
+
+.coach-btn-attach {
+    background: transparent;
+    border: none;
+    color: var(--text-tertiary);
+    font-size: 18px;
+    cursor: pointer;
+    padding: 8px;
+    border-radius: var(--btn-radius);
+    transition: color 0.15s ease;
+    align-self: center;
+}
+
+.coach-btn-attach:hover {
+    color: var(--text-primary);
+}
+
+.coach-input-textarea {
+    flex: 1;
+    background: var(--bg-surface-alt);
+    color: var(--text-primary);
+    border: 1px solid var(--border-subtle);
+    padding: 10px 16px;
+    border-radius: 20px;
+    resize: none;
+    font-family: inherit;
+    font-size: 14px;
+    outline: none;
+    line-height: 1.4;
+    min-height: 40px;
+    max-height: 120px;
+    transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+.coach-input-textarea:focus {
+    border-color: var(--accent-primary);
+    background: var(--bg-surface);
+}
+
+.coach-btn-send {
+    background: var(--accent-primary);
+    color: var(--accent-text);
+    border: none;
+    width: 42px;
+    height: 42px;
+    border-radius: 50%;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 16px;
+    flex-shrink: 0;
+    transition: background 0.15s ease, transform 0.1s ease;
+}
+
+.coach-btn-send:hover {
+    background: var(--accent-primary-hover);
+}
+
+.coach-btn-send:active {
+    transform: scale(0.95);
+}
+
+.coach-btn-send:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+/* Colonne droite : Contexte & Objectifs */
+.coach-sidebar-col {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    overflow-y: auto;
+    min-height: 0;
+    padding-right: 4px;
+}
+
+.coach-panel-card {
+    background: var(--bg-surface);
+    border-radius: var(--card-radius);
+    border: 1px solid var(--border-subtle);
+    padding: 18px;
+    box-shadow: var(--shadow-sm);
+}
+
+.coach-panel-card-accent {
+    background: var(--accent-subtle);
+    border-color: rgba(37, 99, 235, 0.2);
+}
+
+.coach-panel-title {
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--text-tertiary);
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    margin-bottom: 12px;
+}
+
+.coach-panel-title-accent {
+    color: var(--accent-primary);
+}
+
+.coach-context-heading {
+    display: block;
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin-bottom: 14px;
+}
+
+.coach-context-list {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    font-size: 13px;
+}
+
+.coach-context-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    color: var(--text-primary);
+}
+
+.coach-context-item i {
+    font-size: 16px;
+    width: 20px;
+    text-align: center;
+    flex-shrink: 0;
+}
+
+.coach-icon-success { color: #10b981; }
+.coach-icon-info { color: #3b82f6; }
+.coach-icon-warning { color: #f59e0b; }
+.coach-icon-accent { color: var(--accent-primary); }
+
+.coach-goals-list {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+}
+
+.coach-goal-item {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.coach-goal-header {
+    display: flex;
+    justify-content: space-between;
+    font-size: 13px;
+    color: var(--text-primary);
+}
+
+.coach-goal-track {
+    height: 6px;
+    background: var(--bg-surface-alt);
+    border-radius: 3px;
+    overflow: hidden;
+}
+
+.coach-goal-bar {
+    height: 100%;
+    width: 100%;
+    background: var(--accent-primary);
+    border-radius: 3px;
+}
+
+.coach-empty-goals {
+    font-size: 13px;
+    color: var(--text-secondary);
+}
+
+.coach-suggestions-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    font-size: 13px;
+}
+
+.coach-suggestion-chip {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background: var(--bg-surface);
+    border: 1px solid var(--border-subtle);
+    padding: 10px 14px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 13px;
+    color: var(--text-primary);
+    box-shadow: var(--shadow-sm);
+    transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.coach-suggestion-chip:hover {
+    background: var(--bg-surface-alt);
+    border-color: var(--border-strong);
+}
+
+.coach-suggestion-chip i {
+    font-size: 16px;
+    flex-shrink: 0;
+}
+
+/* =========================================================
+   BILAN VIEW — ÉCRAN DE CHECK-IN / BILAN DU JOUR
+   ========================================================= */
+
+.bilan-view-container {
+    min-height: 100vh;
+    background: var(--bg-page);
+    padding: 32px 20px;
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+}
+
+.bilan-wrapper {
+    width: 100%;
+    max-width: 640px;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+.bilan-header-title {
+    font-size: var(--text-xl);
+    font-weight: 700;
+    color: var(--text-primary);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin: 0;
+}
+
+.bilan-stats-card {
+    background: var(--bg-surface);
+    border: 1px solid var(--border-subtle);
+    border-left: 4px solid var(--accent-primary);
+    border-radius: var(--card-radius);
+    padding: 24px;
+    text-align: center;
+    box-shadow: var(--shadow-sm);
+}
+
+.bilan-step-label {
+    font-size: var(--text-xs);
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    color: var(--text-tertiary);
+    margin: 0 0 10px 0;
+}
+
+.bilan-card-title {
+    font-size: var(--text-lg);
+    font-weight: 700;
+    color: var(--text-primary);
+    margin: 0 0 16px 0;
+}
+
+.bilan-stat-row {
+    font-size: 15px;
+    color: var(--text-secondary);
+    margin: 8px 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+}
+
+.bilan-stat-row strong {
+    color: var(--text-primary);
+}
+
+.bilan-completion-rate {
+    margin: 16px 0;
+}
+
+.bilan-rate-val {
+    font-size: 38px;
+    font-weight: 800;
+    color: #10b981;
+    display: block;
+    line-height: 1;
+}
+
+.bilan-rate-label {
+    font-size: var(--text-xs);
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.bilan-empty-notice {
+    font-size: 13px;
+    color: var(--text-secondary);
+    margin-top: 12px;
+}
+
+.bilan-success-card {
+    background: #ecfdf5;
+    border: 1px solid #a7f3d0;
+    padding: 20px;
+    border-radius: var(--card-radius);
+    text-align: center;
+}
+
+.bilan-success-title {
+    color: #065f46;
+    font-size: 16px;
+    font-weight: 700;
+    margin: 0 0 8px 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+}
+
+.bilan-success-details {
+    color: #047857;
+    font-size: 14px;
+    margin: 0;
+}
+
+.bilan-form-card {
+    background: var(--bg-surface);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--card-radius);
+    padding: 24px;
+    box-shadow: var(--shadow-sm);
+}
+
+.bilan-form-title {
+    font-size: var(--text-md);
+    font-weight: 700;
+    color: var(--text-primary);
+    margin: 0 0 18px 0;
+    padding-bottom: 12px;
+    border-bottom: 1px solid var(--border-subtle);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.bilan-form-group {
+    margin-bottom: 18px;
+}
+
+.bilan-form-label {
+    display: block;
+    font-weight: 600;
+    font-size: 13px;
+    color: var(--text-primary);
+    margin-bottom: 8px;
+}
+
+.bilan-radio-group {
+    display: flex;
+    gap: 14px;
+    flex-wrap: wrap;
+}
+
+.bilan-radio-label {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 13px;
+    color: var(--text-secondary);
+    cursor: pointer;
+}
+
+.badge-low {
+    background: #fee2e2;
+    color: #991b1b;
+    padding: 2px 8px;
+    border-radius: 12px;
+    font-size: 12px;
+    font-weight: 500;
+}
+
+.badge-medium {
+    background: #fef3c7;
+    color: #92400e;
+    padding: 2px 8px;
+    border-radius: 12px;
+    font-size: 12px;
+    font-weight: 500;
+}
+
+.badge-high {
+    background: #d1fae5;
+    color: #065f46;
+    padding: 2px 8px;
+    border-radius: 12px;
+    font-size: 12px;
+    font-weight: 500;
+}
+
+.bilan-sleep-inputs {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+}
+
+.bilan-input-sleep {
+    width: 100px;
+}
+
+.bilan-select-sleep {
+    flex: 1;
+}
+
+.bilan-select-full {
+    width: 100%;
+}
+
+.bilan-textarea-full {
+    width: 100%;
+    resize: vertical;
+    box-sizing: border-box;
+}
+
+.bilan-followup-box {
+    margin-top: 16px;
+    padding: 12px;
+    background: var(--bg-surface-alt);
+    border-radius: var(--card-radius);
+}
+
+.bilan-followup-label {
+    display: block;
+    color: var(--accent-primary);
+    font-weight: 600;
+    font-size: 13px;
+    margin-bottom: 8px;
+}
+
+.bilan-followup-item {
+    display: block;
+    color: var(--text-primary);
+    font-size: 13px;
+    margin-bottom: 6px;
+    cursor: pointer;
+}
+
+.bilan-btn-submit {
+    width: 100%;
+    margin-top: 20px;
+    padding: 12px;
+    font-size: 15px;
+    font-weight: 600;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+}
+
+.bilan-btn-back {
+    width: 100%;
+    padding: 10px;
+    font-size: 14px;
+    color: var(--text-secondary);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+}
+
+/* Responsive Coach */
+@media (max-width: 992px) {
+    .coach-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .coach-sidebar-col {
+        order: 2;
+        max-height: 350px;
+    }
+
+    .coach-chat-card {
+        order: 1;
+        min-height: 480px;
+    }
+}
+
+@media (max-width: 768px) {
+    .coach-layout {
+        flex-direction: column-reverse;
+        height: auto;
+        min-height: 100vh;
+    }
+
+    .coach-content {
+        padding: 16px;
+        height: calc(100vh - 64px);
+    }
+
+    .coach-topbar {
+        margin-bottom: 12px;
+    }
+
+    .coach-message {
+        max-width: 90%;
+    }
+
+    .bilan-view-container {
+        padding: 16px;
+    }
+}

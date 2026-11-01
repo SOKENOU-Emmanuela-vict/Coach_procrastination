@@ -1,5 +1,6 @@
 import { escapeHtml } from '../utils/html.js';
 import { PlanningIntent } from '../models/PlanningIntent.js';
+import { Motion } from './motion.js';
 
 export class CoachChatView {
     constructor(containerId, app) {
@@ -9,7 +10,10 @@ export class CoachChatView {
 
     render(messages) {
         if (typeof document !== 'undefined' && document.body) {
-            document.body.className = 'theme-cyber';
+            document.body.className = 'theme-light';
+            if (typeof document.body.setAttribute === 'function') {
+                document.body.setAttribute('data-univers', 'coach');
+            }
         }
         messages = Array.isArray(messages) ? messages : (messages && Array.isArray(messages.messages) ? messages.messages : []);
         this._lastMessages = messages;
@@ -35,107 +39,112 @@ export class CoachChatView {
             .slice(0, 2);
         
         let html = `
-<div class="bureau" style="display:flex; height:100vh; overflow:hidden;">
+<div class="bureau coach-layout">
     <!-- SIDEBAR -->
-    <div class="bureau-sidebar" style="width: 250px; background: var(--bg-sidebar); border-right: 1px solid var(--border-color); padding: 20px; display: flex; flex-direction: column;">
-        <div style="font-size:24px; font-weight:bold; margin-bottom:40px; display:flex; align-items:center; gap:10px;">
-            <div style="width:30px; height:30px; border-radius:8px; background:var(--bg-main); border:1px solid var(--border-color); display:flex; align-items:center; justify-content:center; color:var(--text-main);">
-                <span style="font-weight:900;">L</span>
+    <div class="bureau-sidebar coach-sidebar">
+        <div class="bureau-brand coach-brand">
+            <div class="bureau-brand-icon coach-brand-icon">
+                <i class="bi bi-robot"></i>
             </div>
             Learning OS
         </div>
         
         <!-- ONGLETS -->
-        <div style="display:flex; flex-direction:column; gap:5px; flex-grow:1; padding-right:15px;">
-            <div class="bureau-nav-item" data-view="desktop" style="display:flex; align-items:center; gap:12px; cursor:pointer; padding:12px 15px; color:var(--text-muted); font-weight:500;">
-                <i class="bi bi-house-door" style="font-size:18px;"></i> Bureau
+        <div class="bureau-nav coach-nav">
+            <div class="bureau-nav-item" data-view="desktop">
+                <i class="bi bi-house-door"></i> Bureau
             </div>
-            <div class="bureau-nav-item" data-view="planning" style="display:flex; align-items:center; gap:12px; cursor:pointer; padding:12px 15px; color:var(--text-muted); font-weight:500;">
-                <i class="bi bi-calendar3" style="font-size:18px;"></i> Planning
+            <div class="bureau-nav-item" data-view="planning">
+                <i class="bi bi-calendar3"></i> Planning
             </div>
-            <div class="bureau-nav-item" data-view="academic" style="display:flex; align-items:center; gap:12px; cursor:pointer; padding:12px 15px; color:var(--text-muted); font-weight:500;">
-                <i class="bi bi-mortarboard" style="font-size:18px;"></i> École
+            <div class="bureau-nav-item" data-view="academic">
+                <i class="bi bi-mortarboard"></i> École
             </div>
-            <div class="bureau-nav-item" data-view="languages" style="display:flex; align-items:center; gap:12px; cursor:pointer; padding:12px 15px; color:var(--text-muted); font-weight:500;">
-                <i class="bi bi-globe" style="font-size:18px;"></i> Langues
+            <div class="bureau-nav-item" data-view="languages">
+                <i class="bi bi-globe"></i> Langues
             </div>
-            <div class="bureau-nav-item" data-view="life" style="display:flex; align-items:center; gap:12px; cursor:pointer; padding:12px 15px; color:var(--text-muted); font-weight:500;">
-                <i class="bi bi-heart" style="font-size:18px;"></i> Vie
+            <div class="bureau-nav-item" data-view="life">
+                <i class="bi bi-heart"></i> Vie
             </div>
-            <div class="bureau-nav-item active" data-view="chat" style="display:flex; align-items:center; gap:12px; cursor:pointer; background:rgba(14, 165, 233, 0.1); border-left:4px solid var(--accent-primary); border-radius:0 8px 8px 0; padding:12px 15px 12px 11px; color:var(--text-main); font-weight:600;">
-                <i class="bi bi-robot" style="font-size:18px; color:var(--accent-primary);"></i> Coach
+            <div class="bureau-nav-item active" data-view="chat">
+                <i class="bi bi-robot"></i> Coach
             </div>
         </div>
     </div>
 
     <!-- MAIN CONTENT -->
-    <div class="bureau-content" style="flex: 1; padding: 30px; display:flex; flex-direction:column; background: var(--bg-main);">
+    <div class="bureau-content coach-content">
         <!-- TOPBAR -->
-        <div class="bureau-topbar" style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 30px; flex-shrink:0;">
+        <div class="bureau-topbar coach-topbar">
             <div>
-                <h1 style="font-size: 24px; font-weight: 700; color:var(--text-main); letter-spacing:1px; margin:0;">Ton Coach Personnel</h1>
-                <p style="color: var(--text-muted); font-size:14px; margin:5px 0 0 0;">Il est temps de faire le point.</p>
+                <h1 class="coach-header-title">Ton Coach Personnel</h1>
+                <p class="coach-header-subtitle">Il est temps de faire le point.</p>
             </div>
-            <div class="bureau-topbar-actions" style="display:flex; gap:15px; align-items:center;">
+            <div class="coach-topbar-actions">
                 <button type="button" id="btn-coach-api-key" class="btn btn-sm ${maskedApiKey ? 'btn-secondary' : 'btn-primary'}">
                     <i class="bi ${maskedApiKey ? 'bi-key-fill' : 'bi-key'}"></i>
                     ${maskedApiKey ? `Clé IA active (${escapeHtml(maskedApiKey)})` : 'Configurer ma clé IA'}
                 </button>
-                <div class="bureau-profile-avatar" style="width:40px; height:40px; border-radius:12px; background:var(--accent-primary); display:flex; align-items:center; justify-content:center; font-weight:bold; color:#000; font-size:18px;">
+                <div class="coach-avatar-topbar">
                     É
                 </div>
             </div>
         </div>
 
-        <div style="display: grid; grid-template-columns: 1fr 350px; gap: 30px; flex:1; min-height:0;">
+        <div class="coach-grid">
             
             <!-- CHAT INTERFACE (Left) -->
-            <div style="display:flex; flex-direction:column; background: var(--bg-card); border-radius: 12px; border: 1px solid var(--border-color); overflow: hidden;">
+            <div class="coach-chat-card">
                 <!-- Header Chat -->
-                <div style="padding:20px; border-bottom:1px solid var(--border-color); display:flex; align-items:center; gap:15px;">
-                    <div style="width:40px; height:40px; border-radius:50%; background:rgba(14,165,233,0.1); display:flex; align-items:center; justify-content:center; color:var(--accent-primary); font-size:20px;">
-                        🤖
+                <div class="coach-chat-header">
+                    <div class="coach-avatar">
+                        <i class="bi bi-robot"></i>
                     </div>
-                    <div>
-                        <strong style="display:block; font-size:16px;">Chat avec ton coach</strong>
-                        <span style="font-size:12px; color:var(--text-muted); display:flex; align-items:center; gap:5px;"><span style="display:inline-block; width:8px; height:8px; background:#10b981; border-radius:50%;"></span> Toujours là pour t'aider</span>
+                    <div class="coach-chat-header-info">
+                        <strong>Chat avec ton coach</strong>
+                        <span class="coach-status-badge">
+                            <span class="coach-status-dot"></span> Toujours là pour t'aider
+                        </span>
                     </div>
                 </div>
 
                 <!-- Messages -->
-                <div id="chat-messages-container" style="flex:1; padding:20px; overflow-y:auto; display:flex; flex-direction:column; gap:20px;">
+                <div id="chat-messages-container" class="coach-messages-container">
         `;
 
         if (messages.length === 0) {
             html += `
-                    <div style="text-align: center; color: var(--text-muted); margin-top: 50px;">
-                        <div style="font-size: 40px; margin-bottom: 15px;">👋</div>
-                        Bonjour ! Je suis ton Coach. Comment s'est passée ta journée ?
+                    <div class="coach-empty-state">
+                        <div class="coach-empty-icon">
+                            <i class="bi bi-chat-dots"></i>
+                        </div>
+                        <div class="coach-empty-title">Bonjour ! Je suis ton Coach.</div>
+                        <p class="coach-empty-subtitle">Comment s'est passée ta journée ? Pose-moi une question ou demande un conseil.</p>
                     </div>
             `;
         } else {
             messages.forEach(msg => {
                 const isUser = msg.role === 'user';
-                const align = isUser ? 'align-self: flex-end;' : 'align-self: flex-start;';
-                const bg = isUser ? 'background: var(--accent-primary); color: #000;' : 'background: rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.1); color: var(--text-main);';
-                const radius = isUser ? 'border-radius: 15px 15px 0 15px;' : 'border-radius: 15px 15px 15px 0;';
+                const roleClass = isUser ? 'coach-message-user' : 'coach-message-assistant';
                 
                 html += `
-                    <div style="max-width: 80%; ${align} ${bg} ${radius} padding: 15px 20px; font-size: 14px; line-height: 1.5; box-shadow: 0 4px 15px rgba(0,0,0,0.1);">
-                        ${escapeHtml(msg.content).replace(/\n/g, '<br>')}
+                    <div class="coach-message ${roleClass}">
+                        <div class="coach-message-content">
+                            ${escapeHtml(msg.content).replace(/\n/g, '<br>')}
+                        </div>
                 `;
 
                 if (!isUser && msg.metadata && msg.metadata.intent) {
                     const intentJson = encodeURIComponent(JSON.stringify(msg.metadata.intent));
                     const isCheckIn = msg.metadata.intent.action === 'save_checkin';
-                    const acceptLabel = isCheckIn ? '✅ Enregistrer le Bilan' : '✅ Accepter';
+                    const acceptLabel = isCheckIn ? 'Enregistrer le Bilan' : 'Accepter';
                     html += `
-                        <div class="intent-actions" style="display: flex; gap: 10px; margin-top: 15px; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 15px;">
-                            <button class="btn-accept-intent" data-intent="${intentJson}" style="flex: 1; background: #10b981; color: white; border: none; padding: 10px; border-radius: 8px; cursor: pointer; font-weight: bold; font-size: 13px; transition:0.2s;">
-                                ${acceptLabel}
+                        <div class="coach-intent-actions intent-actions">
+                            <button type="button" class="btn-accept-intent" data-intent="${intentJson}">
+                                <i class="bi bi-check2"></i> ${acceptLabel}
                             </button>
-                            <button class="btn-refuse-intent" style="flex: 1; background: transparent; border: 1px solid rgba(255,255,255,0.2); color: var(--text-muted); padding: 10px; border-radius: 8px; cursor: pointer; font-weight: bold; font-size: 13px; transition:0.2s;">
-                                ❌ Ignorer
+                            <button type="button" class="btn-refuse-intent">
+                                <i class="bi bi-x"></i> Ignorer
                             </button>
                         </div>
                     `;
@@ -143,9 +152,9 @@ export class CoachChatView {
 
                 if (!isUser && msg.metadata && (msg.metadata.pendingCheckInStep || msg.metadata.proactive === 'checkin' || msg.metadata.proactive === 'checkin_reminder')) {
                     html += `
-                        <div class="checkin-actions" style="display: flex; gap: 8px; margin-top: 10px;">
-                            <button type="button" class="btn-checkin-snooze" style="background: rgba(255,255,255,0.08); color: var(--text-muted); border: 1px solid rgba(255,255,255,0.2); padding: 5px 12px; border-radius: 15px; cursor: pointer; font-size: 12px; font-weight: 500;">
-                                ⏳ Plus tard
+                        <div class="coach-checkin-actions checkin-actions">
+                            <button type="button" class="btn-checkin-snooze">
+                                <i class="bi bi-clock-history"></i> Plus tard
                             </button>
                         </div>
                     `;
@@ -161,74 +170,76 @@ export class CoachChatView {
                 </div>
 
                 <!-- Input Area -->
-                <div style="padding:20px; border-top:1px solid var(--border-color); background:rgba(0,0,0,0.2); display:flex; gap:15px; align-items:center;">
-                    <button style="background:transparent; border:none; color:var(--text-muted); font-size:20px; cursor:pointer;"><i class="bi bi-paperclip"></i></button>
-                    <textarea id="chat-input-text" placeholder="Écris ton message ici..." rows="1" style="flex:1; background:rgba(255,255,255,0.05); color:white; border:1px solid var(--border-color); padding:15px 20px; border-radius:25px; resize:none; font-family:inherit; font-size:14px; outline:none;"></textarea>
-                    <button id="btn-chat-send" style="background:var(--accent-primary); color:#000; border:none; width:50px; height:50px; border-radius:50%; cursor:pointer; display:flex; align-items:center; justify-content:center; font-size:20px; transition:0.2s;">
+                <div class="coach-input-area">
+                    <button type="button" class="coach-btn-attach" title="Joindre un fichier" aria-label="Joindre un fichier">
+                        <i class="bi bi-paperclip"></i>
+                    </button>
+                    <textarea id="chat-input-text" class="coach-input-textarea" placeholder="Écris ton message ici..." rows="1"></textarea>
+                    <button type="button" id="btn-chat-send" class="coach-btn-send" aria-label="Envoyer">
                         <i class="bi bi-send-fill"></i>
                     </button>
                 </div>
             </div>
 
             <!-- CONTEXTE & OBJECTIFS (Right) -->
-            <div style="display:flex; flex-direction:column; gap:20px; overflow-y:auto; padding-right:10px;">
+            <div class="coach-sidebar-col">
                 
                 <!-- Contexte Actuel -->
-                <div class="bureau-card" style="background: var(--bg-card); border-radius: 12px; border: 1px solid var(--border-color); padding:20px;">
-                    <div style="font-size:12px; font-weight:bold; color:var(--text-muted); text-transform:uppercase; letter-spacing:1px; margin-bottom:15px;">Contexte Actuel</div>
-                    <strong style="display:block; font-size:16px; margin-bottom:15px;">Ta journée (${escapeHtml(todayLabel)})</strong>
+                <div class="coach-panel-card">
+                    <div class="coach-panel-title">Contexte Actuel</div>
+                    <strong class="coach-context-heading">Ta journée (${escapeHtml(todayLabel)})</strong>
                     
-                    <div style="display:flex; flex-direction:column; gap:12px; font-size:14px;">
-                        <div style="display:flex; align-items:center; gap:10px;">
-                            <i class="bi bi-check2-circle" style="color:#10b981; font-size:18px;"></i>
+                    <div class="coach-context-list">
+                        <div class="coach-context-item">
+                            <i class="bi bi-check2-circle coach-icon-success"></i>
                             <span><strong>${exec.completed || 0}/${plannedCount}</strong> sessions complétées</span>
                         </div>
-                        <div style="display:flex; align-items:center; gap:10px;">
-                            <i class="bi bi-battery-charging" style="color:#3b82f6; font-size:18px;"></i>
+                        <div class="coach-context-item">
+                            <i class="bi bi-battery-charging coach-icon-info"></i>
                             <span>Énergie : <strong>${escapeHtml(energyLabel)}</strong></span>
                         </div>
-                        <div style="display:flex; align-items:center; gap:10px;">
-                            <i class="bi bi-exclamation-triangle" style="color:#f59e0b; font-size:18px;"></i>
+                        <div class="coach-context-item">
+                            <i class="bi bi-exclamation-triangle coach-icon-warning"></i>
                             <span>${upcomingWeek} CC à venir cette semaine</span>
                         </div>
                     </div>
                 </div>
 
                 <!-- Tes Objectifs -->
-                <div class="bureau-card" style="background: var(--bg-card); border-radius: 12px; border: 1px solid var(--border-color); padding:20px;">
-                    <div style="font-size:12px; font-weight:bold; color:var(--text-muted); text-transform:uppercase; letter-spacing:1px; margin-bottom:15px;">Tes Objectifs</div>
+                <div class="coach-panel-card">
+                    <div class="coach-panel-title">Tes Objectifs</div>
                     
-                    <div style="display:flex; flex-direction:column; gap:15px;">
+                    <div class="coach-goals-list">
                         ${(st.academicSubjects && st.academicSubjects.length > 0) 
                             ? st.academicSubjects.slice(0, 3).map(sub => `
-                                <div>
-                                    <div style="display:flex; justify-content:space-between; font-size:14px; margin-bottom:8px;">
+                                <div class="coach-goal-item">
+                                    <div class="coach-goal-header">
                                         <strong>${escapeHtml(sub.name.substring(0, 20))}${sub.name.length > 20 ? '...' : ''}</strong>
                                         <span>${sub.cect} CECT</span>
                                     </div>
-                                    <div style="height:6px; background:rgba(255,255,255,0.1); border-radius:3px;">
-                                        <div style="height:100%; width:100%; background:var(--accent-primary); border-radius:3px;"></div>
+                                    <div class="coach-goal-track">
+                                        <div class="coach-goal-bar"></div>
                                     </div>
                                 </div>
                             `).join('')
                             : `
-                                <div style="font-size:13px; color:var(--text-muted);">Aucun objectif défini</div>
+                                <div class="coach-empty-goals">Aucun objectif défini</div>
                             `
                         }
                     </div>
                 </div>
 
                 <!-- Suggestions -->
-                <div class="bureau-card" style="background: rgba(14,165,233,0.05); border-radius: 12px; border: 1px solid rgba(14,165,233,0.2); padding:20px;">
-                    <div style="font-size:12px; font-weight:bold; color:var(--accent-primary); text-transform:uppercase; letter-spacing:1px; margin-bottom:15px;">Aujourd'hui, tu pourrais aussi...</div>
-                    <div style="display:flex; flex-direction:column; gap:10px; font-size:14px;">
-                        <div style="display:flex; align-items:center; gap:10px; background:rgba(0,0,0,0.2); padding:10px 15px; border-radius:8px; cursor:pointer;">
-                            <i class="bi bi-laptop" style="color:var(--accent-primary);"></i>
-                            ${suggestions[0] ? escapeHtml(suggestions[0].message || suggestions[0].title) : "Avancer ton projet d'informatique"}
+                <div class="coach-panel-card coach-panel-card-accent">
+                    <div class="coach-panel-title coach-panel-title-accent">Aujourd'hui, tu pourrais aussi...</div>
+                    <div class="coach-suggestions-list">
+                        <div class="coach-suggestion-chip">
+                            <i class="bi bi-laptop coach-icon-accent"></i>
+                            <span>${suggestions[0] ? escapeHtml(suggestions[0].message || suggestions[0].title) : "Avancer ton projet d'informatique"}</span>
                         </div>
-                        <div style="display:flex; align-items:center; gap:10px; background:rgba(0,0,0,0.2); padding:10px 15px; border-radius:8px; cursor:pointer;">
-                            <i class="bi bi-activity" style="color:#10b981;"></i>
-                            ${suggestions[1] ? escapeHtml(suggestions[1].message || suggestions[1].title) : 'Faire une séance de sport (30min)'}
+                        <div class="coach-suggestion-chip">
+                            <i class="bi bi-activity coach-icon-success"></i>
+                            <span>${suggestions[1] ? escapeHtml(suggestions[1].message || suggestions[1].title) : 'Faire une séance de sport (30min)'}</span>
                         </div>
                     </div>
                 </div>
@@ -285,6 +296,12 @@ export class CoachChatView {
         });
 
         this.attachEvents();
+
+        // Animations d'entrée GSAP
+        if (typeof document !== 'undefined') {
+            Motion.fadeIn('.coach-chat-card', { duration: 0.25 });
+            Motion.staggerIn('.coach-panel-card', { duration: 0.25, stagger: 0.05 });
+        }
     }
 
     attachEvents() {
@@ -296,17 +313,17 @@ export class CoachChatView {
             if (text) {
                 // Disable input during request
                 inputField.disabled = true;
-                if(btnSend) btnSend.disabled = true;
+                if (btnSend) btnSend.disabled = true;
+                Motion.buttonTap(btnSend);
                 this.app.sendChatMessage(text);
             }
         };
 
-        if (btnSend) {
+        if (btnSend && typeof btnSend.addEventListener === 'function') {
             btnSend.addEventListener('click', sendMessage);
         }
 
-
-        if (inputField) {
+        if (inputField && typeof inputField.addEventListener === 'function') {
             inputField.addEventListener('keydown', (e) => {
                 if (e.key === 'Enter' && !e.shiftKey) {
                     e.preventDefault();
@@ -317,7 +334,7 @@ export class CoachChatView {
             // Auto-resize textarea logic
             inputField.addEventListener('input', function() {
                 this.style.height = 'auto';
-                this.style.height = (this.scrollHeight < 100 ? this.scrollHeight : 100) + 'px';
+                this.style.height = (this.scrollHeight < 120 ? this.scrollHeight : 120) + 'px';
             });
         }
 
@@ -325,8 +342,10 @@ export class CoachChatView {
         const acceptButtons = this.container.querySelectorAll('.btn-accept-intent');
         acceptButtons.forEach(btn => {
             btn.addEventListener('click', async (e) => {
-                const intentStr = e.target.getAttribute('data-intent');
+                const targetBtn = e.target.closest('.btn-accept-intent') || e.target;
+                const intentStr = targetBtn.getAttribute('data-intent');
                 if (intentStr) {
+                    Motion.buttonTap(targetBtn);
                     try {
                         const intentData = JSON.parse(decodeURIComponent(intentStr));
                         const isCheckIn = intentData.action === 'save_checkin';
@@ -337,15 +356,18 @@ export class CoachChatView {
                         await this.app.acceptCoachSuggestion(intentToPass);
                         
                         // Modifier les boutons visuellement
-                        const actionsDiv = e.target.closest('.intent-actions');
-                        const confirmMsg = isCheckIn ? '✅ Bilan enregistré !' : '✅ Planifié !';
-                        actionsDiv.innerHTML = `<div style="text-align: center; color: #10b981; font-weight: bold; width: 100%;">${confirmMsg}</div>`;
-                        
+                        const actionsDiv = targetBtn.closest('.coach-intent-actions') || targetBtn.closest('.intent-actions');
+                        const confirmMsg = isCheckIn ? 'Bilan enregistré !' : 'Planifié !';
+                        if (actionsDiv) {
+                            actionsDiv.innerHTML = `<div class="intent-feedback intent-feedback-success"><i class="bi bi-check2-circle"></i> ${confirmMsg}</div>`;
+                        }
                     } catch(err) {
                         // Si le PlanningEngine refuse à cause d'un conflit (acceptCoachSuggestion lève désormais l'erreur)
+                        const actionsDiv = targetBtn.closest('.coach-intent-actions') || targetBtn.closest('.intent-actions');
                         if (err.message && err.message.includes('CONFLICT')) {
-                            const actionsDiv = e.target.closest('.intent-actions');
-                            actionsDiv.innerHTML = `<div style="text-align: center; color: #ef4444; font-size: 13px; width: 100%;">⚠️ Conflit détecté. Demande un autre créneau au Coach.</div>`;
+                            if (actionsDiv) {
+                                actionsDiv.innerHTML = `<div class="intent-feedback intent-feedback-error"><i class="bi bi-exclamation-triangle"></i> Conflit détecté. Demande un autre créneau au Coach.</div>`;
+                            }
                         } else {
                             alert("Erreur lors de la planification : " + err.message);
                         }
@@ -358,20 +380,27 @@ export class CoachChatView {
         const refuseButtons = this.container.querySelectorAll('.btn-refuse-intent');
         refuseButtons.forEach(btn => {
             btn.addEventListener('click', (e) => {
-                const actionsDiv = e.target.closest('.intent-actions');
-                actionsDiv.innerHTML = `<div style="text-align: center; color: var(--text-muted); font-size: 13px; width: 100%;">❌ Proposition ignorée</div>`;
+                const targetBtn = e.target.closest('.btn-refuse-intent') || e.target;
+                Motion.buttonTap(targetBtn);
+                const actionsDiv = targetBtn.closest('.coach-intent-actions') || targetBtn.closest('.intent-actions');
+                if (actionsDiv) {
+                    actionsDiv.innerHTML = `<div class="intent-feedback intent-feedback-refused"><i class="bi bi-x-circle"></i> Proposition ignorée</div>`;
+                }
             });
         });
 
         // Delegation for Check-in Snooze ("Plus tard") buttons
         const snoozeButtons = this.container.querySelectorAll('.btn-checkin-snooze');
         snoozeButtons.forEach(btn => {
-            btn.addEventListener('click', () => {
+            btn.addEventListener('click', (e) => {
+                const targetBtn = e.target.closest('.btn-checkin-snooze') || e.target;
+                Motion.buttonTap(targetBtn);
                 if (this.app && typeof this.app.sendChatMessage === 'function') {
                     this.app.sendChatMessage('plus tard');
                 }
             });
         });
+
         const btnOpenKey = this.container.querySelector('#btn-coach-api-key');
         const keyModal = this.container.querySelector('#coach-api-key-modal');
         const keyInput = this.container.querySelector('#coach-api-key-input');
@@ -394,6 +423,7 @@ export class CoachChatView {
         if (btnOpenKey && keyModal) {
             btnOpenKey.addEventListener('click', () => {
                 keyModal.hidden = false;
+                Motion.modalOpen(keyModal);
                 if (keyWarning) {
                     keyWarning.hidden = true;
                     keyWarning.textContent = '';
@@ -435,7 +465,12 @@ export class CoachChatView {
             this.render(this._lastMessages || []);
         };
 
-        if (btnSaveKey) btnSaveKey.addEventListener('click', saveApiKey);
+        if (btnSaveKey) {
+            btnSaveKey.addEventListener('click', () => {
+                Motion.buttonTap(btnSaveKey);
+                saveApiKey();
+            });
+        }
         if (keyInput) {
             keyInput.addEventListener('keydown', (e) => {
                 if (e.key === 'Enter') {
@@ -448,6 +483,7 @@ export class CoachChatView {
         }
         if (btnClearKey) {
             btnClearKey.addEventListener('click', () => {
+                Motion.buttonTap(btnClearKey);
                 if (this.app && typeof this.app.setGeminiApiKey === 'function') {
                     this.app.setGeminiApiKey('');
                 } else if (typeof window !== 'undefined' && window.localStorage) {

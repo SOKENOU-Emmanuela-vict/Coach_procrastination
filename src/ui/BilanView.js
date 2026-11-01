@@ -1,12 +1,20 @@
 import { escapeHtml } from '../utils/html.js';
+import { Motion } from './motion.js';
 
 export class BilanView {
     constructor(containerId, app) {
-        this.container = document.getElementById(containerId);
+        this.container = typeof containerId === 'string' && typeof document !== 'undefined' ? document.getElementById(containerId) : (containerId || (typeof document !== 'undefined' ? document.getElementById('view-container') : null));
         this.app = app;
     }
     
     render(data) {
+        if (typeof document !== 'undefined' && document.body) {
+            document.body.className = 'theme-light';
+            if (typeof document.body.setAttribute === 'function') {
+                document.body.setAttribute('data-univers', 'coach');
+            }
+        }
+
         const { summary, checkIn, stats } = data || {};
         
         const completedTasksCount = (stats && stats.completedTasksCount) ? stats.completedTasksCount : 0;
@@ -22,20 +30,25 @@ export class BilanView {
         const isReadonly = checkIn !== null && checkIn !== undefined;
 
         const emptyDayNotice = (completedSessions === 0 && actualMinutes === 0 && plannedItems.length === 0)
-            ? `<p style="font-size: 13px; color: #88a7b7; margin-top: 10px;">Aucune session enregistrée pour cette journée.</p>`
+            ? `<p class="bilan-empty-notice">Aucune session enregistrée pour cette journée.</p>`
             : '';
 
         let html = `
-            <h2>🏆 Bilan de la Journée</h2>
-            <div class="stats" style="text-align: center; background: #0e1e26; border-left: 5px solid #00f2fe; padding: 20px; border-radius: 10px; margin-top: 15px; box-shadow: 0 4px 15px rgba(0,0,0,0.4);">
-                <p style="font-size: 14px; color: #88a7b7; margin-top: 0;">Étape 1/2 - Le résumé automatique de tes efforts</p>
-                
-                <h3 style="color: #00f2fe; margin-bottom: 15px;">Résumé Chiffré</h3>
-                <p style="font-size: 16px;">✔ <strong style="color: #fff;">${completedSessions}</strong> sessions terminées</p>
-                <div class="timer" style="font-size: 42px; font-weight: bold; color: #4caf50; margin: 15px 0; text-shadow: 0 0 10px rgba(76,175,80,0.3);">${completionRate}% Complétion</div>
-                <p style="font-size: 16px;">⏱ Temps d'étude actif : <strong style="color: #fff;">${actualMinutes} min</strong></p>
-                ${emptyDayNotice}
+<div class="bilan-view-container">
+    <div class="bilan-wrapper">
+        <h2 class="bilan-header-title"><i class="bi bi-trophy"></i> Bilan de la Journée</h2>
+        <div class="bilan-stats-card stats">
+            <p class="bilan-step-label">Étape 1/2 — Le résumé automatique de tes efforts</p>
+            
+            <h3 class="bilan-card-title">Résumé Chiffré</h3>
+            <p class="bilan-stat-row"><i class="bi bi-check-circle-fill coach-icon-success"></i> <strong>${completedSessions}</strong> sessions terminées</p>
+            <div class="bilan-completion-rate timer">
+                <span class="bilan-rate-val">${completionRate}%</span>
+                <span class="bilan-rate-label">Complétion</span>
             </div>
+            <p class="bilan-stat-row"><i class="bi bi-stopwatch coach-icon-info"></i> Temps d'étude actif : <strong>${actualMinutes} min</strong></p>
+            ${emptyDayNotice}
+        </div>
         `;
 
         if (isReadonly) {
@@ -43,10 +56,10 @@ export class BilanView {
                 ? `${Math.round((checkIn.sleep.durationMinutes / 60) * 10) / 10}h`
                 : 'Non renseigné';
             html += `
-                <div style="background: #11222c; border: 1px solid #4caf50; padding: 20px; border-radius: 10px; margin-top: 20px; text-align: center;">
-                    <h3 style="color: #4caf50;">✅ Check-in déjà validé !</h3>
-                    <p style="color: #e0e0e0;">Énergie: ${escapeHtml(checkIn.energy || 'Non renseignée')}, Sommeil: ${sleepDisplay}</p>
-                </div>
+        <div class="bilan-success-card">
+            <h3 class="bilan-success-title"><i class="bi bi-check2-circle"></i> Check-in déjà validé !</h3>
+            <p class="bilan-success-details">Énergie: ${escapeHtml(checkIn.energy || 'Non renseignée')}, Sommeil: ${sleepDisplay}</p>
+        </div>
             `;
         } else {
             // Formulaire interactif Daily Check-in
@@ -54,10 +67,10 @@ export class BilanView {
             if (plannedItems.length > 0) {
                 const missedItems = plannedItems.filter(i => i.status === 'missed' || i.status === 'partial');
                 if (missedItems.length > 0) {
-                    followupOptions = `<div style="margin-top:15px;">
-                        <label style="display:block; color:#00f2fe; font-weight:bold; margin-bottom:8px;">🔄 Sessions à reprendre demain (needsFollowUp) :</label>
+                    followupOptions = `<div class="bilan-followup-box">
+                        <label class="bilan-followup-label"><i class="bi bi-arrow-repeat"></i> Sessions à reprendre demain (needsFollowUp) :</label>
                         ${missedItems.map(i => `
-                            <label style="display:block; color:#e0e0e0; margin-bottom:5px;">
+                            <label class="bilan-followup-item">
                                 <input type="checkbox" name="needsFollowUp" value="${escapeHtml(i.id)}"> ${escapeHtml(i.title)} (${escapeHtml(i.status)})
                             </label>
                         `).join('')}
@@ -66,66 +79,70 @@ export class BilanView {
             }
 
             html += `
-                <div style="background: #11222c; padding: 20px; border-radius: 10px; margin-top: 20px; box-shadow: 0 4px 15px rgba(0,0,0,0.4);">
-                    <h3 style="color: #00f2fe; margin-top:0; border-bottom:1px solid #2a5268; padding-bottom:10px;">📊 Mon état du jour</h3>
-                    
-                    <div style="margin-bottom: 15px;">
-                        <label style="display:block; color:#e0e0e0; font-weight:bold; margin-bottom:8px;">⚡ Énergie :</label>
-                        <div style="display:flex; gap:10px;">
-                            <label><input type="radio" name="energy" value="low"> 🔴 Basse</label>
-                            <label><input type="radio" name="energy" value="medium" checked> 🟡 Moyenne</label>
-                            <label><input type="radio" name="energy" value="high"> 🟢 Haute</label>
-                        </div>
-                    </div>
-
-                    <div style="margin-bottom: 15px;">
-                        <label style="display:block; color:#e0e0e0; font-weight:bold; margin-bottom:8px;">💤 Sommeil :</label>
-                        <div style="display:flex; gap:10px; align-items:center;">
-                            <input type="number" id="chk-sleep-duration" placeholder="Heures" style="width:70px; background:#0f2027; color:white; border:1px solid #2a5268; padding:8px; border-radius:5px;" min="0" step="0.5">
-                            <select id="chk-sleep-quality" style="background:#0f2027; color:white; border:1px solid #2a5268; padding:8px; border-radius:5px;">
-                                <option value="poor">Mauvaise</option>
-                                <option value="fair" selected>Moyenne</option>
-                                <option value="good">Bonne</option>
-                            </select>
-                        </div>
-                    </div>
-
-                    <div style="margin-bottom: 15px;">
-                        <label style="display:block; color:#e0e0e0; font-weight:bold; margin-bottom:8px;">📈 Évaluation de la journée :</label>
-                        <select id="chk-assessment" style="width:100%; background:#0f2027; color:white; border:1px solid #2a5268; padding:8px; border-radius:5px;">
-                            <option value="completed" selected>✅ Complétée comme prévu</option>
-                            <option value="partial">⚠️ Partielle</option>
-                            <option value="difficult">🥵 Difficile</option>
-                            <option value="blocked">🚫 Bloquée</option>
-                        </select>
-                    </div>
-
-                    <div style="margin-bottom: 15px;">
-                        <label style="display:block; color:#e0e0e0; font-weight:bold; margin-bottom:8px;">🚧 Qu'est-ce qui m'a bloqué ou ralenti ? (Optionnel)</label>
-                        <textarea id="chk-blockers" rows="2" style="width:100%; background:#0f2027; color:white; border:1px solid #2a5268; padding:8px; border-radius:5px; box-sizing:border-box;"></textarea>
-                    </div>
-
-                    ${followupOptions}
-
-                    <button id="btn-submit-checkin" style="width: 100%; margin-top: 25px; background: #00f2fe; color: #0f2027; font-weight: bold; border: none; padding: 14px; border-radius: 20px; cursor: pointer; font-size: 15px;">
-                        💾 Valider le Check-in (Étape 1)
-                    </button>
+        <div class="bilan-form-card">
+            <h3 class="bilan-form-title"><i class="bi bi-bar-chart"></i> Mon état du jour</h3>
+            
+            <div class="bilan-form-group">
+                <label class="bilan-form-label"><i class="bi bi-lightning-charge"></i> Énergie :</label>
+                <div class="bilan-radio-group">
+                    <label class="bilan-radio-label"><input type="radio" name="energy" value="low"> <span class="badge badge-low">Basse</span></label>
+                    <label class="bilan-radio-label"><input type="radio" name="energy" value="medium" checked> <span class="badge badge-medium">Moyenne</span></label>
+                    <label class="bilan-radio-label"><input type="radio" name="energy" value="high"> <span class="badge badge-high">Haute</span></label>
                 </div>
+            </div>
+
+            <div class="bilan-form-group">
+                <label class="bilan-form-label"><i class="bi bi-moon-stars"></i> Sommeil :</label>
+                <div class="bilan-sleep-inputs">
+                    <input type="number" id="chk-sleep-duration" class="form-input bilan-input-sleep" placeholder="Heures" min="0" step="0.5">
+                    <select id="chk-sleep-quality" class="form-select bilan-select-sleep">
+                        <option value="poor">Mauvaise</option>
+                        <option value="fair" selected>Moyenne</option>
+                        <option value="good">Bonne</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="bilan-form-group">
+                <label class="bilan-form-label"><i class="bi bi-graph-up-arrow"></i> Évaluation de la journée :</label>
+                <select id="chk-assessment" class="form-select bilan-select-full">
+                    <option value="completed" selected>Complétée comme prévu</option>
+                    <option value="partial">Partielle</option>
+                    <option value="difficult">Difficile</option>
+                    <option value="blocked">Bloquée</option>
+                </select>
+            </div>
+
+            <div class="bilan-form-group">
+                <label class="bilan-form-label"><i class="bi bi-cone-striped"></i> Qu'est-ce qui m'a bloqué ou ralenti ? (Optionnel)</label>
+                <textarea id="chk-blockers" class="form-textarea bilan-textarea-full" rows="2"></textarea>
+            </div>
+
+            ${followupOptions}
+
+            <button id="btn-submit-checkin" class="btn btn-primary bilan-btn-submit" type="button">
+                <i class="bi bi-check2"></i> Valider le Check-in (Étape 1)
+            </button>
+        </div>
             `;
         }
 
         html += `
-            <button id="btn-bilan-back" style="width: 100%; margin-top: 15px; background: transparent; color: #88a7b7; border: 1px solid #2a5268; padding: 10px; border-radius: 20px; cursor: pointer; font-size: 14px;">
-                ⬅️ Retour au Plan
-            </button>
+        <button id="btn-bilan-back" class="btn btn-ghost bilan-btn-back" type="button">
+            <i class="bi bi-arrow-left"></i> Retour au Plan
+        </button>
+    </div>
+</div>
         `;
 
         this.container.innerHTML = html;
 
         const btnSubmit = document.getElementById('btn-submit-checkin');
-        if (btnSubmit) {
+        if (btnSubmit && typeof btnSubmit.addEventListener === 'function') {
             btnSubmit.addEventListener('click', () => {
-                const energy = document.querySelector('input[name="energy"]:checked').value;
+                Motion.buttonTap(btnSubmit);
+                const energyRadio = document.querySelector('input[name="energy"]:checked');
+                const energy = energyRadio ? energyRadio.value : 'medium';
                 const sleepHours = parseFloat(document.getElementById('chk-sleep-duration').value) || 0;
                 const sleepQuality = document.getElementById('chk-sleep-quality').value;
                 const assessment = document.getElementById('chk-assessment').value;
@@ -152,13 +169,17 @@ export class BilanView {
             });
         }
 
-
-
         const btnBack = document.getElementById('btn-bilan-back');
-        if (btnBack) {
+        if (btnBack && typeof btnBack.addEventListener === 'function') {
             btnBack.addEventListener('click', () => {
+                Motion.buttonTap(btnBack);
                 this.app.renderView('planning');
             });
+        }
+
+        if (typeof document !== 'undefined') {
+            Motion.fadeIn('.bilan-wrapper', { duration: 0.25 });
+            Motion.staggerIn('.bilan-stats-card, .bilan-form-card, .bilan-success-card', { duration: 0.22, stagger: 0.05 });
         }
     }
 }
