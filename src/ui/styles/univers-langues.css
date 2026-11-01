@@ -490,7 +490,7 @@
 
 /* Modale Langues */
 .language-modal-backdrop {
-    display: flex;
+    display: none;
     position: fixed;
     top: 0;
     left: 0;
@@ -501,6 +501,10 @@
     align-items: center;
     justify-content: center;
     backdrop-filter: blur(2px);
+}
+
+.language-modal-backdrop:not([hidden]) {
+    display: flex;
 }
 
 .language-modal-card {

@@ -48,7 +48,7 @@ export class DesktopView {
     <!-- SIDEBAR -->
     <aside class="bureau-sidebar">
         <div class="bureau-brand">
-            <div class="bureau-brand-icon">⚡</div>
+            <div class="bureau-brand-icon"><i class="bi bi-lightning-charge-fill"></i></div>
             <span>Learning OS</span>
         </div>
         

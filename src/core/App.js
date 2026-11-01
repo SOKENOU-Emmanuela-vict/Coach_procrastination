@@ -115,6 +115,20 @@ export class App {
     }
 
     /** Retourne les 4 derniers caractères de la clé IA active (ex. « ••••1234 »), ou null si aucune clé n'est configurée. */
+    /** Teste la clé sans jamais la révéler ni la logger. */
+    async testGeminiApiKey(candidateKey = null) {
+        let key = candidateKey !== null && candidateKey !== undefined ? String(candidateKey).trim() : null;
+        if (!key && this.coachEngine && this.coachEngine.llmProvider && this.coachEngine.llmProvider.apiKey) {
+            key = this.coachEngine.llmProvider.apiKey;
+        }
+        if (!key && typeof window !== 'undefined' && window.localStorage) {
+            key = window.localStorage.getItem('gemini_api_key') || '';
+        }
+        const { GeminiProvider } = await import('../ai/GeminiProvider.js');
+        const provider = new GeminiProvider(key);
+        return await provider.testKey();
+    }
+
     getMaskedGeminiApiKey() {
         const key = this.coachEngine && this.coachEngine.llmProvider && this.coachEngine.llmProvider.apiKey
             ? String(this.coachEngine.llmProvider.apiKey).trim()
@@ -193,7 +207,7 @@ export class App {
         const cancelBtn = document.getElementById('global-btn-modal-cancel');
         if (cancelBtn && typeof cancelBtn.addEventListener === 'function') {
             cancelBtn.addEventListener('click', () => {
-                modal.style.display = 'none';
+                modal.hidden = true; modal.style.display = 'none';
             });
         }
         const saveBtn = document.getElementById('global-btn-modal-save');
@@ -255,14 +269,15 @@ export class App {
                 await this.refreshAcademicSubjects();
             } else if (type === 'goal') {
                 const existing = id ? (await this.projectEngine.getGoals()).find(i => i.id === id) : {};
+                const goalId = id || existing.id || ('goal_' + Date.now() + '_' + Math.random().toString(36).substr(2, 4));
                 await this.projectEngine.saveGoal({
-                    ...existing, ...baseData, id: id || undefined,
+                    ...existing, ...baseData, id: goalId,
                     deadline: document.getElementById('global-modal-item-dueDate').value || null,
                     progress: document.getElementById('global-modal-item-target').value ? parseFloat(document.getElementById('global-modal-item-target').value) : 0
                 });
             }
 
-            modal.style.display = 'none';
+            modal.hidden = true; modal.style.display = 'none';
             this.renderView(this.state.currentView);
         });
         }
@@ -282,7 +297,7 @@ export class App {
         document.getElementById('global-modal-item-priority').value = data.priority || 'medium';
         document.getElementById('global-modal-item-target').value = data.target || data.totalPages || data.progress || '';
         
-        modal.style.display = 'flex';
+        modal.hidden = false; modal.style.display = 'flex'; if (window.gsap) { window.gsap.fromTo(modal.querySelector('.modal-box'), { opacity: 0, scale: 0.95 }, { opacity: 1, scale: 1, duration: 0.2 }); }
     }
 
     /**

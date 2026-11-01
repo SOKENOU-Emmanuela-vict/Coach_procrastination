@@ -55,7 +55,7 @@ export class CoachLocalReply {
         const status = Number.isFinite(llmStatus.status) && llmStatus.status > 0 ? llmStatus.status : null;
         const d = describeGeminiFailure(status || 0, llmStatus.message || '');
         const code = status ? `code ${status}` : d.code;
-        return `Je n'arrive pas à joindre Gemini (${code} : ${d.text}). Je te réponds avec ce que je sais déjà de ton planning.`;
+        return `Je n'arrive pas à joindre Gemini (${code} : ${d.text}). Teste ta clé dans les réglages. Je te réponds avec ce que je sais déjà de ton planning.`;
     }
 
     static _frDay(dateStr) {

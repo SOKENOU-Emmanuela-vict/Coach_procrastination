@@ -122,7 +122,7 @@ export class AcademicView {
 
         const renderEmptyState = () => `
             <div id="academic-empty-state" class="academic-empty-container">
-                <div class="academic-empty-icon">🎓</div>
+                <div class="academic-empty-icon"><i class="bi bi-mortarboard"></i></div>
                 <h3 class="academic-empty-title">Ton cursus est vide</h3>
                 <p class="academic-empty-desc">
                     Commence par ajouter tes matières et semestres, ou charge le programme officiel à titre d'exemple.
@@ -175,7 +175,7 @@ export class AcademicView {
             if (allProjects.length === 0) {
                 return `
                 <div id="projects-empty-state" class="academic-empty-container">
-                    <div class="academic-empty-icon">📁</div>
+                    <div class="academic-empty-icon"><i class="bi bi-folder2-open"></i></div>
                     <h3 class="academic-empty-title">Aucun projet ou stage</h3>
                     <p class="academic-empty-desc">
                         Crée un projet personnel ou ajoute un stage pour suivre tes étapes, durées et objectifs en toute autonomie.
@@ -980,7 +980,7 @@ export class AcademicView {
                                 <span class="academic-assessment-badge">${escapeHtml(ass.type || 'Examen')}</span>
                                 <span>Coeff : <strong>${ass.weight || 1}</strong></span>
                                 <span>Max : <strong>${ass.maxScore || 20}</strong></span>
-                                ${ass.targetDate ? `<span>📅 ${escapeHtml(ass.targetDate)}</span>` : ''}
+                                ${ass.targetDate ? `<span><i class="bi bi-calendar3"></i> ${escapeHtml(ass.targetDate)}</span>` : ''}
                             </div>
                         </div>
                         <div class="academic-grade-display">

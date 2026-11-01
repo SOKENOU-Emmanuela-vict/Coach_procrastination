@@ -1,9 +1,27 @@
 import { LLMProvider } from './LLMProvider.js';
 
-/** Modèle principal puis modèles de secours, essayés dans l'ordre quand Gemini est saturé (503/429/500/504) ou absent (404). */
-export const GEMINI_PRIMARY_MODEL = "gemini-3.5-flash";
-export const GEMINI_FALLBACK_MODELS = ["gemini-3.5-flash-lite", "gemini-3.8-flash", "gemini-2.5-flash", "gemini-2.0-flash", "gemini-1.5-flash"];
+/** Modèle principal puis modèles de secours (selon https://ai.google.dev/gemini-api/docs/models) */
+export const GEMINI_PRIMARY_MODEL = "gemini-3.8-flash";
+export const GEMINI_FALLBACK_MODELS = [
+    "gemini-3.6-flash",
+    "gemini-3.5-flash-lite",
+    "gemini-3.1-flash-lite",
+    "gemini-2.5-flash"
+];
+
+export const PREFERRED_MODELS = [
+    GEMINI_PRIMARY_MODEL,
+    ...GEMINI_FALLBACK_MODELS
+];
+
 const RETRYABLE_STATUS = [429, 500, 502, 503, 504];
+
+/** Cache mémoire de session pour le modèle sélectionné via ListModels */
+let sessionSelectedModel = null;
+
+export function resetSessionModel() {
+    sessionSelectedModel = null;
+}
 
 /**
  * Erreur Gemini lisible : status HTTP (0 = réseau / délai dépassé), code court et message en français pour l'utilisatrice.
@@ -26,7 +44,12 @@ export function describeGeminiFailure(status, rawMessage = '') {
     if (/sk-|openai/i.test(raw)) return { code: 'AUTH', text: 'cette clé commence par « sk- » (clé OpenAI) ; utilise une clé Google (AI Studio ou Vertex AI « AQ.… »)' };
     if (status === 503 || /high demand|overloaded|unavailable/i.test(raw)) return { code: 'OVERLOADED', text: 'les serveurs de Gemini sont saturés' };
     if (status === 429 || /quota|rate limit|resource.?exhausted/i.test(raw)) return { code: 'QUOTA', text: 'le quota gratuit de la clé est épuisé pour le moment' };
-    if (status === 401 || status === 403 || /api key|permission|unauthori[sz]ed/i.test(raw)) return { code: 'AUTH', text: 'la clé Gemini est refusée (invalide ou révoquée)' };
+    if (status === 401 || status === 403 || /api key|permission|unauthori[sz]ed/i.test(raw)) {
+        if (/API not enabled|not activated|SERVICE_DISABLED/i.test(raw)) {
+            return { code: 'AUTH', text: "l'API Gemini n'est pas activée sur ce projet Google Cloud" };
+        }
+        return { code: 'AUTH', text: 'la clé Gemini est refusée (invalide ou révoquée)' };
+    }
     if (status === 404 || /not found|no longer available/i.test(raw)) return { code: 'MODEL', text: "le modèle Gemini demandé n'est pas disponible" };
     if (status === 400) return { code: 'BAD_REQUEST', text: 'Gemini a refusé la requête' };
     if (status >= 500) return { code: 'SERVER', text: 'Gemini a rencontré une erreur interne' };
@@ -45,11 +68,13 @@ export class GeminiProvider extends LLMProvider {
         super();
         this.apiKey = typeof apiKey === 'string' ? apiKey.trim() : apiKey;
         // Réglages de résilience (modifiables dans les tests)
+        this.primaryModel = GEMINI_PRIMARY_MODEL;
         this.fallbackModels = GEMINI_FALLBACK_MODELS.slice();
         this.retryDelayMs = 1500;
         this.timeoutMs = 45000;
         this.fileTimeoutMs = 120000;
         this.lastModelUsed = null;
+        this.selectedModel = null;
     }
 
     /** Détecte une clé Google Cloud Vertex AI Express Mode (préfixe « AQ. »). */
@@ -63,6 +88,157 @@ export class GeminiProvider extends LLMProvider {
             return `https://aiplatform.googleapis.com/v1/publishers/google/models/${model}:generateContent?key=${keyParam}`;
         }
         return `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${keyParam}`;
+    }
+
+    _modelsUrl(candidateKey = null) {
+        const key = candidateKey || this.apiKey;
+        const keyParam = encodeURIComponent(key);
+        return `https://generativelanguage.googleapis.com/v1beta/models?key=${keyParam}`;
+    }
+
+    _safe(text, keyOverride = null) {
+        let s = String(text || '');
+        const key = keyOverride || this.apiKey;
+        if (key) {
+            s = s.split(key).join('[HIDDEN_API_KEY]');
+            const encoded = encodeURIComponent(key);
+            if (encoded !== key) {
+                s = s.split(encoded).join('[HIDDEN_API_KEY]');
+            }
+        }
+        return s;
+    }
+
+    /**
+     * Appelle l'endpoint ListModels et ne retient que les modèles supportant generateContent.
+     * @param {string} candidateKey - Clé optionnelle à tester
+     * @param {number} timeoutMs - Délai maximal
+     * @returns {Promise<string[]>} Liste des identifiants normalisés (ex: "gemini-3.8-flash")
+     */
+    async listAvailableModels(candidateKey = null, timeoutMs = 10000) {
+        const key = candidateKey || this.apiKey;
+        if (!key) throw new GeminiError("Clé API manquante.", { status: 0, code: 'AUTH' });
+        if (/^sk-/i.test(key)) {
+            throw new GeminiError("Cette clé commence par « sk- » (clé OpenAI) ; utilise une clé Google.", { status: 401, code: 'AUTH' });
+        }
+
+        const controller = typeof AbortController === 'function' ? new AbortController() : null;
+        const timer = controller ? setTimeout(() => controller.abort(), timeoutMs) : null;
+        let response;
+        try {
+            response = await fetch(this._modelsUrl(key), {
+                method: 'GET',
+                headers: { 'Content-Type': 'application/json' },
+                ...(controller ? { signal: controller.signal } : {})
+            });
+        } catch (e) {
+            const aborted = e && (e.name === 'AbortError' || /abort/i.test(String(e.message)));
+            const raw = aborted ? 'timeout' : String((e && e.message) || e);
+            const d = describeGeminiFailure(0, raw);
+            throw new GeminiError(d.text, { status: 0, code: d.code, detail: this._safe(raw, key) });
+        } finally {
+            if (timer) clearTimeout(timer);
+        }
+
+        if (!response.ok) {
+            let raw = `HTTP error ${response.status}`;
+            try {
+                const err = await response.json();
+                if (err && err.error && err.error.message) raw = err.error.message;
+            } catch (_) {}
+            const d = describeGeminiFailure(response.status, raw);
+            throw new GeminiError(d.text, { status: response.status, code: d.code, detail: this._safe(raw, key) });
+        }
+
+        const data = await response.json();
+        const models = Array.isArray(data && data.models) ? data.models : [];
+        return models
+            .filter(m => {
+                const methods = m.supportedGenerationMethods;
+                return Array.isArray(methods) ? methods.includes('generateContent') : true;
+            })
+            .map(m => String(m.name || '').replace(/^models\//, ''))
+            .filter(Boolean);
+    }
+
+    /**
+     * Résout le modèle à utiliser à partir de ListModels et de la liste de préférence.
+     * Mémorise le modèle pour toute la session.
+     */
+    async resolveModel() {
+        if (this.selectedModel) return this.selectedModel;
+        if (sessionSelectedModel) {
+            this.selectedModel = sessionSelectedModel;
+            return this.selectedModel;
+        }
+
+        try {
+            const available = await this.listAvailableModels();
+            const preferred = PREFERRED_MODELS.find(p => available.includes(p));
+            if (preferred) {
+                this.selectedModel = preferred;
+                sessionSelectedModel = preferred;
+                return preferred;
+            }
+            if (available.length > 0) {
+                this.selectedModel = available[0];
+                sessionSelectedModel = available[0];
+                return available[0];
+            }
+        } catch (_) {
+            // Repli gracieux en cas d'échec de ListModels (ex: mode dégradé, proxy ou mock)
+        }
+
+        this.selectedModel = GEMINI_PRIMARY_MODEL;
+        sessionSelectedModel = GEMINI_PRIMARY_MODEL;
+        return GEMINI_PRIMARY_MODEL;
+    }
+
+    /**
+     * Teste la clé et choisit le meilleur modèle disponible.
+     * N'affiche ni ne logue jamais la clé.
+     * @param {string} candidateKey - Clé optionnelle
+     * @returns {Promise<{ ok: boolean, model?: string, status?: number, code?: string, message: string }>}
+     */
+    async testKey(candidateKey = null) {
+        const key = candidateKey !== null && candidateKey !== undefined ? String(candidateKey).trim() : this.apiKey;
+        if (!key) {
+            return { ok: false, status: 0, code: 'AUTH', message: "Colle ta clé API avant de tester." };
+        }
+        if (/^sk-/i.test(key)) {
+            return { ok: false, status: 401, code: 'AUTH', message: "Erreur 401 : Cette clé commence par « sk- » (clé OpenAI) ; utilise une clé Google (AI Studio ou Vertex AI « AQ.… »)." };
+        }
+
+        try {
+            const available = await this.listAvailableModels(key);
+            const chosen = PREFERRED_MODELS.find(p => available.includes(p)) || available[0] || GEMINI_PRIMARY_MODEL;
+            this.selectedModel = chosen;
+            sessionSelectedModel = chosen;
+            return { ok: true, model: chosen, message: `OK (modèle retenu : ${chosen})` };
+        } catch (err) {
+            const status = err.status || 0;
+            const code = err.code || 'UNKNOWN';
+            const detail = String(err.detail || '');
+            let msg = err.message || '';
+
+            if (status === 400 || status === 403) {
+                if (/API not enabled|not activated|SERVICE_DISABLED/i.test(detail)) {
+                    msg = `Erreur ${status} : API non activée dans la console Google Cloud.`;
+                } else {
+                    msg = `Erreur ${status} : Clé API invalide ou refusée.`;
+                }
+            } else if (status === 429) {
+                msg = `Erreur 429 : Quota gratuit ou limite de requêtes dépassé.`;
+            } else if (status === 404) {
+                msg = `Erreur 404 : Modèle ou service Google introuvable.`;
+            } else if (status === 0) {
+                msg = `Erreur réseau : Connexion impossible ou délai dépassé.`;
+            } else {
+                msg = `Erreur ${status || code} : ${msg}`;
+            }
+
+            return { ok: false, status, code, message: msg };
+        }
     }
 
     /**
@@ -117,20 +293,8 @@ export class GeminiProvider extends LLMProvider {
         return parts.map(p => p.text || '').join('').replace(/```json/g, '').replace(/```/g, '').trim();
     }
 
-    _safe(text) {
-        let s = String(text || '');
-        if (this.apiKey) {
-            s = s.split(this.apiKey).join('[HIDDEN_API_KEY]');
-            const encoded = encodeURIComponent(this.apiKey);
-            if (encoded !== this.apiKey) {
-                s = s.split(encoded).join('[HIDDEN_API_KEY]');
-            }
-        }
-        return s;
-    }
-
     /**
-     * Appel résilient : modèle demandé (1 nouvelle tentative si saturé) puis modèles de secours.
+     * Appel résilient : modèle résolu ou imposé (1 nouvelle tentative si saturé) puis modèles de secours.
      * Les erreurs non transitoires (clé refusée, requête invalide) arrêtent tout de suite.
      */
     async _callWithFallback(body, { model = null, timeoutMs }) {
@@ -138,8 +302,11 @@ export class GeminiProvider extends LLMProvider {
             const d = describeGeminiFailure(401, 'sk- openai key');
             throw this._finalError(new GeminiError(d.text, { status: 401, code: d.code }));
         }
-        const models = [model || GEMINI_PRIMARY_MODEL].concat(model ? [] : this.fallbackModels)
+
+        const startingModel = model || this.selectedModel || sessionSelectedModel || this.primaryModel;
+        const models = [startingModel].concat(model ? [] : this.fallbackModels)
             .filter((m, i, a) => m && a.indexOf(m) === i);
+
         let lastError = null;
         for (let mi = 0; mi < models.length; mi++) {
             const attempts = mi === 0 ? 2 : 1;
@@ -185,11 +352,8 @@ export class GeminiProvider extends LLMProvider {
 
     /**
      * Lecture d'un fichier (PDF ou image) par Gemini, réponse JSON imposée.
-     * Le fichier est envoyé tel quel en inlineData (Gemini lit les PDF scannés page par page) : aucune dépendance
-     * de rendu PDF dans le navigateur.
-     * @param {Object} params - { prompt, mimeType ('application/pdf', 'image/png'…), data (base64 sans en-tête),
-     *   responseSchema (facultatif), model, temperature }
-     * @returns {Promise<string>} le texte JSON renvoyé par le modèle
+     * @param {Object} params
+     * @returns {Promise<string>}
      */
     async generateFromFile({ prompt, mimeType, data, responseSchema = null, model = null, temperature = 0 } = {}) {
         if (!this.apiKey) {

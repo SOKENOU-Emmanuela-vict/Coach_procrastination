@@ -267,8 +267,12 @@ export class CoachChatView {
                 <input type="password" id="coach-api-key-input" class="form-input" placeholder="Colle ici ta clé Google (ex. AIzaSy... ou AQ....)" autocomplete="off" spellcheck="false">
             </div>
             <div id="coach-api-key-warning" class="alert alert-warning" hidden></div>
+            <div id="coach-api-key-status" class="alert" hidden></div>
+            <div id="coach-api-key-status" class="alert" hidden></div>
         </div>
         <div class="modal-actions">
+            <button type="button" id="btn-coach-key-test" class="btn btn-outline btn-sm">Tester ma clé</button>
+            <button type="button" id="btn-coach-key-test" class="btn btn-outline btn-sm">Tester ma clé</button>
             ${maskedApiKey ? `<button type="button" id="btn-coach-key-clear" class="btn btn-danger btn-sm modal-actions-left">Supprimer la clé</button>` : ''}
             <button type="button" id="btn-coach-key-cancel" class="btn btn-ghost">Annuler</button>
             <button type="button" id="btn-coach-key-save" class="btn btn-primary">Enregistrer</button>
@@ -405,6 +409,8 @@ export class CoachChatView {
         const keyModal = this.container.querySelector('#coach-api-key-modal');
         const keyInput = this.container.querySelector('#coach-api-key-input');
         const keyWarning = this.container.querySelector('#coach-api-key-warning');
+        const keyStatus = this.container.querySelector('#coach-api-key-status');
+        const btnTestKey = this.container.querySelector('#btn-coach-key-test');
         const btnCloseKey = this.container.querySelector('#btn-coach-key-close');
         const btnCancelKey = this.container.querySelector('#btn-coach-key-cancel');
         const btnSaveKey = this.container.querySelector('#btn-coach-key-save');
@@ -418,6 +424,14 @@ export class CoachChatView {
                 keyWarning.hidden = true;
                 keyWarning.textContent = '';
             }
+            if (keyStatus) {
+                keyStatus.hidden = true;
+                keyStatus.textContent = '';
+            }
+            if (keyStatus) {
+                keyStatus.hidden = true;
+                keyStatus.textContent = '';
+            }
         };
 
         if (btnOpenKey && keyModal) {
@@ -427,6 +441,14 @@ export class CoachChatView {
                 if (keyWarning) {
                     keyWarning.hidden = true;
                     keyWarning.textContent = '';
+                }
+                if (keyStatus) {
+                    keyStatus.hidden = true;
+                    keyStatus.textContent = '';
+                }
+                if (keyStatus) {
+                    keyStatus.hidden = true;
+                    keyStatus.textContent = '';
                 }
                 if (keyInput && typeof keyInput.focus === 'function') keyInput.focus();
             });
@@ -464,6 +486,46 @@ export class CoachChatView {
             keyInput.value = '';
             this.render(this._lastMessages || []);
         };
+
+
+        if (btnTestKey) {
+            btnTestKey.addEventListener('click', async () => {
+                Motion.buttonTap(btnTestKey);
+                if (keyWarning) { keyWarning.hidden = true; keyWarning.textContent = ''; }
+                if (!keyStatus) return;
+
+                const candidate = keyInput ? keyInput.value.trim() : '';
+                keyStatus.hidden = false;
+                keyStatus.className = 'alert alert-info';
+                keyStatus.innerHTML = '<i class="bi bi-arrow-repeat"></i> Test de la clé en cours...';
+                btnTestKey.disabled = true;
+
+                try {
+                    let result;
+                    if (this.app && typeof this.app.testGeminiApiKey === 'function') {
+                        result = await this.app.testGeminiApiKey(candidate || undefined);
+                    } else {
+                        const { GeminiProvider } = await import('../ai/GeminiProvider.js');
+                        const activeKey = candidate || (typeof window !== 'undefined' && window.localStorage ? window.localStorage.getItem('gemini_api_key') : '');
+                        const p = new GeminiProvider(activeKey);
+                        result = await p.testKey();
+                    }
+
+                    if (result && result.ok) {
+                        keyStatus.className = 'alert alert-success';
+                        keyStatus.innerHTML = '<i class="bi bi-check-circle-fill"></i> ' + escapeHtml(result.message);
+                    } else {
+                        keyStatus.className = 'alert alert-danger';
+                        keyStatus.innerHTML = '<i class="bi bi-exclamation-triangle-fill"></i> ' + escapeHtml((result && result.message) || 'Erreur lors du test de la clé.');
+                    }
+                } catch (e) {
+                    keyStatus.className = 'alert alert-danger';
+                    keyStatus.innerHTML = '<i class="bi bi-exclamation-triangle-fill"></i> Erreur : ' + escapeHtml(e.message || 'Échec du test');
+                } finally {
+                    btnTestKey.disabled = false;
+                }
+            });
+        }
 
         if (btnSaveKey) {
             btnSaveKey.addEventListener('click', () => {
