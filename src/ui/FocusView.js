@@ -1,8 +1,9 @@
 import { sanitizeUrl } from '../utils/security.js';
+import { Motion } from './motion.js';
 
 export class FocusView {
     constructor(containerId, app) {
-        this.container = document.getElementById(containerId);
+        this.container = typeof containerId === 'string' && typeof document !== 'undefined' ? document.getElementById(containerId) : (containerId || (typeof document !== 'undefined' ? document.getElementById('view-container') : null));
         this.app = app;
         this.timerInterval = null;
         this.currentSessionId = null;
@@ -35,7 +36,7 @@ export class FocusView {
                 gain.gain.setValueAtTime(0.3, ctx.currentTime + startTime);
                 gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + startTime + duration);
                 osc.connect(gain);
-                gain.connect(ctx.destination);
+                osc.connect(ctx.destination);
                 osc.start(ctx.currentTime + startTime);
                 osc.stop(ctx.currentTime + startTime + duration);
             };
@@ -49,8 +50,8 @@ export class FocusView {
         // 4. Notification native Bureau
         if ('Notification' in window && Notification.permission === 'granted') {
             try {
-                const n = new Notification("⏰ Temps écoulé : " + sessionTitle, {
-                    body: "Ton chrono est terminé ! Le site du cours a été fermé. Reviens sur Coach Procrastination pour valider ta session !",
+                const n = new Notification("Temps écoulé : " + sessionTitle, {
+                    body: "Ton chrono est terminé ! Le site du cours a été fermé. Reviens sur Learning OS pour valider ta session !",
                     icon: "https://emma21vict.github.io/Coach_procrastination/favicon.ico"
                 });
                 n.onclick = () => {
@@ -62,6 +63,13 @@ export class FocusView {
     }
     
     render(session) {
+        if (typeof document !== 'undefined' && document.body) {
+            document.body.className = 'theme-light';
+            if (typeof document.body.setAttribute === 'function') {
+                document.body.setAttribute('data-univers', 'focus');
+            }
+        }
+
         if (this.timerInterval) {
             clearInterval(this.timerInterval);
         }
@@ -72,136 +80,181 @@ export class FocusView {
                 ? "Toutes les sessions prévues sont terminées ! 🎉" 
                 : "Aucune session de focus active ou programmée pour aujourd'hui.";
             this.container.innerHTML = `
-                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px; flex-wrap:wrap; gap:10px;">
-                <h2 style="margin:0;">⏱️ Mode Focus</h2>
-                <div style="display:flex; gap:8px;">
-                    <button id="btn-focus-quit-desktop" style="background:transparent; color:#88a7b7; border:1px solid #2a5268; padding:8px 14px; border-radius:20px; cursor:pointer; font-size:13px;">🏠 Quitter (Bureau)</button>
-                    <button id="btn-focus-quit-plan" style="background:transparent; color:#88a7b7; border:1px solid #2a5268; padding:8px 14px; border-radius:20px; cursor:pointer; font-size:13px;">📅 Quitter (Planning)</button>
-                </div>
+<div class="focus-viewport">
+    <div class="focus-topbar">
+        <h2 class="focus-topbar-title"><i class="bi bi-stopwatch"></i> Mode Focus</h2>
+        <div class="focus-topbar-actions">
+            <button type="button" id="btn-focus-quit-desktop" class="btn-focus-quit"><i class="bi bi-house-door"></i> Quitter (Bureau)</button>
+            <button type="button" id="btn-focus-quit-plan" class="btn-focus-quit"><i class="bi bi-calendar3"></i> Quitter (Planning)</button>
+        </div>
+    </div>
+    <div class="focus-central-wrapper">
+        <div class="focus-card focus-empty-card stats">
+            <div class="focus-empty-icon">
+                <i class="bi bi-bullseye"></i>
             </div>
-                <div class="stats" style="text-align: center;">
-                    <h3 style="color:#00f2fe; margin-bottom:15px;">${message}</h3>
-                    <p style="color:#88a7b7; font-size:14px; margin-bottom:20px;">Sélectionne ou ajoute une tâche dans ton planning pour démarrer un chrono de travail.</p>
-                    <button id="btn-focus-desktop" style="width: 100%; margin-top: 10px; background: transparent; color: #88a7b7; border: 1px solid #2a5268; padding:12px; border-radius:8px; cursor:pointer;">🏠 Retour au Bureau</button>
-                    <button id="btn-focus-back" style="width: 100%; margin-top: 10px; background: transparent; color: #00f2fe; border: 1px solid #00f2fe; padding:12px; border-radius:8px; cursor:pointer;">📅 Aller au Planning</button>
-                    <button id="btn-focus-bilan" style="width: 100%; margin-top: 10px; background: #2a5268; color: white; border:none; padding:12px; border-radius:8px; cursor:pointer;">Faire mon Bilan</button>
-                </div>
+            <h3 class="focus-empty-title">${message}</h3>
+            <p class="focus-empty-subtitle">Sélectionne ou ajoute une tâche dans ton planning pour démarrer un chrono de travail.</p>
+            <div class="focus-empty-actions">
+                <button type="button" id="btn-focus-desktop" class="btn-focus-action-secondary"><i class="bi bi-house-door"></i> Retour au Bureau</button>
+                <button type="button" id="btn-focus-back" class="btn-focus-action-primary"><i class="bi bi-calendar3"></i> Aller au Planning</button>
+                <button type="button" id="btn-focus-bilan" class="btn-focus-action-secondary"><i class="bi bi-trophy"></i> Faire mon Bilan</button>
+            </div>
+        </div>
+    </div>
+</div>
             `;
             const btnBilan = document.getElementById('btn-focus-bilan');
-            if (btnBilan) btnBilan.addEventListener('click', () => this.app.showBilan());
+            if (btnBilan && typeof btnBilan.addEventListener === 'function') {
+                btnBilan.addEventListener('click', () => {
+                    Motion.buttonTap(btnBilan);
+                    this.app.showBilan();
+                });
+            }
             
             const btnDesktop = document.getElementById('btn-focus-desktop');
-            if (btnDesktop) btnDesktop.addEventListener('click', () => {
-                if (this.timerInterval) clearInterval(this.timerInterval);
-                if (this.app.state) this.app.state.activeFocusSession = null;
-                this.app.renderView('desktop');
-            });
+            if (btnDesktop && typeof btnDesktop.addEventListener === 'function') {
+                btnDesktop.addEventListener('click', () => {
+                    Motion.buttonTap(btnDesktop);
+                    if (this.timerInterval) clearInterval(this.timerInterval);
+                    if (this.app.state) this.app.state.activeFocusSession = null;
+                    this.app.renderView('desktop');
+                });
+            }
 
             const btnBack = document.getElementById('btn-focus-back');
-            if (btnBack) btnBack.addEventListener('click', () => this.app.renderView('planning'));
+            if (btnBack && typeof btnBack.addEventListener === 'function') {
+                btnBack.addEventListener('click', () => {
+                    Motion.buttonTap(btnBack);
+                    this.app.renderView('planning');
+                });
+            }
             
+            if (typeof document !== 'undefined') {
+                Motion.fadeIn('.focus-card', { duration: 0.25 });
+            }
             return;
         }
 
         this.container.innerHTML = `
-            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px; flex-wrap:wrap; gap:10px;">
-                <h2 style="margin:0;">⏱️ Mode Focus</h2>
-                <div style="display:flex; gap:8px;">
-                    <button id="btn-focus-quit-desktop" style="background:transparent; color:#88a7b7; border:1px solid #2a5268; padding:8px 14px; border-radius:20px; cursor:pointer; font-size:13px;">🏠 Quitter (Bureau)</button>
-                    <button id="btn-focus-quit-plan" style="background:transparent; color:#88a7b7; border:1px solid #2a5268; padding:8px 14px; border-radius:20px; cursor:pointer; font-size:13px;">📅 Quitter (Planning)</button>
-                </div>
+<div class="focus-viewport">
+    <div class="focus-topbar">
+        <h2 class="focus-topbar-title"><i class="bi bi-stopwatch"></i> Mode Focus</h2>
+        <div class="focus-topbar-actions">
+            <button type="button" id="btn-focus-quit-desktop" class="btn-focus-quit"><i class="bi bi-house-door"></i> Quitter (Bureau)</button>
+            <button type="button" id="btn-focus-quit-plan" class="btn-focus-quit"><i class="bi bi-calendar3"></i> Quitter (Planning)</button>
+        </div>
+    </div>
+    <div class="focus-central-wrapper">
+        <div class="focus-card stats">
+            <h3 class="focus-session-title">${session.title}</h3>
+            <div class="focus-session-objective"><i class="bi bi-bullseye"></i> Objectif : ${session.objective || session.skillLabel || 'Session de travail'}</div>
+            ${session.expectedResult ? `<div class="focus-session-result"><i class="bi bi-check2-circle"></i> Résultat attendu : ${session.expectedResult}</div>` : ''}
+            
+            <div id="focus-timer-display" class="focus-timer-display">
+                ${session.expectedDuration}:00
             </div>
-            <div class="stats" style="text-align: center;">
-                <h3 style="color: #ff9800; font-size: 20px;">${session.title}</h3>
-                <div style="font-size: 14px; color: #88a7b7; margin-bottom: 5px;">🎯 Objectif : ${session.objective || session.skillLabel || ''}</div>
-                ${session.expectedResult ? `<div style="font-size: 14px; color: #4CAF50; margin-bottom: 15px;">📌 Résultat attendu : ${session.expectedResult}</div>` : ''}
-                <div id="focus-timer-display" style="font-size: 48px; font-weight: bold; color: #00f2fe; text-shadow: 0 0 10px rgba(0,242,254,0.5); margin: 20px 0;">
-                    ${session.expectedDuration}:00
-                </div>
 
-                <div id="focus-warning-banner" style="display: none; background: #3e2723; border: 1px solid #ff9800; color: #ffbc00; padding: 12px; border-radius: 8px; margin-bottom: 15px; font-size: 14px;">
-                    ⏳ <strong>Attention : Plus que 15 minutes !</strong><br>
-                    Veux-tu prolonger ton temps avant la fermeture automatique du cours ?
-                </div>
+            <div id="focus-warning-banner" class="focus-warning-banner" hidden>
+                <strong><i class="bi bi-exclamation-triangle"></i> Attention : Plus que 15 minutes !</strong><br>
+                Veux-tu prolonger ton temps avant la fermeture automatique du cours ?
+            </div>
 
-                <div id="focus-time-extensions" style="margin-bottom: 20px; display: flex; justify-content: center; gap: 10px; flex-wrap: wrap;">
-                    <button class="btn-extend-time" data-min="10" style="background: #152b36; color: #00f2fe; border: 1px solid #00f2fe; padding: 6px 14px; border-radius: 15px; cursor: pointer; font-size: 13px; font-weight: bold;">⏱️ +10 min</button>
-                    <button class="btn-extend-time" data-min="15" style="background: #152b36; color: #ff9800; border: 1px solid #ff9800; padding: 6px 14px; border-radius: 15px; cursor: pointer; font-size: 13px; font-weight: bold;">⏱️ +15 min</button>
-                    <button class="btn-extend-time" data-min="30" style="background: #152b36; color: #4CAF50; border: 1px solid #4CAF50; padding: 6px 14px; border-radius: 15px; cursor: pointer; font-size: 13px; font-weight: bold;">⏱️ +30 min</button>
-                </div>
+            <div id="focus-time-extensions" class="focus-extensions-row">
+                <button type="button" class="btn-extend-time" data-min="10"><i class="bi bi-plus-circle"></i> +10 min</button>
+                <button type="button" class="btn-extend-time" data-min="15"><i class="bi bi-plus-circle"></i> +15 min</button>
+                <button type="button" class="btn-extend-time" data-min="30"><i class="bi bi-plus-circle"></i> +30 min</button>
+            </div>
 
-                ${session.resourceLink ? `<button id="btn-open-resource" data-url="${session.resourceLink}" style="background: #2a5268; color: #00f2fe; border: 1px solid #00f2fe; padding: 10px 20px; border-radius: 20px; cursor: pointer; font-size: 14px; margin-bottom: 20px; font-weight: bold; box-shadow: 0 4px 15px rgba(0,242,254,0.2);">🔗 Ouvrir le cours certifiant (Fermeture automatique à la fin du chrono)</button>` : ''}
+            ${session.resourceLink ? `<button type="button" id="btn-open-resource" class="btn-open-resource" data-url="${session.resourceLink}"><i class="bi bi-box-arrow-up-right"></i> Ouvrir le cours certifiant</button>` : ''}
+            
+            <div id="focus-evaluation" class="focus-eval-section" hidden>
+                <div class="focus-eval-heading"><i class="bi bi-check2-square"></i> Bilan de la session</div>
                 
-                <div id="focus-evaluation" style="display: none; text-align: left; margin-top: 20px; border-top: 1px solid #2a5268; padding-top: 15px;">
-                    <p style="margin-bottom: 10px; color:#88a7b7;">Bilan de la tâche :</p>
-                    
-                    <label>Statut</label>
-                    <select id="f-status" style="width:100%; margin-bottom:10px; padding:5px; background:#0f2027; color:white; border:1px solid #2a5268;">
-                        <option value="completed">✔ Terminée (100%)</option>
-                        <option value="partial">⏳ Partielle (Inachevée)</option>
-                        <option value="skipped">⏭ Ignorée (Sautée)</option>
-                        <option value="cancelled">❌ Annulée</option>
+                <div class="focus-form-group">
+                    <label class="focus-form-label" for="f-status">Statut de réalisation</label>
+                    <select id="f-status" class="focus-select">
+                        <option value="completed">Terminée (100%)</option>
+                        <option value="partial">Partielle (Inachevée)</option>
+                        <option value="skipped">Ignorée (Sautée)</option>
+                        <option value="cancelled">Annulée</option>
                     </select>
+                </div>
 
-                    <div style="background: #152b36; padding: 12px; border-radius: 8px; margin-bottom: 10px; border: 1px solid #2a5268;">
-                        <label style="display:block; font-weight:bold; margin-bottom:6px; color:#00f2fe;">📝 Preuve (Proof) & Capture d'écran</label>
-                        <select id="f-proof-type" style="width:100%; margin-bottom:8px; padding:8px; background:#0f2027; color:white; border:1px solid #2a5268; border-radius:5px;">
-                            <option value="">-- Aucune preuve --</option>
-                            <option value="Capture">📸 Capture / Photo d'écran (Recommandé)</option>
-                            <option value="GitHub Commit">GitHub Commit</option>
-                            <option value="Certificat">Certificat / Badge</option>
-                            <option value="Projet">Lien de Projet</option>
-                            <option value="Note">Note / Résumé</option>
-                        </select>
-                        <input type="text" id="f-proof-url" placeholder="URL du lien ou projet (optionnel)" style="width:100%; margin-bottom:8px; padding:8px; background:#0f2027; color:white; border:1px solid #2a5268; border-radius:5px;">
-                        <input type="text" id="f-proof-desc" placeholder="Description courte (ex: Exercice Python terminé)" style="width:100%; margin-bottom:8px; padding:8px; background:#0f2027; color:white; border:1px solid #2a5268; border-radius:5px;">
-                        
-                        <!-- BOUTON CLAIR POUR UPLOADER UNE CAPTURE / PHOTO -->
-                        <div id="capture-upload-zone" style="padding:12px; border:2px dashed #00f2fe; border-radius:8px; text-align:center; background:#0b191e; cursor:pointer; margin-top:5px;">
-                            <label for="f-proof-file" style="cursor:pointer; display:block; color:#00f2fe; font-weight:bold; font-size:13px;">
-                                📸 Cliquer ici pour joindre une Capture d'écran ou Photo
-                            </label>
-                            <p style="margin:4px 0 0 0; color:#88a7b7; font-size:11px;">PNG, JPG, WEBP — Votre photo sera enregistrée dans vos preuves</p>
-                            <input type="file" id="f-proof-file" accept="image/*" style="display:none;">
-                            <div id="proof-image-preview" style="margin-top:10px; display:none;">
-                                <img id="proof-img-thumb" src="" alt="Capture jointe" style="max-width:100%; max-height:140px; border-radius:5px; border:1px solid #00f2fe;">
-                                <p style="color:#4CAF50; font-size:12px; margin:4px 0 0 0; font-weight:bold;">✅ Photo capturée avec succès !</p>
-                                <button type="button" id="btn-remove-proof-file" style="background:transparent; color:#ff5252; border:1px solid #ff5252; border-radius:5px; padding:2px 8px; font-size:11px; margin-top:5px; cursor:pointer;">🗑️ Retirer l'image</button>
-                            </div>
+                <div class="focus-proof-card">
+                    <label class="focus-proof-title"><i class="bi bi-file-earmark-check"></i> Preuve (Proof) & Capture d'écran</label>
+                    <select id="f-proof-type" class="focus-select">
+                        <option value="">-- Aucune preuve --</option>
+                        <option value="Capture">Capture / Photo d'écran (Recommandé)</option>
+                        <option value="GitHub Commit">GitHub Commit</option>
+                        <option value="Certificat">Certificat / Badge</option>
+                        <option value="Projet">Lien de Projet</option>
+                        <option value="Note">Note / Résumé</option>
+                    </select>
+                    <input type="text" id="f-proof-url" class="focus-input" placeholder="URL du lien ou projet (optionnel)">
+                    <input type="text" id="f-proof-desc" class="focus-input" placeholder="Description courte (ex: Exercice Python terminé)">
+                    
+                    <!-- BOUTON CLAIR POUR UPLOADER UNE CAPTURE / PHOTO -->
+                    <div id="capture-upload-zone" class="capture-upload-zone">
+                        <label for="f-proof-file" class="capture-upload-label">
+                            <i class="bi bi-camera"></i> Joindre une capture d'écran ou photo
+                        </label>
+                        <p class="capture-upload-hint">PNG, JPG, WEBP — Votre fichier sera enregistré dans vos preuves</p>
+                        <input type="file" id="f-proof-file" accept="image/*" hidden>
+                        <div id="proof-image-preview" class="proof-preview-box" hidden>
+                            <img id="proof-img-thumb" class="proof-preview-img" src="" alt="Capture jointe">
+                            <p class="proof-preview-success"><i class="bi bi-check-circle"></i> Photo capturée avec succès !</p>
+                            <button type="button" id="btn-remove-proof-file" class="btn-remove-proof"><i class="bi bi-trash"></i> Retirer l'image</button>
                         </div>
                     </div>
-                    
-                    <label>Niveau de maîtrise</label>
-                    <select id="f-actual-difficulty" style="width:100%; margin-bottom:10px; padding:5px; background:#0f2027; color:white; border:1px solid #2a5268;">
+                </div>
+                
+                <div class="focus-form-group">
+                    <label class="focus-form-label" for="f-actual-difficulty">Niveau de maîtrise</label>
+                    <select id="f-actual-difficulty" class="focus-select">
                         <option value="🟢" ${session.difficulty === '🟢' ? 'selected' : ''}>🟢 Je maîtrise</option>
                         <option value="🟡" ${session.difficulty === '🟡' ? 'selected' : ''}>🟡 À revoir</option>
                         <option value="🔴" ${session.difficulty === '🔴' ? 'selected' : ''}>🔴 Je n'ai pas compris</option>
                     </select>
-
-                    <label style="display:block; font-weight:bold; margin-bottom:5px;">Commentaire / Réflexion</label>
-                    <textarea id="f-reflection" placeholder="Ex: J'ai compris les boucles mais je dois revoir les listes..." style="width:100%; padding:5px; background:#0f2027; color:white; border:1px solid #2a5268; margin-bottom:10px; height:60px;"></textarea>
-
-                    <label>Qualité (1-5)</label><input type="range" id="f-quality" min="1" max="5" value="3" style="width:100%; margin-bottom:10px;">
-                    <label>Énergie (1-5)</label><input type="range" id="f-energy" min="1" max="5" value="3" style="width:100%; margin-bottom:10px;">
-                    
-                    <button id="btn-confirm-task" data-id="${session.id}" style="width: 100%; margin-top: 15px; background: #00f2fe; color: #0f2027;">Valider et Enregistrer</button>
                 </div>
 
-                <button id="btn-pre-complete-task" style="width: 100%; margin-top: 15px; background: #00f2fe; color: #0f2027;">✅ Tâche Terminée ou Stoppée</button>
+                <div class="focus-form-group">
+                    <label class="focus-form-label" for="f-reflection">Commentaire / Réflexion</label>
+                    <textarea id="f-reflection" class="focus-textarea" rows="2" placeholder="Ex: J'ai compris les boucles mais je dois revoir les listes..."></textarea>
+                </div>
+
+                <div class="focus-form-group">
+                    <label class="focus-form-label" for="f-quality">Qualité ressentie (1-5)</label>
+                    <input type="range" id="f-quality" min="1" max="5" value="3" class="focus-input">
+                </div>
+
+                <div class="focus-form-group">
+                    <label class="focus-form-label" for="f-energy">Énergie restante (1-5)</label>
+                    <input type="range" id="f-energy" min="1" max="5" value="3" class="focus-input">
+                </div>
+                
+                <button type="button" id="btn-confirm-task" data-id="${session.id}" class="btn-confirm-task"><i class="bi bi-check2-circle"></i> Valider et Enregistrer</button>
             </div>
+
+            <button type="button" id="btn-pre-complete-task" class="btn-pre-complete"><i class="bi bi-check2"></i> Valider ou stopper la session</button>
+        </div>
+    </div>
+</div>
         `;
         
         const btnQuitDesktop = document.getElementById('btn-focus-quit-desktop');
-        if (btnQuitDesktop) {
+        if (btnQuitDesktop && typeof btnQuitDesktop.addEventListener === 'function') {
             btnQuitDesktop.addEventListener('click', () => {
+                Motion.buttonTap(btnQuitDesktop);
                 if (this.timerInterval) clearInterval(this.timerInterval);
                 if (this.app.state) this.app.state.activeFocusSession = null;
                 this.app.renderView('desktop');
             });
         }
         const btnQuitPlan = document.getElementById('btn-focus-quit-plan');
-        if (btnQuitPlan) {
+        if (btnQuitPlan && typeof btnQuitPlan.addEventListener === 'function') {
             btnQuitPlan.addEventListener('click', () => {
+                Motion.buttonTap(btnQuitPlan);
                 if (this.timerInterval) clearInterval(this.timerInterval);
                 if (this.app.state) this.app.state.activeFocusSession = null;
                 this.app.renderView('planning');
@@ -209,8 +262,9 @@ export class FocusView {
         }
 
         const btnOpenResource = document.getElementById('btn-open-resource');
-        if (btnOpenResource) {
+        if (btnOpenResource && typeof btnOpenResource.addEventListener === 'function') {
             btnOpenResource.addEventListener('click', (e) => {
+                Motion.buttonTap(btnOpenResource);
                 const url = e.currentTarget.getAttribute('data-url');
                 const safeUrl = sanitizeUrl(url);
                 if (safeUrl && safeUrl !== '#') {
@@ -222,29 +276,32 @@ export class FocusView {
             });
         }
 
-        const extendButtons = document.querySelectorAll('.btn-extend-time');
+        const extendButtons = this.container ? this.container.querySelectorAll('.btn-extend-time') : [];
         extendButtons.forEach(btn => {
-            btn.addEventListener('click', (e) => {
-                const addMin = parseInt(e.currentTarget.getAttribute('data-min'), 10);
-                this.focusEndTime += addMin * 60 * 1000;
-                remainingSeconds = Math.max(0, Math.floor((this.focusEndTime - Date.now()) / 1000));
-                updateTimerDisplay();
-                
-                const banner = document.getElementById('focus-warning-banner');
-                if (banner) banner.style.display = 'none';
-                
-                if (remainingSeconds > 900) {
-                    this.hasWarned15Min = false;
-                }
-                
-                const originalText = btn.textContent;
-                btn.textContent = `✔ +${addMin}m ajoutées !`;
-                btn.style.background = "#2a5268";
-                setTimeout(() => {
-                    btn.textContent = originalText;
-                    btn.style.background = "#152b36";
-                }, 1500);
-            });
+            if (typeof btn.addEventListener === 'function') {
+                btn.addEventListener('click', (e) => {
+                    Motion.buttonTap(btn);
+                    const addMin = parseInt(e.currentTarget.getAttribute('data-min'), 10);
+                    this.focusEndTime += addMin * 60 * 1000;
+                    remainingSeconds = Math.max(0, Math.floor((this.focusEndTime - Date.now()) / 1000));
+                    updateTimerDisplay();
+                    
+                    const banner = document.getElementById('focus-warning-banner');
+                    if (banner) banner.hidden = true;
+                    
+                    if (remainingSeconds > 900) {
+                        this.hasWarned15Min = false;
+                    }
+                    
+                    const originalText = btn.innerHTML;
+                    btn.innerHTML = `<i class="bi bi-check2"></i> +${addMin}m ajoutées !`;
+                    btn.classList.add('extended');
+                    setTimeout(() => {
+                        btn.innerHTML = originalText;
+                        btn.classList.remove('extended');
+                    }, 1500);
+                });
+            }
         });
 
         const btnPreComplete = document.getElementById('btn-pre-complete-task');
@@ -262,6 +319,7 @@ export class FocusView {
         let remainingSeconds = Math.max(0, Math.floor((this.focusEndTime - Date.now()) / 1000));
         
         const updateTimerDisplay = () => {
+            if (!timerDisplay) return;
             const m = Math.floor(remainingSeconds / 60);
             const s = remainingSeconds % 60;
             timerDisplay.textContent = `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
@@ -277,7 +335,7 @@ export class FocusView {
                 if (remainingSeconds <= 900 && remainingSeconds > 895 && !this.hasWarned15Min) {
                     this.hasWarned15Min = true;
                     const banner = document.getElementById('focus-warning-banner');
-                    if (banner) banner.style.display = 'block';
+                    if (banner) banner.hidden = false;
 
                     try {
                         const ctx = new (window.AudioContext || window.webkitAudioContext)();
@@ -289,7 +347,7 @@ export class FocusView {
                             gain.gain.setValueAtTime(0.25, ctx.currentTime);
                             gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + duration);
                             osc.connect(gain);
-                            gain.connect(ctx.destination);
+                            osc.connect(ctx.destination);
                             osc.start();
                             osc.stop(ctx.currentTime + duration);
                         };
@@ -298,7 +356,7 @@ export class FocusView {
 
                     if ('Notification' in window && Notification.permission === 'granted') {
                         try {
-                            new Notification("⏳ Plus que 15 minutes : " + session.title, {
+                            new Notification("Plus que 15 minutes : " + session.title, {
                                 body: "Il reste 15 minutes au chrono ! Tu peux prolonger ton temps (+10m, +15m, +30m) si tu as besoin d'avancer encore.",
                                 icon: "https://emma21vict.github.io/Coach_procrastination/favicon.ico"
                             });
@@ -308,20 +366,25 @@ export class FocusView {
             } else {
                 clearInterval(this.timerInterval);
                 updateTimerDisplay();
-                timerDisplay.style.color = '#ff9800';
-                timerDisplay.style.textShadow = '0 0 10px rgba(255,152,0,0.5)';
+                if (timerDisplay) {
+                    timerDisplay.classList.add('focus-timer-finished');
+                }
                 this.triggerTimeUpAlert(session.title);
                 // Auto-show evaluation when time is up
-                if (btnPreComplete && evalSection.style.display === 'none') {
+                if (btnPreComplete && evalSection && evalSection.hidden) {
                     btnPreComplete.click();
                 }
             }
         }, 1000);
 
-        if (btnPreComplete) {
+        if (btnPreComplete && typeof btnPreComplete.addEventListener === 'function') {
             btnPreComplete.addEventListener('click', () => {
-                btnPreComplete.style.display = 'none';
-                evalSection.style.display = 'block';
+                Motion.buttonTap(btnPreComplete);
+                btnPreComplete.hidden = true;
+                if (evalSection) {
+                    evalSection.hidden = false;
+                    Motion.fadeIn(evalSection, { duration: 0.25 });
+                }
             });
         }
 
@@ -333,16 +396,17 @@ export class FocusView {
         const btnRemoveProofFile = document.getElementById('btn-remove-proof-file');
         const proofTypeSelect = document.getElementById('f-proof-type');
 
-        if (proofFileInput) {
+        if (proofFileInput && typeof proofFileInput.addEventListener === 'function') {
             proofFileInput.addEventListener('change', (e) => {
-                const file = e.target.files[0];
+                const file = e.target.files && e.target.files[0];
                 if (file) {
                     const reader = new FileReader();
                     reader.onload = (event) => {
                         this.currentProofImage = event.target.result;
                         if (proofThumb && proofPreview) {
                             proofThumb.src = this.currentProofImage;
-                            proofPreview.style.display = 'block';
+                            proofPreview.hidden = false;
+                            Motion.fadeIn(proofPreview, { duration: 0.2 });
                         }
                         if (proofTypeSelect && !proofTypeSelect.value) {
                             proofTypeSelect.value = "Capture";
@@ -353,25 +417,32 @@ export class FocusView {
             });
         }
 
-        if (btnRemoveProofFile) {
+        if (btnRemoveProofFile && typeof btnRemoveProofFile.addEventListener === 'function') {
             btnRemoveProofFile.addEventListener('click', (e) => {
                 e.stopPropagation();
+                Motion.buttonTap(btnRemoveProofFile);
                 this.currentProofImage = null;
                 if (proofFileInput) proofFileInput.value = "";
-                if (proofPreview) proofPreview.style.display = 'none';
+                if (proofPreview) proofPreview.hidden = true;
             });
         }
 
-        if (btnConfirm) {
+        if (btnConfirm && typeof btnConfirm.addEventListener === 'function') {
             btnConfirm.addEventListener('click', (e) => {
-                const id = e.currentTarget.getAttribute('data-id');
-                const proofType = document.getElementById('f-proof-type').value;
+                Motion.buttonTap(btnConfirm);
+                const targetBtn = e.currentTarget;
+                const id = targetBtn.getAttribute('data-id');
+                const proofTypeEl = document.getElementById('f-proof-type');
+                const proofType = proofTypeEl ? proofTypeEl.value : '';
+                const proofUrlEl = document.getElementById('f-proof-url');
+                const proofDescEl = document.getElementById('f-proof-desc');
+                
                 let proofObj = null;
-                if (proofType || this.currentProofImage || document.getElementById('f-proof-url').value) {
+                if (proofType || this.currentProofImage || (proofUrlEl && proofUrlEl.value)) {
                     proofObj = {
                         type: proofType || "Capture",
-                        url: document.getElementById('f-proof-url').value,
-                        description: document.getElementById('f-proof-desc').value,
+                        url: proofUrlEl ? proofUrlEl.value : '',
+                        description: proofDescEl ? proofDescEl.value : '',
                         image: this.currentProofImage || null,
                         date: this.app.getPedagogicalDate(),
                         source: session.title
@@ -380,14 +451,20 @@ export class FocusView {
                 
                 const actualDuration = this.focusStartTime ? Math.round((Date.now() - this.focusStartTime) / 60000) : session.expectedDuration;
                 
+                const statusEl = document.getElementById('f-status');
+                const diffEl = document.getElementById('f-actual-difficulty');
+                const refEl = document.getElementById('f-reflection');
+                const qualEl = document.getElementById('f-quality');
+                const nrgEl = document.getElementById('f-energy');
+
                 const metrics = {
-                    status: document.getElementById('f-status').value || 'completed',
+                    status: (statusEl && statusEl.value) || 'completed',
                     actualDuration: actualDuration,
                     proof: proofObj,
-                    difficulty: document.getElementById('f-actual-difficulty').value,
-                    reflection: document.getElementById('f-reflection').value,
-                    quality: parseInt(document.getElementById('f-quality').value),
-                    energy: parseInt(document.getElementById('f-energy').value)
+                    difficulty: (diffEl && diffEl.value) || '🟢',
+                    reflection: (refEl && refEl.value) || '',
+                    quality: qualEl ? parseInt(qualEl.value, 10) : 3,
+                    energy: nrgEl ? parseInt(nrgEl.value, 10) : 3
                 };
                 
                 this.currentSessionId = null;
@@ -428,6 +505,10 @@ export class FocusView {
 
                 this.app.markSessionCompleted(id, metrics, nextView);
             });
+        }
+
+        if (typeof document !== 'undefined') {
+            Motion.fadeIn('.focus-card', { duration: 0.25 });
         }
     }
 }
