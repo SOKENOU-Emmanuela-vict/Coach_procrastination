@@ -2,7 +2,7 @@ import { parseLocalDate } from '../utils/dateUtils.js';
 
 /**
  * EventModal
- * Formulaire réutilisable d'ajout et d'édition d'événements pour PlanningView et CalendarView.
+ * Formulaire réutilisable d'ajout et d'édition d'événements pour PlanningView (vues Semaine et Mois).
  * Champs gérés sans IA :
  *  - Titre
  *  - Date

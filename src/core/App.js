@@ -1218,30 +1218,45 @@ export class App {
         const prevWeekKey = this.getIsoWeek(prevDate);
         const prevEntry = counters.find(c => c.week === prevWeekKey) || null;
 
-        // 4. Phrases claires
-        const sentence1 = `Cette semaine, tu as accompli ${sessionsDone} séance${sessionsDone > 1 ? 's' : ''} et validé ${tasksDone} tâche${tasksDone > 1 ? 's' : ''}${focusMinutes > 0 ? ` (${focusMinutes} min de travail)` : ''}.`;
-
+        // 4. Phrases claires et strictement justifiées par les chiffres réels
+        let sentence1 = '';
         let sentence2 = '';
-        if (prevEntry) {
-            const diff = sessionsDone - (prevEntry.sessionsDone || 0);
-            if (diff > 0) {
-                sentence2 = `C'est en progression par rapport à la semaine dernière (+${diff} séance${diff > 1 ? 's' : ''}).`;
-            } else if (diff < 0) {
-                sentence2 = `C'est un peu moins que la semaine dernière (${prevEntry.sessionsDone} séance${prevEntry.sessionsDone > 1 ? 's' : ''}), veille à garder un rythme régulier.`;
-            } else {
-                sentence2 = `Ton volume de travail est stable par rapport à la semaine dernière (${sessionsDone} séance${sessionsDone > 1 ? 's' : ''}).`;
-            }
-        } else {
-            sentence2 = `C'est ta première semaine de suivi enregistrée avec ce volume de travail.`;
-        }
-
         let sentence3 = '';
-        if (overdueCount > 0) {
-            sentence3 = `Point à travailler : tu as ${overdueCount} tâche${overdueCount > 1 ? 's' : ''} en retard, commence la semaine prochaine par les apurer.`;
-        } else if (sessionsDone >= 3 || tasksDone >= 3) {
-            sentence3 = `Point fort : une belle régularité et une bonne dynamique de travail tout au long de la semaine.`;
+
+        if (sessionsDone === 0 && tasksDone === 0) {
+            sentence1 = `Rien d'enregistré cette semaine pour l'instant.`;
+            sentence2 = `Pense à planifier tes premières séances d'étude ou à noter tes tâches pour lancer ton suivi.`;
+            sentence3 = overdueCount > 0
+                ? `Point à surveiller : tu as ${overdueCount} tâche${overdueCount > 1 ? 's' : ''} en retard à replanifier.`
+                : `Suggestion : ouvre ton Planning pour bloquer tes créneaux de travail prioritaires.`;
         } else {
-            sentence3 = `Point fort : le cadre est en place, pense à planifier tes créneaux de travail dès le début de la semaine prochaine.`;
+            sentence1 = `Cette semaine, tu as accompli ${sessionsDone} séance${sessionsDone > 1 ? 's' : ''} et validé ${tasksDone} tâche${tasksDone > 1 ? 's' : ''}${focusMinutes > 0 ? ` (${focusMinutes} min de travail)` : ''}.`;
+
+            if (prevEntry) {
+                const prevDone = prevEntry.sessionsDone || 0;
+                const diff = sessionsDone - prevDone;
+                if (diff > 0) {
+                    sentence2 = `C'est en progression par rapport à la semaine dernière (+${diff} séance${diff > 1 ? 's' : ''}).`;
+                } else if (diff < 0) {
+                    sentence2 = `C'est en baisse par rapport à la semaine dernière (${prevDone} séance${prevDone > 1 ? 's' : ''} précédemment).`;
+                } else {
+                    sentence2 = `Ton volume de séances est identique à celui de la semaine dernière (${sessionsDone} séance${sessionsDone > 1 ? 's' : ''}).`;
+                }
+            } else {
+                sentence2 = `C'est ta première semaine de suivi enregistrée.`;
+            }
+
+            if (overdueCount > 0) {
+                sentence3 = `Point à travailler : tu as ${overdueCount} tâche${overdueCount > 1 ? 's' : ''} en retard, commence la semaine prochaine par les apurer.`;
+            } else if (sessionsDone >= 3 && tasksDone >= 1) {
+                sentence3 = `Point fort : bonne assiduité avec ${sessionsDone} séances et ${tasksDone} tâche${tasksDone > 1 ? 's' : ''} menées à terme.`;
+            } else if (sessionsDone >= 3) {
+                sentence3 = `Point fort : régularité au rendez-vous avec ${sessionsDone} séances de travail accomplies.`;
+            } else if (tasksDone >= 3) {
+                sentence3 = `Point fort : ${tasksDone} tâches terminées cette semaine.`;
+            } else {
+                sentence3 = `Suggestion : continue sur cette lancée et consolide ton rythme avec 1 ou 2 séances supplémentaires.`;
+            }
         }
 
         const text = `${sentence1} ${sentence2} ${sentence3}`;
@@ -1982,7 +1997,7 @@ export class App {
     }
 
     async refreshCalendarData() {
-        // Charge toutes les données brutes pour le CalendarView (pas optimal pour 1000 events, mais ok pour la V1)
+        // Charge toutes les données brutes pour le planning (vues Semaine et Mois)
         this.state.calendarData.events = await this.planningEngine.getEvents();
         this.state.calendarData.availabilities = await this.planningEngine.getAvailabilityWindows();
         

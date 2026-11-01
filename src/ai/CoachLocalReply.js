@@ -426,14 +426,24 @@ export class CoachLocalReply {
             };
         }
 
-        // 1.0.2 Mon bilan de la semaine (3 phrases claires, identique au message du dimanche)
+        // 1.0.2 Mon bilan de la semaine (3 phrases claires, strictement basées sur les données réelles)
         if (exactIntent === 'weekly_review') {
             let reviewText = '';
             if (context.weeklySummary && context.weeklySummary.text) {
                 reviewText = context.weeklySummary.text;
             } else {
-                const tasksDone = (tasks || []).filter(t => t && (t.status === 'faite' || t.status === 'done' || t.status === 'completed')).length;
-                reviewText = `Cette semaine, tu as accompli tes séances planifiées et validé ${tasksDone} tâche${tasksDone > 1 ? 's' : ''}. Ton niveau de travail est bien régulier par rapport à la semaine précédente. Point fort : une dynamique positive et engagée tout au long de la semaine.`;
+                const tasksDone = (tasks || []).filter(t => t && (t.status === 'faite' || t.status === 'done' || t.status === 'completed' || t.completed === true)).length;
+                const completedSessionsCount = (sessions || []).filter(s => s && (s.completed === true || s.status === 'completed' || s.status === 'done' || s.status === 'faite')).length;
+
+                if (tasksDone === 0 && completedSessionsCount === 0) {
+                    reviewText = "Rien d'enregistré cette semaine pour l'instant. Pense à planifier tes premières séances ou à valider tes tâches pour démarrer ton suivi.";
+                } else {
+                    const s1 = `Cette semaine, tu as accompli ${completedSessionsCount} séance${completedSessionsCount > 1 ? 's' : ''} et validé ${tasksDone} tâche${tasksDone > 1 ? 's' : ''}.`;
+                    const s2 = (completedSessionsCount >= 3 || tasksDone >= 3)
+                        ? `Point fort : bonne régularité avec ${completedSessionsCount} séance${completedSessionsCount > 1 ? 's' : ''} et ${tasksDone} tâche${tasksDone > 1 ? 's' : ''} menées à bien.`
+                        : `Suggestion : continue à poser ton rythme en bloquant 1 ou 2 séances dans ton planning.`;
+                    reviewText = `${s1} ${s2}`;
+                }
             }
             const answerText = `📊 Bilan de la semaine :\n${reviewText}`;
             const message = [statusLine, answerText].filter(Boolean).join('\n');
