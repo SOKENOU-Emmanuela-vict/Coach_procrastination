@@ -52,7 +52,7 @@ export class App {
         this.snapshotEngine = new DailySnapshotEngine(storage);
         if (this.checkInEngine) this.checkInEngine.planningEngine = this.planningEngine;
         if (this.weeklyReviewEngine) this.weeklyReviewEngine.planningEngine = this.planningEngine;
-        
+
         this.planningIntelligence = new PlanningIntelligence(this.planningEngine);
         this.knowledgeEngine = new KnowledgeEngine(storage);
         this.knowledgeRetriever = new KnowledgeRetriever(this.knowledgeEngine);
@@ -60,7 +60,7 @@ export class App {
         // Import de l'emploi du temps : même fournisseur Gemini que le coach (aucune clé supplémentaire)
         this.timetableImporter = new TimetableImportEngine({ storage, planningEngine: this.planningEngine, llmProvider: this.coachEngine.llmProvider || null });
         this.clock = () => new Date();
-        
+
         this.state = {
             currentView: 'desktop',
             dailyPlan: { habits: [], sessions: [] },
@@ -117,7 +117,7 @@ export class App {
                     }
                 }
             }
-        } catch (_) {}
+        } catch (_) { }
         return false;
     }
 
@@ -154,14 +154,14 @@ export class App {
                 try {
                     window.localStorage.removeItem('gemini_api_key_disabled');
                     window.localStorage.removeItem('gemini_api_key_disabled_key');
-                } catch (_) {}
+                } catch (_) { }
             } else if (!clean && typeof window.localStorage.removeItem === 'function') {
                 const prev = window.localStorage.getItem('gemini_api_key') || '';
                 window.localStorage.removeItem('gemini_api_key');
                 try {
                     window.localStorage.setItem('gemini_api_key_disabled', 'true');
                     if (prev) window.localStorage.setItem('gemini_api_key_disabled_key', prev);
-                } catch (_) {}
+                } catch (_) { }
             }
         }
         this.coachEngine = new CoachOrchestrator(this.planningIntelligence, this.knowledgeRetriever, this.riskEngine);
@@ -170,7 +170,7 @@ export class App {
         }
         return Boolean(this.coachEngine.llmProvider);
     }
-    
+
     getPedagogicalDateObject(dateObj = new Date()) {
         return new Date(dateObj); // Date standard (pas de décalage)
     }
@@ -184,10 +184,10 @@ export class App {
         document.getElementById('app-root').innerHTML = '<p style="text-align:center;">Génération du planning... (Etape 1)</p>';
         // document.getElementById('bottom-nav').style.display = 'none';
         this.setupNavigation();
-        
+
         // Auto-chargement de la clé depuis le fichier local (/api/config/key) si fourni
         await this.syncApiKeyFromFile();
-        
+
         // Initialisation des données académiques
         // Anciennes erreurs techniques enregistrées dans la conversation (« Erreur lors de l'analyse… ») : retirées
         try {
@@ -207,13 +207,22 @@ export class App {
             AppLogger.error("Migration du cursus: " + e.message);
         }
         await this.refreshAcademicSubjects();
-        
+
         document.getElementById('app-root').innerHTML = '<p style="text-align:center;">Génération du planning... (Etape 2)</p>';
-        // renderView rafraîchit l'état (plan du jour inclus) avant d'afficher : un seul passage au démarrage.
-        await this.renderView('desktop');
+        // renderView rafraîchit l'état (plan du jour inclus) avant d'afficher : restauration de la dernière vue active
+        let initialView = 'desktop';
+        try {
+            if (typeof localStorage !== 'undefined') {
+                const saved = localStorage.getItem('learning_os_current_view');
+                if (saved && ['desktop', 'planning', 'academic', 'languages', 'life', 'chat', 'focus', 'bilan'].includes(saved)) {
+                    initialView = saved;
+                }
+            }
+        } catch (_) {}
+        await this.renderView(initialView);
         // Messages proactifs du jour dans le chat (rappels d'examen, notes à donner, emploi du temps à importer)
         try { await this.syncProactiveCoachMessages(); } catch (e) { AppLogger.error("Messages du coach: " + e.message); }
-        
+
         this.setupGlobalItemEditor();
     }
 
@@ -233,76 +242,76 @@ export class App {
                 const type = document.getElementById('global-modal-item-type-select').value;
                 const title = document.getElementById('global-modal-item-title').value.trim();
                 if (!title) return alert("Le titre/nom est requis");
-            
-            const baseData = {
-                title,
-                domain: document.getElementById('global-modal-item-domain').value,
-                priority: document.getElementById('global-modal-item-priority').value,
-            };
 
-            if (type === 'project') {
-                const existing = id ? (await this.projectEngine.getProjects()).find(i => i.id === id) : {};
-                await this.projectEngine.saveProject({
-                    ...existing, ...baseData, id: id || undefined,
-                    targetDate: document.getElementById('global-modal-item-dueDate').value || null,
-                });
-            } else if (type === 'book') {
-                const existing = id ? (await this.projectEngine.getBooks()).find(i => i.id === id) : {};
-                await this.projectEngine.saveBook({
-                    ...existing, ...baseData, id: id || undefined,
-                    totalPages: document.getElementById('global-modal-item-target').value ? parseInt(document.getElementById('global-modal-item-target').value, 10) : 0,
-                    targetDate: document.getElementById('global-modal-item-dueDate').value || null,
-                });
-            } else if (type === 'task') {
-                const existing = id ? (await this.projectEngine.getPersonalTasks()).find(i => i.id === id) : {};
-                await this.projectEngine.savePersonalTask({
-                    ...existing, ...baseData, id: id || undefined,
-                    estimatedMinutes: document.getElementById('global-modal-item-duration').value ? parseInt(document.getElementById('global-modal-item-duration').value, 10) : 0,
-                    dueDate: document.getElementById('global-modal-item-dueDate').value || null,
-                });
-            } else if (type === 'habit') {
-                const existing = id ? (await this.scheduler.getHabits()).find(i => i.id === id) : {};
-                await this.scheduler.saveHabit({
-                    ...existing, ...baseData, id: id || `hab_${Date.now()}`,
-                    target: document.getElementById('global-modal-item-target').value ? parseFloat(document.getElementById('global-modal-item-target').value) : null,
-                });
-            } else if (type === 'skill') {
-                const existing = id ? (await this.scheduler.getSkills()).find(i => i.id === id) : {};
-                await this.scheduler.saveSkill({
-                    ...existing, ...baseData, id: id || `skill_${Date.now()}`
-                });
-            } else if (type === 'subject') {
-                const existing = id ? (await this.academicEngine.getSubjects()).find(i => i.id === id) : {};
-                const semesterId = this._pendingSemesterId || existing.semesterId || (this.state.academicSemesters?.[0]?.id || 'sem_s3_26');
-                await this.academicEngine.saveSubject({
-                    ...existing,
-                    id: id || `sub_${Date.now()}`,
-                    name: baseData.title,
-                    semesterId: existing.semesterId || semesterId,
-                    cect: existing.cect || 6
-                });
-                this._pendingSemesterId = null;
-                await this.refreshAcademicSubjects();
-            } else if (type === 'goal') {
-                const existing = id ? (await this.projectEngine.getGoals()).find(i => i.id === id) : {};
-                const goalId = id || existing.id || ('goal_' + Date.now() + '_' + Math.random().toString(36).substr(2, 4));
-                await this.projectEngine.saveGoal({
-                    ...existing, ...baseData, id: goalId,
-                    deadline: document.getElementById('global-modal-item-dueDate').value || null,
-                    progress: document.getElementById('global-modal-item-target').value ? parseFloat(document.getElementById('global-modal-item-target').value) : 0
-                });
-            }
+                const baseData = {
+                    title,
+                    domain: document.getElementById('global-modal-item-domain').value,
+                    priority: document.getElementById('global-modal-item-priority').value,
+                };
 
-            modal.hidden = true; modal.style.display = 'none';
-            this.renderView(this.state.currentView);
-        });
+                if (type === 'project') {
+                    const existing = id ? (await this.projectEngine.getProjects()).find(i => i.id === id) : {};
+                    await this.projectEngine.saveProject({
+                        ...existing, ...baseData, id: id || undefined,
+                        targetDate: document.getElementById('global-modal-item-dueDate').value || null,
+                    });
+                } else if (type === 'book') {
+                    const existing = id ? (await this.projectEngine.getBooks()).find(i => i.id === id) : {};
+                    await this.projectEngine.saveBook({
+                        ...existing, ...baseData, id: id || undefined,
+                        totalPages: document.getElementById('global-modal-item-target').value ? parseInt(document.getElementById('global-modal-item-target').value, 10) : 0,
+                        targetDate: document.getElementById('global-modal-item-dueDate').value || null,
+                    });
+                } else if (type === 'task') {
+                    const existing = id ? (await this.projectEngine.getPersonalTasks()).find(i => i.id === id) : {};
+                    await this.projectEngine.savePersonalTask({
+                        ...existing, ...baseData, id: id || undefined,
+                        estimatedMinutes: document.getElementById('global-modal-item-duration').value ? parseInt(document.getElementById('global-modal-item-duration').value, 10) : 0,
+                        dueDate: document.getElementById('global-modal-item-dueDate').value || null,
+                    });
+                } else if (type === 'habit') {
+                    const existing = id ? (await this.scheduler.getHabits()).find(i => i.id === id) : {};
+                    await this.scheduler.saveHabit({
+                        ...existing, ...baseData, id: id || `hab_${Date.now()}`,
+                        target: document.getElementById('global-modal-item-target').value ? parseFloat(document.getElementById('global-modal-item-target').value) : null,
+                    });
+                } else if (type === 'skill') {
+                    const existing = id ? (await this.scheduler.getSkills()).find(i => i.id === id) : {};
+                    await this.scheduler.saveSkill({
+                        ...existing, ...baseData, id: id || `skill_${Date.now()}`
+                    });
+                } else if (type === 'subject') {
+                    const existing = id ? (await this.academicEngine.getSubjects()).find(i => i.id === id) : {};
+                    const semesterId = this._pendingSemesterId || existing.semesterId || (this.state.academicSemesters?.[0]?.id || 'sem_s3_26');
+                    await this.academicEngine.saveSubject({
+                        ...existing,
+                        id: id || `sub_${Date.now()}`,
+                        name: baseData.title,
+                        semesterId: existing.semesterId || semesterId,
+                        cect: existing.cect || 6
+                    });
+                    this._pendingSemesterId = null;
+                    await this.refreshAcademicSubjects();
+                } else if (type === 'goal') {
+                    const existing = id ? (await this.projectEngine.getGoals()).find(i => i.id === id) : {};
+                    const goalId = id || existing.id || ('goal_' + Date.now() + '_' + Math.random().toString(36).substr(2, 4));
+                    await this.projectEngine.saveGoal({
+                        ...existing, ...baseData, id: goalId,
+                        deadline: document.getElementById('global-modal-item-dueDate').value || null,
+                        progress: document.getElementById('global-modal-item-target').value ? parseFloat(document.getElementById('global-modal-item-target').value) : 0
+                    });
+                }
+
+                modal.hidden = true; modal.style.display = 'none';
+                this.renderView(this.state.currentView);
+            });
         }
     }
 
     openGlobalItemEditor(data = {}) {
         const modal = document.getElementById('global-item-editor-modal');
         if (!modal) return;
-        
+
         this._pendingSemesterId = data.semesterId || null;
         document.getElementById('global-modal-item-id').value = data.id || '';
         document.getElementById('global-modal-item-type-select').value = data.type || 'project';
@@ -312,7 +321,7 @@ export class App {
         document.getElementById('global-modal-item-duration').value = data.duration || data.estimatedMinutes || '';
         document.getElementById('global-modal-item-priority').value = data.priority || 'medium';
         document.getElementById('global-modal-item-target').value = data.target || data.totalPages || data.progress || '';
-        
+
         modal.hidden = false; modal.style.display = 'flex'; if (window.gsap) { window.gsap.fromTo(modal.querySelector('.modal-box'), { opacity: 0, scale: 0.95 }, { opacity: 1, scale: 1, duration: 0.2 }); }
     }
 
@@ -349,7 +358,7 @@ export class App {
         const dToday = new Date();
         const localDate = this.getPedagogicalDate(dToday);
         const nowMinutes = dToday.getHours() * 60 + dToday.getMinutes();
-        
+
         const presenceStats = this.presenceEngine ? await this.presenceEngine.getPresenceStats(7) : null;
 
         // Construction du contexte temporel pour le Coach (J à J+5)
@@ -361,10 +370,10 @@ export class App {
             const d = new Date(dToday);
             d.setDate(d.getDate() + i);
             const dateStr = this.getPedagogicalDate(d);
-            
+
             const evs = await this.planningEngine.getEventsForDate(dateStr);
             temporalEvents.push(...evs);
-            
+
             // Le coach propose d'abord du temps réellement libre (événements flexibles compris) ;
             // s'il n'y en a pas, PlanningAI peut proposer un créneau sur un événement flexible en DEMANDANT.
             const slots = await this.planningEngine.getAvailableSlots(dateStr, { subtractFlexible: true });
@@ -389,7 +398,7 @@ export class App {
         let weeklySummary = null;
         try {
             weeklySummary = await this.computeLocalWeeklySummary(dToday);
-        } catch (_) {}
+        } catch (_) { }
 
         return {
             userProfile: this.state.userProfile,
@@ -397,7 +406,7 @@ export class App {
             projects: await (async () => {
                 const projs = await this.projectEngine.getProjects();
                 for (const p of projs) {
-                    try { p.determination = await this.projectEngine.calculateProjectDetermination(p.id); } catch (_) {}
+                    try { p.determination = await this.projectEngine.calculateProjectDetermination(p.id); } catch (_) { }
                 }
                 return projs;
             })(),
@@ -480,8 +489,10 @@ export class App {
         for (const a of assessments) {
             if (!a || !a.targetDate || hasFinal(a)) continue;
             if (String(a.targetDate) < today) {
-                requests.push({ key: `ass_${a.id}`, kind: 'past_assessment', assessmentId: a.id, subjectId: a.subjectId,
-                    label: subjectName(a.subjectId) || a.title, title: a.title, targetDate: a.targetDate });
+                requests.push({
+                    key: `ass_${a.id}`, kind: 'past_assessment', assessmentId: a.id, subjectId: a.subjectId,
+                    label: subjectName(a.subjectId) || a.title, title: a.title, targetDate: a.targetDate
+                });
             }
         }
         const progress = (this.state && this.state.courseProgress) || { items: [] };
@@ -492,8 +503,10 @@ export class App {
             if (own.some(a => a.targetDate && String(a.targetDate) >= today)) continue; // examen pas encore passé
             if (own.some(a => a.targetDate && String(a.targetDate) < today)) continue; // déjà demandé via l'évaluation passée
             const label = it.componentName && it.componentName !== it.subjectName ? `${it.componentName} (${it.subjectName})` : (it.subjectName || it.title);
-            requests.push({ key: `course_${it.key}`, kind: 'finished_course', subjectId: it.subjectId, componentCode: it.componentCode || null,
-                label, hoursTotal: it.hoursTotal, lastSessionDate: it.lastSessionDate });
+            requests.push({
+                key: `course_${it.key}`, kind: 'finished_course', subjectId: it.subjectId, componentCode: it.componentCode || null,
+                label, hoursTotal: it.hoursTotal, lastSessionDate: it.lastSessionDate
+            });
         }
         return requests;
     }
@@ -542,7 +555,7 @@ export class App {
             if (this.chatHistoryEngine && typeof this.chatHistoryEngine.saveMessage === 'function') {
                 try {
                     await this._sayCoach(`La lecture de l'emploi du temps a échoué : ${explained.message}. Aucun cours n'a pu être lu.`, { intent: null, proactive: 'timetable_failed' });
-                } catch (e) {}
+                } catch (e) { }
             }
             throw explained;
         }
@@ -672,7 +685,7 @@ export class App {
         }
         try {
             await this.storage.saveData('last_coach_reminder', { text: content, date: this._todayStr(), recordedAt: new Date().toISOString() });
-        } catch (_) {}
+        } catch (_) { }
         return this.chatHistoryEngine.saveMessage({ role: 'assistant', content, conversationId: 'default', metadata });
     }
 
@@ -854,16 +867,16 @@ export class App {
                 let energy = 'medium';
                 let motivation = 'medium';
                 const t = text.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-                
+
                 if (/(top|super|bien|excellent|heureu|genial)/.test(t)) mood = 'high';
                 if (/(triste|deprime|mauvais|bof|pas ouf|mal)/.test(t)) mood = 'low';
-                
+
                 if (/(fatigue|epuise|hs|faible|ko)/.test(t)) energy = 'low';
                 if (/(en forme|plein d energie|petard|frais)/.test(t)) energy = 'high';
-                
+
                 if (/(tres motive|a fond|determine|chaud)/.test(t)) motivation = 'high';
                 if (/(demotive|pas envie|flemme)/.test(t)) motivation = 'low';
-                
+
                 await this.checkInEngine.saveCheckIn({
                     date: this._todayStr(),
                     mood,
@@ -871,7 +884,7 @@ export class App {
                     motivation,
                     notes: text
                 });
-                
+
                 let coachResponse = `Check-in enregistré : humeur ${mood}, énergie ${energy}, motivation ${motivation}.`;
 
                 if (energy === 'low' || mood === 'low') {
@@ -894,7 +907,7 @@ export class App {
                 }
                 return true;
             }
-            
+
             if (lastCoach && lastCoach.metadata && lastCoach.metadata.pendingItemUpdate) {
                 const t = text.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
                 const data = lastCoach.metadata.pendingItemUpdate;
@@ -956,7 +969,7 @@ export class App {
                 const t = text.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
                 const data = lastCoach.metadata.pendingTaskFollowUp;
                 const savedTask = await this.projectEngine.getPersonalTasks().then(tasks => tasks.find(x => x.id === data.task.id));
-                
+
                 if (/(oui|ouais|ok|d accord|daccord|dac|ca marche|parfait|fait|fini|termine)/.test(t)) {
                     if (savedTask) {
                         savedTask.status = 'faite';
@@ -968,7 +981,7 @@ export class App {
                         savedTask.status = 'reportée';
                         savedTask.reportsCount = (savedTask.reportsCount || 0) + 1;
                         await this.projectEngine.savePersonalTask(savedTask);
-                        
+
                         // RiskEngine : alimenter les reports
                         if (this.riskEngine) {
                             // On pourrait enregistrer un événement de procrastination
@@ -1041,7 +1054,7 @@ export class App {
             const books = await this.projectEngine.getBooks();
             const titleMatch = bookProgress.titlePhrase ? bookProgress.titlePhrase.toLowerCase() : '';
             const book = books.find(b => b.status === 'reading' && (titleMatch ? b.title.toLowerCase().includes(titleMatch) : true));
-            
+
             if (book) {
                 if (bookProgress.unit === 'pages') book.progressPages += bookProgress.amount;
                 else book.progressChapters += bookProgress.amount;
@@ -1054,7 +1067,7 @@ export class App {
         const pTaskCreation = parsePersonalTaskCreation(text);
         if (pTaskCreation && this.projectEngine) {
             const task = await this.projectEngine.savePersonalTask({ title: pTaskCreation.title, category: 'other', estimatedMinutes: 30 });
-            
+
             // Chercher un créneau libre
             let proposedSlot = null;
             if (this.planningEngine && this.planningIntelligence) {
@@ -1072,7 +1085,7 @@ export class App {
             }
 
             if (proposedSlot) {
-                await this._sayCoach(`C'est noté, j'ai ajouté "${task.title}" à tes tâches. Veux-tu que je la planifie le ${proposedSlot.date} de ${proposedSlot.startTime} à ${proposedSlot.endTime} ? (oui/non)`, { 
+                await this._sayCoach(`C'est noté, j'ai ajouté "${task.title}" à tes tâches. Veux-tu que je la planifie le ${proposedSlot.date} de ${proposedSlot.startTime} à ${proposedSlot.endTime} ? (oui/non)`, {
                     intent: null,
                     pendingTaskPlanning: { task, slot: proposedSlot }
                 });
@@ -1086,7 +1099,7 @@ export class App {
         if (taskCompletion && this.projectEngine) {
             const tasks = await this.projectEngine.getPersonalTasks();
             const projects = await this.projectEngine.getProjects();
-            
+
             const titleLower = taskCompletion.title.toLowerCase();
             const pTask = tasks.find(t => t.status !== 'faite' && t.title.toLowerCase().includes(titleLower));
             if (pTask) {
@@ -1095,7 +1108,7 @@ export class App {
                 await this._sayCoach(`Parfait ! La tâche "${pTask.title}" est terminée.`, { intent: null });
                 return true;
             }
-            
+
             const activeProj = projects.find(p => p.status === 'active' && p.title.toLowerCase().includes(titleLower));
             if (activeProj) {
                 activeProj.progress = Math.min(100, activeProj.progress + 20); // increment progress implicitly
@@ -1120,9 +1133,9 @@ export class App {
             if (!found) { found = tasks.find(t => t.title.toLowerCase().includes(titleMatch)); if (found) type = 'task'; }
 
             if (found) {
-                await this._sayCoach(`Veux-tu vraiment changer l'échéance de "${found.title}" au ${itemUpdate.newDate} ? (oui/non)`, { 
-                    intent: null, 
-                    pendingItemUpdate: { item: found, type, newDate: itemUpdate.newDate } 
+                await this._sayCoach(`Veux-tu vraiment changer l'échéance de "${found.title}" au ${itemUpdate.newDate} ? (oui/non)`, {
+                    intent: null,
+                    pendingItemUpdate: { item: found, type, newDate: itemUpdate.newDate }
                 });
                 return true;
             }
@@ -1143,9 +1156,9 @@ export class App {
             if (!found) { found = tasks.find(t => t.title.toLowerCase().includes(titleMatch)); if (found) type = 'task'; }
 
             if (found) {
-                await this._sayCoach(`Veux-tu vraiment supprimer l'élément "${found.title}" ? Cette action est irréversible. (oui/non)`, { 
-                    intent: null, 
-                    pendingItemDeletion: { item: found, type } 
+                await this._sayCoach(`Veux-tu vraiment supprimer l'élément "${found.title}" ? Cette action est irréversible. (oui/non)`, {
+                    intent: null,
+                    pendingItemDeletion: { item: found, type }
                 });
                 return true;
             }
@@ -1569,7 +1582,7 @@ export class App {
         }
         return posted.length;
     }
-    
+
     async refreshUserStats() {
         const dToday = new Date();
         const localDate = this.getPedagogicalDate(dToday);
@@ -1580,10 +1593,10 @@ export class App {
         this.state.dailyStats = await this.studyRecordEngine.getDailyStats(localDate);
         this.state.dailySummary = await this.checkInEngine.buildDailySummary(localDate);
         this.state.todayCheckIn = await this.checkInEngine.getCheckIn(localDate);
-        
+
         const loadedProfile = await this.storage.loadData('user_profile');
-        const defaultProfile = { 
-            streak: 1, 
+        const defaultProfile = {
+            streak: 1,
             lastActive: null,
             name: "Étudiant",
             formation: null,
@@ -1595,12 +1608,12 @@ export class App {
         // ne doit pas faire disparaître le semestre courant ni le nom.
         this.state.userProfile = { ...defaultProfile, ...(loadedProfile || {}) };
         this.state.fullHistory = await this.studyRecordEngine.getFullHistory();
-        
+
         // Charger les données du graphe d'apprentissage pour les widgets du dashboard
         if (this.learningGraphEngine) {
             this.state.learningGraph = { nodes: await this.learningGraphEngine.evaluateGraph() };
         }
-        
+
         // Les insights et alertes académiques seront ajoutés via CoachAI.
         // systemHealth est déprécié.
         const dTodayLocal = parseLocalDate(localDate);
@@ -1617,7 +1630,7 @@ export class App {
             this.state.projects = rawProjects;
             this.state.books = await this.projectEngine.getBooks();
             this.state.personalTasks = await this.projectEngine.getPersonalTasks();
-            
+
             const goals = await this.projectEngine.getGoals();
             let goalsUpdated = false;
             for (const goal of goals) {
@@ -1632,7 +1645,7 @@ export class App {
                     } else if (goal.autoMetric.type === 'sessions') {
                         currentVal = (this.state.fullHistory || []).filter(h => h.status === 'completed').length;
                     }
-                    
+
                     const newProgress = Math.min(100, Math.round((currentVal / goal.autoMetric.target) * 100));
                     if (newProgress > goal.progress) {
                         goal.progress = newProgress;
@@ -1643,7 +1656,7 @@ export class App {
             }
             this.state.goals = goals;
         }
-        
+
         // Données pour le Bureau (Desktop) et Espace Académique
         const semesterId = this.state.userProfile.currentSemesterId || null;
         this.state.academicSummary = semesterId ? await this.academicEngine.getSemesterSummary(semesterId, localDate) : null;
@@ -1727,7 +1740,7 @@ export class App {
      */
     async acceptCoachSuggestion(intent, options = {}) {
         if (!intent) return null;
-        
+
         let result = { success: true };
         if (intent.action === 'save_checkin') {
             if (!this.checkInEngine) throw new Error("Le moteur de bilan n'est pas disponible.");
@@ -1762,12 +1775,12 @@ export class App {
             }
             result = execResult || { success: true };
         }
-        
+
         await this.refreshCalendarData();
         await this.refreshUserStats();
         return result;
     }
-    
+
     /**
      * Mise à jour d'une matière depuis la vue Académique (champs autorisés : name, code, cect).
      */
@@ -1985,8 +1998,8 @@ export class App {
         const dbKeys = typeof storage.getAllKeys === 'function'
             ? await storage.getAllKeys()
             : ['study_history', 'user_profile', 'daily_checkins', 'events', 'availabilities', 'academic_schedule',
-               'acad_years', 'acad_semesters', 'acad_subjects', 'acad_assessments', 'acad_grades',
-               'projects', 'user_habits', 'user_skills', 'chat_history', 'weekly_reviews', 'weekly_counters', 'last_coach_reminder'];
+                'acad_years', 'acad_semesters', 'acad_subjects', 'acad_assessments', 'acad_grades',
+                'projects', 'user_habits', 'user_skills', 'chat_history', 'weekly_reviews', 'weekly_counters', 'last_coach_reminder'];
         const exportData = { _meta: { app: 'coach_procrastination', format: 1, exportedAt: new Date().toISOString() } };
         for (const key of dbKeys) {
             const value = await storage.loadData(key);
@@ -2031,7 +2044,7 @@ export class App {
         // Charge toutes les données brutes pour le planning (vues Semaine et Mois)
         this.state.calendarData.events = await this.planningEngine.getEvents();
         this.state.calendarData.availabilities = await this.planningEngine.getAvailabilityWindows();
-        
+
         this.state.calendarData.subjects = await this.storage.loadData('acad_subjects') || [];
         this.state.calendarData.assessments = await this.storage.loadData('acad_assessments') || [];
         this.state.calendarData.projects = await this.storage.loadData('projects') || [];
@@ -2044,7 +2057,7 @@ export class App {
     async getAvailableSlots(date) {
         return await this.planningEngine.getAvailableSlots(date);
     }
-    
+
     openEventEditor(data = {}) {
         if (!this.eventModal) {
             this.eventModal = new EventModal(this);
@@ -2118,7 +2131,7 @@ export class App {
     setupNavigation() {
         // Obsolete (bottom-nav was removed)
     }
-    
+
     /**
      * Chemin de navigation unique (barres latérales, boutons) : rafraîchit l'état puis affiche la vue.
      * @param {string} viewName
@@ -2132,7 +2145,7 @@ export class App {
         if (options.refresh !== false) {
             await this.refreshUserStats();
         }
-        
+
         if (viewName === 'chat' && options.refresh !== false) {
             try { await this.syncProactiveCoachMessages(); } catch (e) { AppLogger.error("Messages du coach: " + e.message); }
         }
@@ -2145,8 +2158,13 @@ export class App {
             const startDate = this.getPedagogicalDate(dStart);
             this.state.weeklySummary = await this.getWeeklyReport(startDate, endDate);
         }
-        
+
         this.state.currentView = viewName;
+        try {
+            if (typeof localStorage !== 'undefined' && viewName && typeof viewName === 'string') {
+                localStorage.setItem('learning_os_current_view', viewName);
+            }
+        } catch (_) {}
 
         // THEME MANAGEMENT
         if (typeof document !== 'undefined' && document.body && document.body.classList) {
@@ -2165,7 +2183,7 @@ export class App {
                 document.body.classList.add('theme-cyber'); // Default fallback
             }
         }
-        
+
         await this.router.render(viewName, this.state);
     }
 
@@ -2187,7 +2205,7 @@ export class App {
         this.state.activeFocusSession = session;
         return await this.renderView('focus', session);
     }
-    
+
     async markSessionCompleted(sessionId, metrics = { status: 'completed' }, redirectView = null) {
         try {
             this.state.activeFocusSession = null;
@@ -2233,18 +2251,18 @@ export class App {
         AppLogger.info(`Shift day by ${amount}`);
         this.currentDayIndex = await this.scheduler.shiftDayIndex(amount);
         const localDate = this.getPedagogicalDate(); // Note: date string remains today, but dayIndex dictates the content
-        
+
         const plan = await this.scheduler.generateDailyPlan(localDate);
         const history = await this.storage.loadData('study_history') || [];
         const completedIds = history.filter(r => r.date === localDate).map(r => r.sessionId);
-        
+
         plan.habits.forEach(h => h.completed = completedIds.includes(h.id));
         plan.sessions.forEach(s => s.completed = completedIds.includes(s.id));
-        
+
         this.state.dailyPlan = plan;
         this.renderView('planning');
     }
-    
+
     async markHabitCompleted(habitId) {
         try {
             const habit = this.state.dailyPlan.habits.find(h => h.id === habitId);
@@ -2271,7 +2289,7 @@ export class App {
             alert("Erreur JS (Habitude): " + e.message);
         }
     }
-    
+
     async saveProgram(programData) {
         await this.scheduler.saveFullProgram(programData);
         await this.refreshUserStats();
@@ -2279,7 +2297,7 @@ export class App {
         this.state.dailyPlan = await this.scheduler.generateDailyPlan(localDate);
         this.renderView('program');
     }
-    
+
     async showBilan() {
         await this.refreshUserStats();
         this.renderView('bilan');
@@ -2287,14 +2305,14 @@ export class App {
 
     async sendChatMessage(text) {
         if (!text || text.trim() === '') return;
-        
+
         // 1. Sauvegarde du message User
         await this.chatHistoryEngine.saveMessage({
             role: 'user',
             content: text,
             conversationId: 'default' // Pour l'instant une seule conversation
         });
-        
+
         // On demande à la vue de se réafficher (sans recalcul) pour montrer le message de l'user
         this.renderView('chat', { refresh: false });
 
@@ -2318,7 +2336,7 @@ export class App {
             this.renderView('chat', { refresh: false });
             return;
         }
-        
+
         // Boucle académique par règles : note demandée par le coach, annonce d'examen, note donnée spontanément
         try {
             if (this.academicEngine && typeof this.academicEngine.getAssessments === 'function' && await this._handleAcademicChat(text)) {
@@ -2386,7 +2404,7 @@ export class App {
             // Mise en cache du conseil LLM (réaffiché au rafraîchissement sans nouvel appel)
             const llmRec = (recommendations || []).find(r => r && typeof r.id === 'string' && r.id.startsWith('coach_llm_'));
             if (llmRec) this.llmAdviceCache = { rec: llmRec, date: coachContextData.currentDate };
-            
+
             // 3. Traitement de la réponse
             if (!recommendations || recommendations.length === 0) {
                 await this.chatHistoryEngine.saveMessage({
@@ -2435,7 +2453,7 @@ export class App {
                 metadata: { error: true }
             });
         }
-        
+
         // 3.5. Rappel unique du check-in en attente si la question était hors sujet
         try {
             const pendingCheckIn = await this.storage.loadData('pending_checkin_conv');
@@ -2446,7 +2464,7 @@ export class App {
                     pendingCheckIn.lastRemindedDate = todayStr;
                     pendingCheckIn.lastRemindedStep = pendingCheckIn.step;
                     await this.storage.saveData('pending_checkin_conv', pendingCheckIn);
-                    
+
                     let reminderText = "";
                     if (pendingCheckIn.step === 'mood') {
                         reminderText = "💡 (Rappel : ton bilan du jour est en cours. Je n'ai pas bien compris ton humeur ou tu posais une autre question. Peux-tu me dire si elle est plutôt bonne, moyenne ou basse aujourd'hui, ou dis « plus tard » pour reporter ?)";
@@ -2668,7 +2686,7 @@ Réponds UNIQUEMENT par un seul mot parmi: high, medium, low.
                     if (/high|bonne/i.test(rawEval)) parsedMood = 'high';
                     else if (/low|basse|morose/i.test(rawEval)) parsedMood = 'low';
                     else if (/medium|moyen/i.test(rawEval)) parsedMood = 'medium';
-                } catch (_) {}
+                } catch (_) { }
             }
             if (!parsedMood) {
                 return false;
@@ -2694,7 +2712,7 @@ Réponds-lui en 2 courtes phrases chaleureuses :
                             moodText += " Et côté énergie, comment te sens-tu (haute, moyenne, basse) ?";
                         }
                     }
-                } catch (_) {}
+                } catch (_) { }
             }
 
             if (!moodText) {
@@ -2727,7 +2745,7 @@ Réponds UNIQUEMENT par un seul mot parmi: high, medium, low.
                     if (/high|haute/i.test(rawEval)) parsedEnergy = 'high';
                     else if (/low|basse/i.test(rawEval)) parsedEnergy = 'low';
                     else if (/medium|moyen/i.test(rawEval)) parsedEnergy = 'medium';
-                } catch (_) {}
+                } catch (_) { }
             }
             if (!parsedEnergy) {
                 return false;
@@ -2753,7 +2771,7 @@ Réponds-lui en 2 courtes phrases bienveillantes :
                             energyText += " Pour terminer, quelle est ta motivation pour travailler aujourd'hui (forte, moyenne, faible) ?";
                         }
                     }
-                } catch (_) {}
+                } catch (_) { }
             }
 
             if (!energyText) {
@@ -2786,7 +2804,7 @@ Réponds UNIQUEMENT par un seul mot parmi: high, medium, low.
                     if (/high|forte|haute/i.test(rawEval)) parsedMotivation = 'high';
                     else if (/low|faible|basse/i.test(rawEval)) parsedMotivation = 'low';
                     else if (/medium|moyen/i.test(rawEval)) parsedMotivation = 'medium';
-                } catch (_) {}
+                } catch (_) { }
             }
             if (!parsedMotivation) {
                 return false;
@@ -2832,7 +2850,7 @@ Fais-lui une réponse courte (2-3 phrases max) très encourageante et personnali
                             recapText += `\nTon bilan du jour est enregistré : humeur ${lM}, énergie ${lE}, motivation ${lMo}.`;
                         }
                     }
-                } catch (_) {}
+                } catch (_) { }
             }
 
             if (!recapText) {
@@ -2881,7 +2899,7 @@ Fais-lui une réponse courte (2-3 phrases max) très encourageante et personnali
             };
             await this.storage.saveData('pending_lang_conv', newPending);
 
-            const question = detectedLang 
+            const question = detectedLang
                 ? `Excellente initiative de pratiquer l'${detectedLang} ! Quel est ton niveau actuel (A1, A2, B1, B2, C1, C2...) ?`
                 : `Excellente initiative ! Quelle langue souhaites-tu travailler et quel est ton niveau actuel (par exemple : Anglais B1, Espagnol A2...) ?`;
 
@@ -3012,7 +3030,7 @@ Fais-lui une réponse courte (2-3 phrases max) très encourageante et personnali
             });
 
             if (typeof this.refreshUserStats === 'function') {
-                try { await this.refreshUserStats(); } catch(e) {}
+                try { await this.refreshUserStats(); } catch (e) { }
             }
             return true;
         }
