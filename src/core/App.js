@@ -2658,7 +2658,18 @@ export class App {
 
         // 4. Étape 1 : Humeur
         if (pending.step === 'mood') {
-            const parsedMood = this._parseMoodRule(trimmed);
+            let parsedMood = this._parseMoodRule(trimmed);
+            if (!parsedMood && this.coachEngine && this.coachEngine.llmProvider && trimmed.length >= 4) {
+                try {
+                    const evalPrompt = `Analyse l'humeur exprimée par l'étudiant dans cette phrase : "${trimmed}".
+Réponds UNIQUEMENT par un seul mot parmi: high, medium, low.
+(high = bonne humeur/optimiste/enthousiaste, medium = moyen/mitigé/normal/neutre, low = stressé/angoissé/fatigué/démotivé/inquiet/morose/mauvais)`;
+                    const rawEval = (await this.coachEngine.llmProvider.generate(evalPrompt)).trim().toLowerCase();
+                    if (/high|bonne/i.test(rawEval)) parsedMood = 'high';
+                    else if (/low|basse|morose/i.test(rawEval)) parsedMood = 'low';
+                    else if (/medium|moyen/i.test(rawEval)) parsedMood = 'medium';
+                } catch (_) {}
+            }
             if (!parsedMood) {
                 return false;
             }
@@ -2666,13 +2677,37 @@ export class App {
             pending.step = 'energy';
             await this.storage.saveData('pending_checkin_conv', pending);
 
-            const moodReformulations = {
-                high: "Super, content d'apprendre que tu es de bonne humeur !",
-                medium: "D'accord, une humeur posée et tranquille.",
-                low: "Je comprends, prends soin de toi aujourd'hui."
-            };
-            const reform = moodReformulations[parsedMood] || "C'est bien noté pour ton humeur.";
-            await this._sayCoach(`${reform} Et côté énergie, comment te sens-tu (haute, moyenne, basse) ?`, {
+            let moodText = "";
+            const hasExtraContext = trimmed.length > 15 || trimmed.split(/\s+/).length > 2;
+            if (hasExtraContext && this.coachEngine && this.coachEngine.llmProvider) {
+                try {
+                    const prompt = `Tu es le Coach bienveillant d'un étudiant. Tu viens de lui demander son humeur du jour.
+L'étudiant te répond avec ses propres mots : "${trimmed}".
+Son humeur générale est ${parsedMood === 'high' ? 'bonne' : (parsedMood === 'low' ? 'morose/basse' : 'moyenne')}, mais il exprime des détails personnels ou une préoccupation concrète.
+Réponds-lui en 2 courtes phrases chaleureuses :
+1. Une phrase empathique et encourageante qui rebondit avec pertinence sur ce qu'il vient de te confier.
+2. Puis enchaîne en lui demandant son énergie : "Et côté énergie, comment te sens-tu (haute, moyenne, basse) ?"`;
+                    const res = await this.coachEngine.llmProvider.generate(prompt);
+                    if (res && res.trim()) {
+                        moodText = res.trim();
+                        if (!/énergie|energie/i.test(moodText)) {
+                            moodText += " Et côté énergie, comment te sens-tu (haute, moyenne, basse) ?";
+                        }
+                    }
+                } catch (_) {}
+            }
+
+            if (!moodText) {
+                const moodReformulations = {
+                    high: "Super, content d'apprendre que tu es de bonne humeur !",
+                    medium: "D'accord, une humeur posée et tranquille.",
+                    low: "Je comprends, prends soin de toi aujourd'hui."
+                };
+                const reform = moodReformulations[parsedMood] || "C'est bien noté pour ton humeur.";
+                moodText = `${reform} Et côté énergie, comment te sens-tu (haute, moyenne, basse) ?`;
+            }
+
+            await this._sayCoach(moodText, {
                 intent: null,
                 proactive: 'checkin',
                 pendingCheckInStep: 'energy'
@@ -2682,7 +2717,18 @@ export class App {
 
         // 5. Étape 2 : Énergie
         if (pending.step === 'energy') {
-            const parsedEnergy = this._parseEnergyRule(trimmed);
+            let parsedEnergy = this._parseEnergyRule(trimmed);
+            if (!parsedEnergy && this.coachEngine && this.coachEngine.llmProvider && trimmed.length >= 4) {
+                try {
+                    const evalPrompt = `Analyse le niveau d'énergie physique ou mentale de l'étudiant dans cette phrase : "${trimmed}".
+Réponds UNIQUEMENT par un seul mot parmi: high, medium, low.
+(high = plein d'énergie/en forme/boosté, medium = énergie normale/stable/moyenne, low = fatigué/épuisé/faible/à plat)`;
+                    const rawEval = (await this.coachEngine.llmProvider.generate(evalPrompt)).trim().toLowerCase();
+                    if (/high|haute/i.test(rawEval)) parsedEnergy = 'high';
+                    else if (/low|basse/i.test(rawEval)) parsedEnergy = 'low';
+                    else if (/medium|moyen/i.test(rawEval)) parsedEnergy = 'medium';
+                } catch (_) {}
+            }
             if (!parsedEnergy) {
                 return false;
             }
@@ -2690,13 +2736,37 @@ export class App {
             pending.step = 'motivation';
             await this.storage.saveData('pending_checkin_conv', pending);
 
-            const energyReformulations = {
-                high: "Plein d'énergie, c'est idéal pour avancer !",
-                medium: "Énergie moyenne, c'est stable pour travailler à ton rythme.",
-                low: "Énergie basse, pense à ménager tes efforts."
-            };
-            const reform = energyReformulations[parsedEnergy] || "C'est bien noté pour ton énergie.";
-            await this._sayCoach(`${reform} Pour terminer, quelle est ta motivation pour travailler aujourd'hui (forte, moyenne, faible) ?`, {
+            let energyText = "";
+            const hasExtraContext = trimmed.length > 15 || trimmed.split(/\s+/).length > 2;
+            if (hasExtraContext && this.coachEngine && this.coachEngine.llmProvider) {
+                try {
+                    const prompt = `Tu es le Coach bienveillant d'un étudiant. Tu viens de lui demander son niveau d'énergie.
+L'étudiant te répond avec ses propres mots : "${trimmed}".
+Son énergie est ${parsedEnergy === 'high' ? 'haute' : (parsedEnergy === 'low' ? 'basse' : 'moyenne')}.
+Réponds-lui en 2 courtes phrases bienveillantes :
+1. Une phrase empathique qui rebondit sur ses mots et l'encourage.
+2. Puis enchaîne sur la motivation : "Pour terminer, quelle est ta motivation pour travailler aujourd'hui (forte, moyenne, faible) ?"`;
+                    const res = await this.coachEngine.llmProvider.generate(prompt);
+                    if (res && res.trim()) {
+                        energyText = res.trim();
+                        if (!/motivation/i.test(energyText)) {
+                            energyText += " Pour terminer, quelle est ta motivation pour travailler aujourd'hui (forte, moyenne, faible) ?";
+                        }
+                    }
+                } catch (_) {}
+            }
+
+            if (!energyText) {
+                const energyReformulations = {
+                    high: "Plein d'énergie, c'est idéal pour avancer !",
+                    medium: "Énergie moyenne, c'est stable pour travailler à ton rythme.",
+                    low: "Énergie basse, pense à ménager tes efforts."
+                };
+                const reform = energyReformulations[parsedEnergy] || "C'est bien noté pour ton énergie.";
+                energyText = `${reform} Pour terminer, quelle est ta motivation pour travailler aujourd'hui (forte, moyenne, faible) ?`;
+            }
+
+            await this._sayCoach(energyText, {
                 intent: null,
                 proactive: 'checkin',
                 pendingCheckInStep: 'motivation'
@@ -2706,7 +2776,18 @@ export class App {
 
         // 6. Étape 3 : Motivation & Enregistrement du Check-in authentique
         if (pending.step === 'motivation') {
-            const parsedMotivation = this._parseMotivationRule(trimmed);
+            let parsedMotivation = this._parseMotivationRule(trimmed);
+            if (!parsedMotivation && this.coachEngine && this.coachEngine.llmProvider && trimmed.length >= 4) {
+                try {
+                    const evalPrompt = `Analyse le niveau de motivation pour réviser ou travailler exprimé par l'étudiant dans cette phrase : "${trimmed}".
+Réponds UNIQUEMENT par un seul mot parmi: high, medium, low.
+(high = motivé/déterminé/à fond/envie de réussir, medium = motivation moyenne/correcte/ça va, low = flemme/démotivé/pas envie/difficile)`;
+                    const rawEval = (await this.coachEngine.llmProvider.generate(evalPrompt)).trim().toLowerCase();
+                    if (/high|forte|haute/i.test(rawEval)) parsedMotivation = 'high';
+                    else if (/low|faible|basse/i.test(rawEval)) parsedMotivation = 'low';
+                    else if (/medium|moyen/i.test(rawEval)) parsedMotivation = 'medium';
+                } catch (_) {}
+            }
             if (!parsedMotivation) {
                 return false;
             }
@@ -2737,7 +2818,28 @@ export class App {
             const lE = labels[checkInData.energy]?.energy || checkInData.energy;
             const lMo = labels[checkInData.motivation]?.motivation || checkInData.motivation;
 
-            await this._sayCoach(`Parfait, c'est bien noté ! Ton bilan du jour est enregistré : humeur ${lM}, énergie ${lE}, motivation ${lMo}. Belle journée de travail !`, {
+            let recapText = "";
+            const hasExtraContext = trimmed.length > 15 || trimmed.split(/\s+/).length > 2;
+            if (hasExtraContext && this.coachEngine && this.coachEngine.llmProvider) {
+                try {
+                    const prompt = `Tu es le Coach d'un étudiant. Tu viens de terminer son bilan du jour (humeur: ${lM}, énergie: ${lE}, motivation: ${lMo}).
+L'étudiant vient de te dire pour sa motivation : "${trimmed}".
+Fais-lui une réponse courte (2-3 phrases max) très encourageante et personnalisée qui conclut chaleureusement son bilan du jour en récapitulant : humeur ${lM}, énergie ${lE}, motivation ${lMo}.`;
+                    const res = await this.coachEngine.llmProvider.generate(prompt);
+                    if (res && res.trim()) {
+                        recapText = res.trim();
+                        if (!/enregistr/i.test(recapText)) {
+                            recapText += `\nTon bilan du jour est enregistré : humeur ${lM}, énergie ${lE}, motivation ${lMo}.`;
+                        }
+                    }
+                } catch (_) {}
+            }
+
+            if (!recapText) {
+                recapText = `Parfait, c'est bien noté ! Ton bilan du jour est enregistré : humeur ${lM}, énergie ${lE}, motivation ${lMo}. Belle journée de travail !`;
+            }
+
+            await this._sayCoach(recapText, {
                 intent: null,
                 proactive: 'checkin_saved',
                 checkIn: checkInData
@@ -2921,14 +3023,14 @@ export class App {
     _parseMoodRule(text) {
         if (!text) return null;
         const norm = text.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
-        if (/\b(pas\s+(bien|terrible|top)|mauvais(e)?|mal|triste|deprime(e)?|morose|anxieu(x|se)|stresse(e)?|demotive(e)?|bof|baisse|difficile|dur(e)?|nul(le)?|baisse)\b/.test(norm)) {
-            return 'low';
+        if (/\b(moyen(ne)?|correct(e)?|ca\s+va|neutre|normal(e)?|medium|ok|passable|comme\s+ci\s+comme\s+ca|tranquille|ordinaire)\b/.test(norm)) {
+            return 'medium';
         }
         if (/\b(top|super|tres\s+bon(ne)?|excellente?|bonne?|joyeu(x|se)|en\s+forme|heureu(x|se)|content(e)?|positif|positive|cool|genial(e)?|high|good|parfaite?|ravie?|bien)\b/.test(norm)) {
             return 'high';
         }
-        if (/\b(moyen(ne)?|correct(e)?|ca\s+va|neutre|normal(e)?|medium|ok|passable|comme\s+ci\s+comme\s+ca|tranquille|ordinaire)\b/.test(norm)) {
-            return 'medium';
+        if (/\b(pas\s+(bien|terrible|top)|mauvais(e)?|mal|triste|deprime(e)?|morose|anxieu(x|se)|stresse(e)?|demotive(e)?|bof|baisse|difficile|dur(e)?|nul(le)?|baisse|peur|angoisse(e)?|pression|panique|inquiet(e)?|rattrapage(s)?)\b/.test(norm)) {
+            return 'low';
         }
         return null;
     }
