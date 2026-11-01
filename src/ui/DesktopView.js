@@ -1,4 +1,5 @@
 import { escapeHtml } from '../utils/html.js';
+import { Motion } from './motion.js';
 
 export class DesktopView {
     constructor(containerId, app) {
@@ -323,15 +324,15 @@ export class DesktopView {
             </div>
 
             <!-- 8. RAPPELS DU COACH -->
-            <div class="card bureau-coach-reminders-card" id="desktop-coach-reminders" data-view="chat" style="cursor: pointer;" title="Ouvrir le coach">
-                <div class="card-header" style="display: flex; justify-content: space-between; align-items: center;">
+            <div class="card bureau-coach-reminders-card" id="desktop-coach-reminders" data-view="chat" title="Ouvrir le coach">
+                <div class="card-header bureau-coach-reminders-header">
                     <h3 class="card-title bureau-card-title-icon">
                         <i class="bi bi-bell"></i> Rappels du coach
                     </h3>
-                    <span class="badge" style="font-size: 11px;">Chat &rarr;</span>
+                    <span class="badge bureau-coach-chat-badge">Chat &rarr;</span>
                 </div>
                 <div class="card-body">
-                    <p class="bureau-coach-reminder-text" style="display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; margin: 0; line-height: 1.4; color: var(--text-main);">
+                    <p class="bureau-coach-reminder-text">
                         ${coachReminderText}
                     </p>
                 </div>
@@ -359,24 +360,24 @@ export class DesktopView {
 
 <!-- MODALE SAUVEGARDE & RESTAURATION (ex-Portfolio) -->
 <div id="backup-modal" class="academic-modal-overlay hidden">
-    <div class="academic-modal-window" style="max-width: 500px;">
+    <div class="academic-modal-window bureau-backup-modal-window">
         <div class="academic-modal-header">
             <h3 class="academic-modal-title"><i class="bi bi-shield-check"></i> <span>Sauvegarde & Données</span></h3>
             <button id="backup-modal-close" class="academic-modal-close-btn" aria-label="Fermer">&times;</button>
         </div>
-        <div class="academic-modal-body" style="padding: 20px;">
-            <p style="color: var(--text-secondary); margin-bottom: 20px; font-size: 14px; line-height: 1.5;">
+        <div class="academic-modal-body bureau-backup-modal-body">
+            <p class="bureau-backup-modal-text">
                 Toutes tes données (planning, cours, notes, examens, projets, sessions, habitudes, langues, chat) sont conservées en local sur cet appareil.
             </p>
-            <div style="display: flex; flex-direction: column; gap: 12px;">
-                <button type="button" id="btn-export-data" class="btn btn-primary" style="justify-content: center; padding: 12px; font-weight: 600;">
+            <div class="bureau-backup-actions-col">
+                <button type="button" id="btn-export-data" class="btn btn-primary bureau-btn-export">
                     <i class="bi bi-download"></i> Exporter mes données (.json)
                 </button>
-                <div style="text-align: center; font-size: 12px; color: var(--text-tertiary); text-transform: uppercase;">ou</div>
-                <label for="input-import-data" class="btn btn-outline" style="justify-content: center; padding: 12px; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 8px;">
+                <div class="bureau-backup-divider">ou</div>
+                <label for="input-import-data" class="btn btn-outline bureau-btn-import-label">
                     <i class="bi bi-upload"></i> Importer une sauvegarde (.json)
                 </label>
-                <input type="file" id="input-import-data" accept=".json" style="display: none;">
+                <input type="file" id="input-import-data" accept=".json" hidden>
             </div>
         </div>
     </div>
@@ -455,7 +456,10 @@ export class DesktopView {
         const btnProfile = this.container.querySelector('#btn-profile');
 
         const openBackup = () => {
-            if (backupModal) backupModal.classList.remove('hidden');
+            if (backupModal) {
+                backupModal.classList.remove('hidden');
+                Motion.modalOpen(backupModal);
+            }
         };
         const closeBackup = () => {
             if (backupModal) backupModal.classList.add('hidden');

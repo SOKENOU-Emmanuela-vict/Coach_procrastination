@@ -497,3 +497,73 @@ body.theme-dark [data-univers="bureau"],
     min-width: 44px;
 }
 
+/* Rappels du coach */
+.bureau-coach-reminders-card {
+    cursor: pointer;
+}
+
+.bureau-coach-reminders-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.bureau-coach-chat-badge {
+    font-size: 11px;
+}
+
+.bureau-coach-reminder-text {
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    margin: 0;
+    line-height: 1.4;
+    color: var(--text-primary);
+}
+
+/* Modale Sauvegarde & Restauration */
+.bureau-backup-modal-window {
+    max-width: 500px;
+}
+
+.bureau-backup-modal-body {
+    padding: 20px;
+}
+
+.bureau-backup-modal-text {
+    color: var(--text-secondary);
+    margin-bottom: 20px;
+    font-size: 14px;
+    line-height: 1.5;
+}
+
+.bureau-backup-actions-col {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.bureau-btn-export {
+    justify-content: center;
+    padding: 12px;
+    font-weight: 600;
+}
+
+.bureau-backup-divider {
+    text-align: center;
+    font-size: 12px;
+    color: var(--text-tertiary);
+    text-transform: uppercase;
+}
+
+.bureau-btn-import-label {
+    justify-content: center;
+    padding: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
