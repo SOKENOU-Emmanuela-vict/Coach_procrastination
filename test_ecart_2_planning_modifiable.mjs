@@ -179,6 +179,7 @@ async function runTests() {
     const planningMonthView = new PlanningView(mockContainer, app);
     planningMonthView.viewMode = 'month';
     planningMonthView.render({
+        selectedDate: "2026-10-15",
         calendarData: {
             events: [
                 { id: "e2", title: "Test Calendar", date: "2026-10-15", startTime: "10:00", endTime: "11:00", type: "course" }
@@ -208,3 +209,4 @@ runTests().catch(err => {
     console.error("❌ Erreur test écart 2:", err);
     process.exit(1);
 });
+

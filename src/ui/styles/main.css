@@ -656,32 +656,45 @@ h1, h2, h3, h4, h5, h6 {
     }
     .bureau-sidebar {
         width: 100%;
-        padding: 8px 12px;
+        padding: 6px 8px;
         flex-direction: row;
         align-items: center;
-        overflow-x: auto;
         position: sticky;
         top: 0;
         z-index: 50;
         box-shadow: var(--shadow-sm);
         border-right: none;
         border-bottom: 1px solid var(--border-subtle);
+        background: var(--bg-sidebar);
     }
     .bureau-brand,
     .bureau-xp-box {
         display: none !important;
     }
     .bureau-nav {
-        flex-direction: row;
-        overflow-x: auto;
-        gap: 4px;
+        display: grid;
+        grid-template-columns: repeat(6, 1fr);
+        gap: 2px;
         width: 100%;
+        margin: 0;
+        padding: 0;
     }
     .bureau-nav-item {
-        padding: 8px 10px;
-        font-size: var(--text-xs);
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        padding: 4px 1px;
+        font-size: 10px;
+        line-height: 1.1;
+        gap: 3px;
+        text-align: center;
         white-space: nowrap;
-        gap: 6px;
+        border-radius: var(--btn-radius);
+    }
+    .bureau-nav-item i {
+        font-size: 16px;
+        line-height: 1;
     }
     .bureau-content {
         padding: 20px 16px;

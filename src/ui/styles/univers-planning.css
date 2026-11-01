@@ -336,7 +336,16 @@
 
 .planning-event-block-actions {
     display: inline-flex;
-    gap: 2px;
+    gap: 3px;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.15s ease;
+}
+
+.planning-event-block:hover .planning-event-block-actions,
+.planning-event-block:focus-within .planning-event-block-actions {
+    opacity: 1;
+    pointer-events: auto;
 }
 
 .planning-event-block-time {
@@ -965,8 +974,21 @@
         min-height: 60px;
     }
     .calendar-event-pill {
-        font-size: 9px;
-        padding: 1px 3px;
+        font-size: 10px;
+        padding: 2px 4px;
+        min-height: 18px;
+    }
+    .calendar-event-pill-btns {
+        display: none !important;
+    }
+    .calendar-event-pill-title {
+        display: block;
+        width: 100%;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        font-size: 10px;
+        line-height: 1.2;
     }
     .planning-topbar {
         flex-direction: column;

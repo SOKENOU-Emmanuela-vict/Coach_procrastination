@@ -49,22 +49,16 @@ export class PlanningView {
         const projects = state.calendarData?.projects || [];
         const assessments = state.calendarData?.assessments || [];
 
-        // Synchronisation robuste du mois si l'utilisateur n'a pas navigué manuellement
-        if (state.selectedDate && !this._userNavigatedMonth) {
-            this.currentYear = now.getFullYear();
-            this.currentMonth = now.getMonth();
-        } else if (!this._userNavigatedMonth && rawEvents.length > 0) {
-            const hasEventsThisMonth = rawEvents.some(e => {
-                if (!e.date) return false;
-                const d = parseLocalDate(e.date);
-                return d.getFullYear() === this.currentYear && d.getMonth() === this.currentMonth;
-            });
-            if (!hasEventsThisMonth) {
-                const firstEventDate = parseLocalDate(rawEvents[0].date);
-                if (firstEventDate && !isNaN(firstEventDate.getTime())) {
-                    this.currentYear = firstEventDate.getFullYear();
-                    this.currentMonth = firstEventDate.getMonth();
-                }
+        // Synchronisation du mois : date sélectionnée si spécifiée, sinon toujours la date du jour
+        const today = this.app?.getPedagogicalDateObject ? this.app.getPedagogicalDateObject() : new Date();
+        if (!this._userNavigatedMonth) {
+            if (state.selectedDate) {
+                const d = parseLocalDate(state.selectedDate);
+                this.currentYear = d.getFullYear();
+                this.currentMonth = d.getMonth();
+            } else {
+                this.currentYear = today.getFullYear();
+                this.currentMonth = today.getMonth();
             }
         }
 
@@ -137,9 +131,9 @@ export class PlanningView {
                 <div class="planning-event-block-header">
                     <strong class="planning-event-block-title">${escapeHtml(e.title || e.type)}</strong>
                     <div class="planning-event-block-actions">
-                        ${isSch ? `<button type="button" class="btn-start-focus planning-icon-btn icon-focus" data-id="${escapeHtml(e.id)}" title="Démarrer une session">▶️</button>` : ''}
-                        <button type="button" class="btn-edit-event planning-icon-btn" data-id="${escapeHtml(e.id)}" title="Modifier">✏️</button>
-                        <button type="button" class="btn-delete-event planning-icon-btn icon-del" data-id="${escapeHtml(e.id)}" title="Supprimer">🗑️</button>
+                        ${isSch ? `<button type="button" class="btn-start-focus planning-icon-btn icon-focus" data-id="${escapeHtml(e.id)}" title="Démarrer une session"><i class="bi bi-play-fill"></i></button>` : ''}
+                        <button type="button" class="btn-edit-event planning-icon-btn" data-id="${escapeHtml(e.id)}" title="Modifier"><i class="bi bi-pencil"></i></button>
+                        <button type="button" class="btn-delete-event planning-icon-btn icon-del" data-id="${escapeHtml(e.id)}" title="Supprimer"><i class="bi bi-trash"></i></button>
                     </div>
                 </div>
                 <span class="planning-event-block-time">${escapeHtml(e.startTime)} - ${escapeHtml(e.endTime || '')}</span>
@@ -188,8 +182,8 @@ export class PlanningView {
                 <div class="planning-current-header">
                     <strong class="planning-current-title">${escapeHtml(currentEvent.title || currentEvent.type)}</strong>
                     <div class="planning-event-block-actions">
-                        <button type="button" class="btn-edit-event planning-btn-icon-inline" data-id="${escapeHtml(currentEvent.id)}" title="Modifier">✏️</button>
-                        <button type="button" class="btn-delete-event planning-btn-icon-inline danger" data-id="${escapeHtml(currentEvent.id)}" title="Supprimer">🗑️</button>
+                        <button type="button" class="btn-edit-event planning-btn-icon-inline" data-id="${escapeHtml(currentEvent.id)}" title="Modifier"><i class="bi bi-pencil"></i></button>
+                        <button type="button" class="btn-delete-event planning-btn-icon-inline danger" data-id="${escapeHtml(currentEvent.id)}" title="Supprimer"><i class="bi bi-trash"></i></button>
                     </div>
                 </div>
                 <div class="planning-current-time"><i class="bi bi-clock"></i> ${currentEvent.startTime} - ${currentEvent.endTimeStr}</div>
@@ -214,8 +208,8 @@ export class PlanningView {
                     <div class="planning-upcoming-meta">
                         <span class="planning-upcoming-time">${e.startTime}</span>
                         ${focusBtn}
-                        <button type="button" class="btn-edit-event planning-btn-icon-inline" data-id="${escapeHtml(e.id)}" title="Modifier">✏️</button>
-                        <button type="button" class="btn-delete-event planning-btn-icon-inline danger" data-id="${escapeHtml(e.id)}" title="Supprimer">🗑️</button>
+                        <button type="button" class="btn-edit-event planning-btn-icon-inline" data-id="${escapeHtml(e.id)}" title="Modifier"><i class="bi bi-pencil"></i></button>
+                        <button type="button" class="btn-delete-event planning-btn-icon-inline danger" data-id="${escapeHtml(e.id)}" title="Supprimer"><i class="bi bi-trash"></i></button>
                     </div>
                 </div>
                 `;
@@ -321,8 +315,8 @@ export class PlanningView {
                             <div class="calendar-event-pill ${pillModifier}" data-id="${escapeHtml(e.id)}" title="${escapeHtml(e.title || '')} (${escapeHtml(e.startTime || '')}-${escapeHtml(e.endTime || '')})">
                                 <span class="calendar-event-pill-title">${escapeHtml(e.startTime || '')} ${escapeHtml(e.title || e.type || '')}</span>
                                 <span class="calendar-event-pill-btns">
-                                    <button type="button" class="btn-edit-event calendar-event-pill-btn" data-id="${escapeHtml(e.id)}" title="Modifier">✏️</button>
-                                    <button type="button" class="btn-delete-event calendar-event-pill-btn" data-id="${escapeHtml(e.id)}" title="Supprimer">🗑️</button>
+                                    <button type="button" class="btn-edit-event calendar-event-pill-btn" data-id="${escapeHtml(e.id)}" title="Modifier"><i class="bi bi-pencil"></i></button>
+                                    <button type="button" class="btn-delete-event calendar-event-pill-btn" data-id="${escapeHtml(e.id)}" title="Supprimer"><i class="bi bi-trash"></i></button>
                                 </span>
                             </div>`;
                         });
@@ -400,8 +394,8 @@ export class PlanningView {
                                     <span class="planning-summary-item-sub">${escapeHtml(e.startTime || '')} - ${escapeHtml(e.endTime || '')}</span>
                                 </div>
                                 <div class="planning-event-block-actions">
-                                    <button type="button" class="btn-edit-event planning-btn-icon-inline" data-id="${escapeHtml(e.id)}" title="Modifier">✏️</button>
-                                    <button type="button" class="btn-delete-event planning-btn-icon-inline danger" data-id="${escapeHtml(e.id)}" title="Supprimer">🗑️</button>
+                                    <button type="button" class="btn-edit-event planning-btn-icon-inline" data-id="${escapeHtml(e.id)}" title="Modifier"><i class="bi bi-pencil"></i></button>
+                                    <button type="button" class="btn-delete-event planning-btn-icon-inline danger" data-id="${escapeHtml(e.id)}" title="Supprimer"><i class="bi bi-trash"></i></button>
                                 </div>
                             </div>`;
                         }).join('') : '<div class="planning-side-empty">Aucune session prévue.</div>'}
@@ -611,6 +605,12 @@ export class PlanningView {
                 const mode = btn.getAttribute('data-planning-mode');
                 if (mode && mode !== this.viewMode) {
                     this.viewMode = mode;
+                    if (mode === 'month') {
+                        this._userNavigatedMonth = false;
+                        const today = this.app?.getPedagogicalDateObject ? this.app.getPedagogicalDateObject() : new Date();
+                        this.currentYear = today.getFullYear();
+                        this.currentMonth = today.getMonth();
+                    }
                     try {
                         if (typeof localStorage !== 'undefined') {
                             localStorage.setItem('planning_view_mode', mode);
@@ -673,9 +673,9 @@ export class PlanningView {
         if (btnTodayMonth) {
             btnTodayMonth.addEventListener('click', () => {
                 this._userNavigatedMonth = false;
-                const n = new Date();
-                this.currentYear = n.getFullYear();
-                this.currentMonth = n.getMonth();
+                const today = this.app?.getPedagogicalDateObject ? this.app.getPedagogicalDateObject() : new Date();
+                this.currentYear = today.getFullYear();
+                this.currentMonth = today.getMonth();
                 this.render(state);
             });
         }
@@ -701,6 +701,19 @@ export class PlanningView {
                 const dStr = cell.getAttribute('data-date');
                 if (dStr) {
                     this.app.openEventEditor({ date: dStr });
+                }
+            });
+        });
+
+        // BINDING CLIC DIRECT SUR PASTILLE EN VUE MOIS (OUVRE MODALE MODIFICATION)
+        this.container.querySelectorAll('.calendar-event-pill').forEach(pill => {
+            pill.addEventListener('click', (ev) => {
+                if (ev.target.closest('button')) return;
+                ev.stopPropagation();
+                const eventId = pill.getAttribute('data-id');
+                const eventObj = rawEvents.find(e => String(e.id) === String(eventId));
+                if (eventObj) {
+                    this.app.openEventEditor(eventObj);
                 }
             });
         });
@@ -1070,7 +1083,7 @@ export class PlanningView {
                     </select>
                 </td>
                 <td class="text-center">
-                    <button type="button" class="btn btn-danger btn-sm tt-row-del" title="Supprimer la ligne">🗑️</button>
+                    <button type="button" class="btn btn-danger btn-sm tt-row-del" title="Supprimer la ligne"><i class="bi bi-trash"></i></button>
                 </td>
             `;
             tr.querySelector('.tt-row-del').addEventListener('click', () => {
@@ -1161,7 +1174,7 @@ export class PlanningView {
                 <tr data-row="${escapeHtml(r.id)}" class="${r.status === 'invalid' ? 'planning-modal-row-invalid' : ''}">
                     <td><input type="checkbox" class="tt-include" ${r.include ? 'checked' : ''} ${r.status === 'invalid' ? 'disabled' : ''}></td>
                     <td class="tt-cell-time">${escapeHtml(fmt(r.date))}<br><span class="text-muted">${escapeHtml(r.startTime || '?')}–${escapeHtml(r.endTime || '?')}</span></td>
-                    <td><strong>${escapeHtml(r.title || '?')}</strong>${r.teacher ? `<br><span class="text-sm text-muted">${escapeHtml(r.teacher)}</span>` : ''}${r.room ? `<br><span class="text-sm text-muted">📍 ${escapeHtml(r.room)}</span>` : ''}${flags.length ? `<br><span class="planning-flag-warning">⚠ ${escapeHtml(flags.join(', '))}</span>` : ''}</td>
+                    <td><strong>${escapeHtml(r.title || '?')}</strong>${r.teacher ? `<br><span class="text-sm text-muted">${escapeHtml(r.teacher)}</span>` : ''}${r.room ? `<br><span class="text-sm text-muted"><i class="bi bi-geo-alt"></i> ${escapeHtml(r.room)}</span>` : ''}${flags.length ? `<br><span class="planning-flag-warning"><i class="bi bi-exclamation-triangle"></i> ${escapeHtml(flags.join(', '))}</span>` : ''}</td>
                     ${hoursCol}
                     <td><select class="tt-subject form-input form-select-sm">${options}</select>${r.componentName ? `<br><span class="text-sm text-muted">${escapeHtml(r.componentName)}</span>` : ''}</td>
                 </tr>`;
@@ -1187,7 +1200,7 @@ export class PlanningView {
             </div>
             ${preview.replacesExistingImport ? `<div class="alert alert-warning mb-2"><i class="bi bi-arrow-repeat"></i> Cette semaine a déjà été importée : ses cours seront remplacés.</div>` : ''}
             ${unreadWarningHtml}
-            ${(preview.warnings || []).filter(w => !w.includes('ligne(s) non lue(s)')).map(w => `<div class="alert alert-warning mb-1"><i class="bi bi-exclamation-triangle"></i> ⚠ ${escapeHtml(w)}</div>`).join('')}
+            ${(preview.warnings || []).filter(w => !w.includes('ligne(s) non lue(s)')).map(w => `<div class="alert alert-warning mb-1"><i class="bi bi-exclamation-triangle"></i> ${escapeHtml(w)}</div>`).join('')}
             <p class="modal-hint my-2">Vérifie chaque ligne, coche les séances à ajouter, corrige la matière si besoin, puis valide.</p>
             <div class="table-container planning-modal-preview-table-wrap">
                 <table class="data-table">

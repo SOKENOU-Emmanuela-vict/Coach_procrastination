@@ -52,3 +52,4 @@ assert.strictEqual(tweenCalled, null, "Aucune animation ne doit être jouée qua
 console.log("✅ 3. Respect strict de prefers-reduced-motion validé");
 
 console.log("\n🎉 TOUS LES TESTS MOTION SONT VERTS !");
+
