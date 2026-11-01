@@ -1,12 +1,16 @@
 import assert from 'assert';
+import fs from 'fs';
 import {
     GeminiProvider,
     GEMINI_PRIMARY_MODEL,
     GEMINI_FALLBACK_MODELS,
     PREFERRED_MODELS,
-    resetSessionModel
+    resetSessionModel,
+    notifyCspViolation,
+    clearCspViolation
 } from './src/ai/GeminiProvider.js';
 import { CoachLocalReply } from './src/ai/CoachLocalReply.js';
+import { CoachChatView } from './src/ui/CoachChatView.js';
 
 console.log("=== TESTS CORRECTIF CLÉ GEMINI & LISTMODELS ===");
 
@@ -62,11 +66,9 @@ console.log("✅ PASS: 1. Modèle principal gemini-3.8-flash et liste de repli c
 
     globalThis.fetch = async (url, options) => {
         if (url.includes('/models?')) {
-            // ListModels échoue ou renvoie liste par défaut
             return { ok: false, status: 404, json: async () => ({ error: { message: "ListModels unavailable" } }) };
         }
         
-        // generateContent call
         const match = url.match(/models\/([^:]+):generateContent/);
         const m = match ? match[1] : '';
         requestedModels.push(m);
@@ -91,7 +93,7 @@ console.log("✅ PASS: 1. Modèle principal gemini-3.8-flash et liste de repli c
     };
 
     const provider = new GeminiProvider("AIzaSyFakeKey123");
-    provider.retryDelayMs = 0; // Pas de délai pour les tests
+    provider.retryDelayMs = 0;
     const text = await provider.generate("Test prompt");
     
     assert(text.includes("gemini-3.6-flash"), "La réponse doit provenir du modèle de repli");
@@ -162,4 +164,170 @@ console.log("✅ PASS: 1. Modèle principal gemini-3.8-flash et liste de repli c
     console.log("✅ PASS: 5. Message d'erreur du chat clair, en français avec conseil 'Teste ta clé dans les réglages'");
 }
 
-console.log("\n🎉 TOUS LES TESTS DE LA CLÉ GEMINI SONT PASSÉS AVEC SUCCÈS !");
+// 6. Diagnostic précis des erreurs fetch (status 0) : CSP, CORS, hors-ligne, DNS, extension
+{
+    const originalFetch = globalThis.fetch;
+    const testKeyAIza = "AIzaSySecretKey999";
+
+    // 6a. Bloqué par la CSP
+    notifyCspViolation('https://generativelanguage.googleapis.com');
+    globalThis.fetch = async () => { throw new TypeError('Failed to fetch due to CSP'); };
+    const pCSP = new GeminiProvider(testKeyAIza);
+    const resCSP = await pCSP.testKey();
+    assert.strictEqual(resCSP.ok, false);
+    assert(resCSP.message.includes("CSP") || resCSP.message.includes("politique de sécurité"), "Doit identifier le blocage CSP");
+    assert(resCSP.message.includes("generativelanguage"), "Doit mentionner l'hôte joint");
+    assert(resCSP.message.includes("AIza"), "Doit mentionner le type de clé AIza");
+    assert(!resCSP.message.includes(testKeyAIza), "Ne doit JAMAIS révéler la clé secrète");
+    clearCspViolation();
+    console.log("✅ PASS: 6a. Diagnostic échec fetch : bloqué par la CSP (securitypolicyviolation)");
+
+    // 6b. Erreur CORS ou réponse opaque
+    globalThis.fetch = async () => { throw new TypeError('Failed to fetch (CORS header missing)'); };
+    const pCORS = new GeminiProvider(testKeyAIza);
+    const resCORS = await pCORS.testKey();
+    assert.strictEqual(resCORS.ok, false);
+    assert(resCORS.message.includes("CORS") || resCORS.message.includes("opaque"), "Doit identifier une erreur CORS");
+    assert(resCORS.message.includes("generativelanguage"), "Doit mentionner l'hôte generativelanguage");
+    assert(resCORS.message.includes("AIza"), "Doit mentionner le type AIza");
+    assert(!resCORS.message.includes(testKeyAIza), "Ne doit pas révéler la clé");
+    console.log("✅ PASS: 6b. Diagnostic échec fetch : erreur CORS / opaque");
+
+    // 6c. Navigateur hors-ligne (navigator.onLine === false)
+    const originalOnLineDesc = Object.getOwnPropertyDescriptor(globalThis.navigator || {}, 'onLine');
+    try {
+        Object.defineProperty(globalThis.navigator, 'onLine', { value: false, configurable: true });
+    } catch (_) {}
+    globalThis.fetch = async () => { throw new TypeError('Failed to fetch (offline)'); };
+    const pOffline = new GeminiProvider(testKeyAIza);
+    const resOffline = await pOffline.testKey();
+    assert.strictEqual(resOffline.ok, false);
+    assert(resOffline.message.includes("hors-ligne") || resOffline.message.includes("connexion Internet"), "Doit identifier le mode hors-ligne");
+    assert(resOffline.message.includes("generativelanguage") && resOffline.message.includes("AIza"));
+    assert(!resOffline.message.includes(testKeyAIza));
+    if (originalOnLineDesc) {
+        Object.defineProperty(globalThis.navigator, 'onLine', originalOnLineDesc);
+    } else {
+        try { Object.defineProperty(globalThis.navigator, 'onLine', { value: true, configurable: true }); } catch (_) {}
+    }
+    console.log("✅ PASS: 6c. Diagnostic échec fetch : navigateur hors-ligne (navigator.onLine === false)");
+
+    // 6d. Nom d'hôte introuvable / échec DNS
+    globalThis.fetch = async () => {
+        const err = new TypeError('fetch failed');
+        err.cause = new Error('getaddrinfo ENOTFOUND generativelanguage.googleapis.com');
+        throw err;
+    };
+    const pDNS = new GeminiProvider(testKeyAIza);
+    const resDNS = await pDNS.testKey();
+    assert.strictEqual(resDNS.ok, false);
+    assert(resDNS.message.includes("Nom d'hôte introuvable") || resDNS.message.includes("DNS"), "Doit identifier l'erreur DNS/hôte introuvable");
+    assert(resDNS.message.includes("generativelanguage") && resDNS.message.includes("AIza"));
+    assert(!resDNS.message.includes(testKeyAIza));
+    console.log("✅ PASS: 6d. Diagnostic échec fetch : nom d'hôte introuvable (échec DNS)");
+
+    // 6e. Connexion refusée (ECONNREFUSED)
+    globalThis.fetch = async () => {
+        const err = new TypeError('fetch failed');
+        err.cause = new Error('connect ECONNREFUSED 127.0.0.1:443');
+        throw err;
+    };
+    const pRefused = new GeminiProvider(testKeyAIza);
+    const resRefused = await pRefused.testKey();
+    assert.strictEqual(resRefused.ok, false);
+    assert(resRefused.message.includes("refusée"), "Doit identifier la connexion refusée");
+    assert(resRefused.message.includes("generativelanguage") && resRefused.message.includes("AIza"));
+    console.log("✅ PASS: 6e. Diagnostic échec fetch : connexion refusée");
+
+    // 6f. Extension qui bloque (ERR_BLOCKED_BY_CLIENT)
+    globalThis.fetch = async () => { throw new TypeError('net::ERR_BLOCKED_BY_CLIENT'); };
+    const pExt = new GeminiProvider(testKeyAIza);
+    const resExt = await pExt.testKey();
+    assert.strictEqual(resExt.ok, false);
+    assert(resExt.message.includes("extension") || resExt.message.includes("bloqueur"), "Doit identifier le blocage par une extension");
+    assert(resExt.message.includes("generativelanguage") && resExt.message.includes("AIza"));
+    assert(!resExt.message.includes(testKeyAIza));
+    console.log("✅ PASS: 6f. Diagnostic échec fetch : extension qui bloque (ERR_BLOCKED_BY_CLIENT)");
+
+    globalThis.fetch = originalFetch;
+}
+
+// 7. Clé commençant par AQ. : essai vers aiplatform puis generativelanguage puis message d'aide limpide
+{
+    const originalFetch = globalThis.fetch;
+    const testKeyAQ = "AQ.TokenSecretVertex123";
+    const triedUrls = [];
+
+    globalThis.fetch = async (url) => {
+        triedUrls.push(String(url));
+        // Échec sur les deux endpoints
+        return { ok: false, status: 403, json: async () => ({ error: { message: "Permission denied for this origin" } }) };
+    };
+
+    const pAQ = new GeminiProvider(testKeyAQ);
+    const resAQ = await pAQ.testKey();
+
+    assert.strictEqual(resAQ.ok, false, "testKey doit échouer pour la clé AQ. bloquée");
+    assert(triedUrls.some(u => u.includes('aiplatform.googleapis.com')), "Doit avoir tenté l'adresse aiplatform");
+    assert(triedUrls.some(u => u.includes('generativelanguage.googleapis.com')), "Doit avoir tenté l'autre adresse (generativelanguage)");
+    assert(resAQ.message.includes("Cette clé de type AQ. ne fonctionne pas depuis le navigateur ; crée une clé AIza dans Google AI Studio"),
+        "Doit donner exactement le message d'aide attendu pour les clés AQ.");
+    assert(!resAQ.message.includes(testKeyAQ), "La clé AQ. ne doit jamais être affichée");
+
+    globalThis.fetch = originalFetch;
+    console.log("✅ PASS: 7. Clé AQ. : essai sur les deux adresses + message d'orientation vers Google AI Studio");
+}
+
+// 8. Distinction fine de l'erreur 403 : API non activée vs Clé refusée
+{
+    const originalFetch = globalThis.fetch;
+
+    // 8a. Message contenant 'has not been used'
+    globalThis.fetch = async () => ({
+        ok: false,
+        status: 403,
+        json: async () => ({ error: { message: "Generative Language API has not been used in project 12345 before or it is disabled." } })
+    });
+    const resUsed = await (new GeminiProvider("AIzaSyKeyTest403")).testKey();
+    assert(resUsed.message.includes("API Gemini non activée"), "Doit distinguer 'API Gemini non activée' pour 'has not been used'");
+
+    // 8b. Message contenant 'disabled'
+    globalThis.fetch = async () => ({
+        ok: false,
+        status: 403,
+        json: async () => ({ error: { message: "The service is disabled for this project" } })
+    });
+    const resDisabled = await (new GeminiProvider("AIzaSyKeyTest403")).testKey();
+    assert(resDisabled.message.includes("API Gemini non activée"), "Doit distinguer 'API Gemini non activée' pour 'disabled'");
+
+    // 8c. Message contenant 'PERMISSION_DENIED'
+    globalThis.fetch = async () => ({
+        ok: false,
+        status: 403,
+        json: async () => ({ error: { message: "PERMISSION_DENIED: API is not activated" } })
+    });
+    const resPerm = await (new GeminiProvider("AIzaSyKeyTest403")).testKey();
+    assert(resPerm.message.includes("API Gemini non activée"), "Doit distinguer 'API Gemini non activée' pour 'PERMISSION_DENIED'");
+
+    // 8d. Message d'une clé révoquée / expirée (autre message)
+    globalThis.fetch = async () => ({
+        ok: false,
+        status: 403,
+        json: async () => ({ error: { message: "The provided API key is expired or revoked." } })
+    });
+    const resRevoked = await (new GeminiProvider("AIzaSyKeyTest403")).testKey();
+    assert(resRevoked.message.includes("Clé API invalide ou refusée"), "Doit qualifier de clé invalide/refusée pour une expiration");
+
+    globalThis.fetch = originalFetch;
+    console.log("✅ PASS: 8. Erreur 403 : distinction fine entre 'API Gemini non activée' et 'clé refusée'");
+}
+
+// 9. Absence de doublon de l'id #coach-api-key-status
+{
+    const fileContent = fs.readFileSync('src/ui/CoachChatView.js', 'utf8');
+    const matches = fileContent.match(/id="coach-api-key-status"/g);
+    assert.strictEqual(matches ? matches.length : 0, 1, "Il ne doit y avoir qu'une seule occurrence de id='coach-api-key-status'");
+    console.log("✅ PASS: 9. Vérification de l'id unique #coach-api-key-status dans CoachChatView.js");
+}
+
+console.log("\n🎉 TOUS LES TESTS DU CORRECTIF CLÉ GEMINI SONT PASSÉS AVEC SUCCÈS !");

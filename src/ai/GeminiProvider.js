@@ -23,6 +23,109 @@ export function resetSessionModel() {
     sessionSelectedModel = null;
 }
 
+/** Écoute de l'événement securitypolicyviolation (CSP) dans le navigateur */
+let lastCspViolation = null;
+
+if (typeof window !== 'undefined' && typeof window.addEventListener === 'function') {
+    window.addEventListener('securitypolicyviolation', (e) => {
+        const uri = String(e.blockedURI || '');
+        if (uri.includes('googleapis.com') || uri.includes('aiplatform') || uri.includes('generativelanguage')) {
+            lastCspViolation = { uri, timestamp: Date.now() };
+            window.__lastCspViolationForGemini = true;
+        }
+    });
+}
+
+/** Helper de test pour simuler une violation CSP dans Node ou le navigateur */
+export function notifyCspViolation(uri = 'https://generativelanguage.googleapis.com') {
+    lastCspViolation = { uri, timestamp: Date.now() };
+    if (typeof window !== 'undefined') window.__lastCspViolationForGemini = true;
+}
+
+export function clearCspViolation() {
+    lastCspViolation = null;
+    if (typeof window !== 'undefined') window.__lastCspViolationForGemini = false;
+}
+
+/** Extrait le nom d'hôte cible joint (generativelanguage, aiplatform, etc.) */
+export function extractTargetHostname(url) {
+    const s = String(url || '');
+    if (s.includes('aiplatform.googleapis.com') || s.includes('aiplatform')) return 'aiplatform.googleapis.com';
+    if (s.includes('generativelanguage.googleapis.com') || s.includes('generativelanguage')) return 'generativelanguage.googleapis.com';
+    try {
+        const u = new URL(s);
+        if (u.hostname) return u.hostname;
+    } catch (_) {}
+    return 'generativelanguage.googleapis.com';
+}
+
+/** Identifie le type de clé (AIza, AQ., sk-, ou personnalisé) sans jamais révéler la clé */
+export function detectKeyType(key) {
+    const k = String(key || '').trim();
+    if (k.startsWith('AQ.')) return 'AQ.';
+    if (k.startsWith('AIza')) return 'AIza';
+    if (/^sk-/i.test(k)) return 'sk-';
+    if (k.length > 0) return 'Personnalisée';
+    return 'Aucune';
+}
+
+/**
+ * Analyse la cause réelle d'un échec de fetch (status 0).
+ * Distingue : CSP, hors-ligne, extension, DNS/connexion refusée, CORS/réponse opaque, timeout.
+ */
+export function diagnoseFetchFailure(error, targetUrl = '', key = '') {
+    const raw = String((error && error.message) || error || '');
+    const cause = error && error.cause ? String(error.cause.message || error.cause) : '';
+    const detail = error && error.detail ? String(error.detail) : '';
+    const full = `${raw} ${cause} ${detail}`;
+    const hostname = extractTargetHostname(targetUrl);
+    const keyType = detectKeyType(key);
+
+    let reason = '';
+    let code = 'NETWORK';
+
+    const recentCsp = (lastCspViolation && (Date.now() - lastCspViolation.timestamp < 10000)) ||
+                      (typeof window !== 'undefined' && window.__lastCspViolationForGemini);
+    const isCsp = recentCsp || /securitypolicyviolation|content security policy|csp|policy violation/i.test(full) || (error && error.name === 'SecurityError');
+
+    if (isCsp) {
+        reason = "Requête bloquée par la politique de sécurité (CSP) du navigateur";
+        code = 'CSP_BLOCKED';
+    } else if ((typeof navigator !== 'undefined' && navigator && navigator.onLine === false) || /navigator\.onLine === false|hors-ligne|offline/i.test(full)) {
+        reason = "Navigateur hors-ligne (pas de connexion Internet sur l'appareil)";
+        code = 'OFFLINE';
+    } else if (/ERR_BLOCKED_BY_CLIENT|blocked by client|extension|adblock|ublock/i.test(full)) {
+        reason = "Requête bloquée par une extension du navigateur (bloqueur de publicités ou antivirus)";
+        code = 'EXTENSION_BLOCKED';
+    } else if (/ENOTFOUND|getaddrinfo|ERR_NAME_NOT_RESOLVED/i.test(full)) {
+        reason = "Nom d'hôte introuvable (échec de résolution DNS)";
+        code = 'DNS_NOT_FOUND';
+    } else if (/ECONNREFUSED|ERR_CONNECTION_REFUSED|connexion refusée/i.test(full)) {
+        reason = "Connexion refusée par le serveur distant";
+        code = 'CONN_REFUSED';
+    } else if (/cors|opaque|access-control-allow-origin/i.test(full) || (typeof window !== 'undefined' && /failed to fetch|fetch failed/i.test(full))) {
+        reason = "Erreur CORS ou réponse opaque (l'accès direct depuis le navigateur est bloqué par Google sur cet hôte)";
+        code = 'CORS_ERROR';
+    } else if (/timeout|délai|abort/i.test(full)) {
+        reason = "Gemini n'a pas répondu à temps (délai dépassé)";
+        code = 'TIMEOUT';
+    } else {
+        reason = "Connexion impossible à l'API";
+        code = 'NETWORK';
+    }
+
+    const hostNote = ` [Hôte joint : ${hostname} | Type de clé : ${keyType}]`;
+    const message = `${reason}${hostNote}`;
+
+    return {
+        code,
+        reason,
+        hostname,
+        keyType,
+        text: message
+    };
+}
+
 /**
  * Erreur Gemini lisible : status HTTP (0 = réseau / délai dépassé), code court et message en français pour l'utilisatrice.
  * Les messages ne contiennent jamais la clé.
@@ -39,13 +142,16 @@ export class GeminiError extends Error {
 }
 
 /** Code court + explication en français selon le status HTTP (ou l'absence de réponse). */
-export function describeGeminiFailure(status, rawMessage = '') {
+export function describeGeminiFailure(status, rawMessage = '', context = {}) {
     const raw = String(rawMessage || '');
     if (/sk-|openai/i.test(raw)) return { code: 'AUTH', text: 'cette clé commence par « sk- » (clé OpenAI) ; utilise une clé Google (AI Studio ou Vertex AI « AQ.… »)' };
     if (status === 503 || /high demand|overloaded|unavailable/i.test(raw)) return { code: 'OVERLOADED', text: 'les serveurs de Gemini sont saturés' };
     if (status === 429 || /quota|rate limit|resource.?exhausted/i.test(raw)) return { code: 'QUOTA', text: 'le quota gratuit de la clé est épuisé pour le moment' };
-    if (status === 401 || status === 403 || /api key|permission|unauthori[sz]ed/i.test(raw)) {
-        if (/API not enabled|not activated|SERVICE_DISABLED/i.test(raw)) {
+    if (status === 401) {
+        return { code: 'AUTH', text: 'la clé Gemini est refusée (invalide ou révoquée)' };
+    }
+    if (status === 403) {
+        if (/has not been used|disabled|PERMISSION_DENIED|API not enabled|not activated|SERVICE_DISABLED/i.test(raw)) {
             return { code: 'AUTH', text: "l'API Gemini n'est pas activée sur ce projet Google Cloud" };
         }
         return { code: 'AUTH', text: 'la clé Gemini est refusée (invalide ou révoquée)' };
@@ -54,7 +160,10 @@ export function describeGeminiFailure(status, rawMessage = '') {
     if (status === 400) return { code: 'BAD_REQUEST', text: 'Gemini a refusé la requête' };
     if (status >= 500) return { code: 'SERVER', text: 'Gemini a rencontré une erreur interne' };
     if (status === 0 && /timeout|délai|abort/i.test(raw)) return { code: 'TIMEOUT', text: "Gemini n'a pas répondu à temps" };
-    if (status === 0) return { code: 'NETWORK', text: 'pas de connexion à Internet (ou Gemini injoignable)' };
+    if (status === 0) {
+        const diag = diagnoseFetchFailure(rawMessage, context.url, context.key);
+        return { code: diag.code === 'TIMEOUT' ? 'TIMEOUT' : 'NETWORK', text: diag.text, diag };
+    }
     return { code: 'UNKNOWN', text: 'erreur inattendue de Gemini' };
 }
 
@@ -124,18 +233,20 @@ export class GeminiProvider extends LLMProvider {
 
         const controller = typeof AbortController === 'function' ? new AbortController() : null;
         const timer = controller ? setTimeout(() => controller.abort(), timeoutMs) : null;
+        const targetUrl = this._modelsUrl(key);
         let response;
         try {
-            response = await fetch(this._modelsUrl(key), {
+            response = await fetch(targetUrl, {
                 method: 'GET',
                 headers: { 'Content-Type': 'application/json' },
                 ...(controller ? { signal: controller.signal } : {})
             });
         } catch (e) {
             const aborted = e && (e.name === 'AbortError' || /abort/i.test(String(e.message)));
-            const raw = aborted ? 'timeout' : String((e && e.message) || e);
-            const d = describeGeminiFailure(0, raw);
-            throw new GeminiError(d.text, { status: 0, code: d.code, detail: this._safe(raw, key) });
+            const raw = aborted ? 'timeout' : e;
+            const d = describeGeminiFailure(0, raw, { url: targetUrl, key });
+            const errDetail = e && e.cause ? `${(e && e.message) || e} (${e.cause.message || e.cause})` : String((e && e.message) || e);
+            throw new GeminiError(d.text, { status: 0, code: d.code, detail: this._safe(errDetail, key) });
         } finally {
             if (timer) clearTimeout(timer);
         }
@@ -146,7 +257,7 @@ export class GeminiProvider extends LLMProvider {
                 const err = await response.json();
                 if (err && err.error && err.error.message) raw = err.error.message;
             } catch (_) {}
-            const d = describeGeminiFailure(response.status, raw);
+            const d = describeGeminiFailure(response.status, raw, { url: targetUrl, key });
             throw new GeminiError(d.text, { status: response.status, code: d.code, detail: this._safe(raw, key) });
         }
 
@@ -209,6 +320,54 @@ export class GeminiProvider extends LLMProvider {
             return { ok: false, status: 401, code: 'AUTH', message: "Erreur 401 : Cette clé commence par « sk- » (clé OpenAI) ; utilise une clé Google (AI Studio ou Vertex AI « AQ.… »)." };
         }
 
+        // Cas d'une clé AQ. (Vertex AI Express Mode) :
+        // Tente l'adresse aiplatform, puis l'autre adresse (generativelanguage).
+        // Si les deux échouent : message d'aide limpide vers Google AI Studio.
+        if (key.startsWith('AQ.')) {
+            let aiplatformErr = null;
+            let studioErr = null;
+
+            // Essai 1 : aiplatform.googleapis.com
+            try {
+                const urlPlatform = `https://aiplatform.googleapis.com/v1/publishers/google/models/${GEMINI_PRIMARY_MODEL}:generateContent?key=${encodeURIComponent(key)}`;
+                const res = await fetch(urlPlatform, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ contents: [{ role: 'user', parts: [{ text: 'test' }] }] })
+                });
+                if (res.ok) {
+                    this.selectedModel = GEMINI_PRIMARY_MODEL;
+                    sessionSelectedModel = GEMINI_PRIMARY_MODEL;
+                    return { ok: true, model: GEMINI_PRIMARY_MODEL, message: `OK (modèle retenu : ${GEMINI_PRIMARY_MODEL})` };
+                } else {
+                    aiplatformErr = new Error(`HTTP ${res.status}`);
+                    aiplatformErr.status = res.status;
+                }
+            } catch (e) {
+                aiplatformErr = e;
+            }
+
+            // Essai 2 : generativelanguage.googleapis.com
+            try {
+                const available = await this.listAvailableModels(key);
+                const chosen = PREFERRED_MODELS.find(p => available.includes(p)) || available[0] || GEMINI_PRIMARY_MODEL;
+                this.selectedModel = chosen;
+                sessionSelectedModel = chosen;
+                return { ok: true, model: chosen, message: `OK (modèle retenu : ${chosen})` };
+            } catch (e) {
+                studioErr = e;
+            }
+
+            // Les deux adresses ont échoué pour la clé AQ.
+            return {
+                ok: false,
+                status: (aiplatformErr && aiplatformErr.status) || (studioErr && studioErr.status) || 0,
+                code: 'AQ_BROWSER_UNSUPPORTED',
+                message: "Cette clé de type AQ. ne fonctionne pas depuis le navigateur ; crée une clé AIza dans Google AI Studio"
+            };
+        }
+
+        // Clé standard (AIza ou autre)
         try {
             const available = await this.listAvailableModels(key);
             const chosen = PREFERRED_MODELS.find(p => available.includes(p)) || available[0] || GEMINI_PRIMARY_MODEL;
@@ -218,21 +377,24 @@ export class GeminiProvider extends LLMProvider {
         } catch (err) {
             const status = err.status || 0;
             const code = err.code || 'UNKNOWN';
-            const detail = String(err.detail || '');
+            const detail = String(err.detail || err.message || '');
             let msg = err.message || '';
 
-            if (status === 400 || status === 403) {
-                if (/API not enabled|not activated|SERVICE_DISABLED/i.test(detail)) {
-                    msg = `Erreur ${status} : API non activée dans la console Google Cloud.`;
+            if (status === 403) {
+                if (/has not been used|disabled|PERMISSION_DENIED|API not enabled|not activated|SERVICE_DISABLED/i.test(detail)) {
+                    msg = `Erreur 403 : API Gemini non activée sur ce projet Google Cloud.`;
                 } else {
-                    msg = `Erreur ${status} : Clé API invalide ou refusée.`;
+                    msg = `Erreur 403 : Clé API invalide ou refusée.`;
                 }
+            } else if (status === 400) {
+                msg = `Erreur 400 : Clé API invalide ou refusée.`;
             } else if (status === 429) {
                 msg = `Erreur 429 : Quota gratuit ou limite de requêtes dépassé.`;
             } else if (status === 404) {
                 msg = `Erreur 404 : Modèle ou service Google introuvable.`;
             } else if (status === 0) {
-                msg = `Erreur réseau : Connexion impossible ou délai dépassé.`;
+                const diag = diagnoseFetchFailure(err, this._modelsUrl(key), key);
+                msg = `Erreur réseau : ${diag.text}`;
             } else {
                 msg = `Erreur ${status || code} : ${msg}`;
             }
@@ -247,19 +409,32 @@ export class GeminiProvider extends LLMProvider {
     async _callOnce(model, body, timeoutMs, useStudioFallback = false) {
         const controller = typeof AbortController === 'function' ? new AbortController() : null;
         const timer = controller ? setTimeout(() => controller.abort(), timeoutMs) : null;
+        const targetUrl = this._url(model, useStudioFallback);
         let response;
         try {
-            response = await fetch(this._url(model, useStudioFallback), {
+            response = await fetch(targetUrl, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(body),
                 ...(controller ? { signal: controller.signal } : {})
             });
         } catch (e) {
+            if (timer) clearTimeout(timer);
+            // Repli transparent sur l'autre adresse si clé AQ.
+            if (this.isVertexExpressKey() && !useStudioFallback) {
+                try {
+                    return await this._callOnce(model, body, timeoutMs, true);
+                } catch (_) {}
+            }
+
             const aborted = e && (e.name === 'AbortError' || /abort/i.test(String(e.message)));
-            const raw = aborted ? 'timeout' : String((e && e.message) || e);
-            const d = describeGeminiFailure(0, raw);
-            throw new GeminiError(`${d.text}`, { status: 0, code: d.code, model, detail: this._safe(raw) });
+            const raw = aborted ? 'timeout' : e;
+            const d = describeGeminiFailure(0, raw, { url: targetUrl, key: this.apiKey });
+            let finalMsg = d.text;
+            if (this.isVertexExpressKey()) {
+                finalMsg += ". Cette clé de type AQ. ne fonctionne pas depuis le navigateur ; crée une clé AIza dans Google AI Studio";
+            }
+            throw new GeminiError(finalMsg, { status: 0, code: d.code, model, detail: this._safe(String((e && e.message) || e)) });
         } finally {
             if (timer) clearTimeout(timer);
         }
@@ -271,8 +446,7 @@ export class GeminiProvider extends LLMProvider {
                 if (err && err.error && err.error.message) raw = err.error.message;
             } catch (e) { /* ignore parse error on error response */ }
 
-            // Si c'est une clé AQ. qui échoue sur aiplatform (ex. 403 API disabled ou 404),
-            // repli transparent et immédiat sur Google AI Studio (generativelanguage.googleapis.com)
+            // Si c'est une clé AQ. qui échoue sur aiplatform, repli immédiat sur generativelanguage
             if (this.isVertexExpressKey() && !useStudioFallback) {
                 try {
                     return await this._callOnce(model, body, timeoutMs, true);
@@ -281,8 +455,12 @@ export class GeminiProvider extends LLMProvider {
                 }
             }
 
-            const d = describeGeminiFailure(response.status, raw);
-            throw new GeminiError(d.text, { status: response.status, code: d.code, model, detail: this._safe(raw) });
+            const d = describeGeminiFailure(response.status, raw, { url: targetUrl, key: this.apiKey });
+            let finalMsg = d.text;
+            if (this.isVertexExpressKey()) {
+                finalMsg += ". Cette clé de type AQ. ne fonctionne pas depuis le navigateur ; crée une clé AIza dans Google AI Studio";
+            }
+            throw new GeminiError(finalMsg, { status: response.status, code: d.code, model, detail: this._safe(raw) });
         }
 
         const data = await response.json();
@@ -299,7 +477,7 @@ export class GeminiProvider extends LLMProvider {
      */
     async _callWithFallback(body, { model = null, timeoutMs }) {
         if (typeof this.apiKey === 'string' && /^sk-/i.test(this.apiKey)) {
-            const d = describeGeminiFailure(401, 'sk- openai key');
+            const d = describeGeminiFailure(401, 'sk- openai key', { key: this.apiKey });
             throw this._finalError(new GeminiError(d.text, { status: 401, code: d.code }));
         }
 

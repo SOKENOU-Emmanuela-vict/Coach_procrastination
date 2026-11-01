@@ -146,7 +146,7 @@ async function run() {
         // 2. ÉCRAN LANGUES : AJOUT « Anglais », VÉRIFICATION APPARITION & PERSISTANCE APRÈS F5
         console.log("\n--- TEST ÉCRAN LANGUES & PERSISTANCE F5 ---");
         await evalInPage(`window.app.renderView('languages')`);
-        await delay(400);
+        await delay(600);
 
         const modalDisplayInitial = await evalInPage(`(() => {
             const m = document.getElementById('language-modal');
@@ -161,7 +161,7 @@ async function run() {
         }
 
         await evalInPage(`(document.getElementById('btn-add-language') || document.getElementById('btn-add-first-lang'))?.click()`);
-        await delay(300);
+        await delay(400);
         const modalDisplayAfterClick = await evalInPage(`(() => {
             const m = document.getElementById('language-modal');
             return m ? window.getComputedStyle(m).display : 'none';
@@ -184,8 +184,8 @@ async function run() {
             process.exitCode = 1;
         }
 
-        console.log("Rechargement F5 de la page...");
-        await send('Page.reload');
+        console.log("Rechargement F5 (navigation) de la page...");
+        await send('Page.navigate', { url: 'http://127.0.0.1:8125/' });
         await delay(2000);
         await evalInPage(`new Promise(resolve => {
             const interval = setInterval(() => {
@@ -251,6 +251,8 @@ async function run() {
         console.log(hasProj ? "✅ [3/8 Projet] 'Application Vision Par Ordinateur' créé et visible" : "❌ [3/8 Projet] Échec création projet");
 
         // D. Stage (École - Onglet Projets & Stages)
+        await evalInPage(`document.querySelectorAll('.academic-block-tab')[1]?.click()`);
+        await delay(400);
         await evalInPage(`(document.getElementById('btn-add-stage') || document.getElementById('btn-empty-add-stage'))?.click()`);
         await delay(300);
         await evalInPage(`(() => {
@@ -287,7 +289,7 @@ async function run() {
             document.getElementById('global-modal-item-title').value = 'Méditation Quotidienne 15m';
             document.getElementById('global-btn-modal-save').click();
         })()`);
-        await delay(500);
+        await delay(600);
         const hasHabit = await evalInPage(`document.getElementById('app-root').innerText.includes('Méditation Quotidienne 15m')`);
         console.log(hasHabit ? "✅ [6/8 Habitude] 'Méditation Quotidienne 15m' créée et visible dans la liste Habitudes" : "❌ [6/8 Habitude] Échec création habitude");
 
@@ -298,7 +300,7 @@ async function run() {
             document.getElementById('global-modal-item-title').value = 'Courir Semi-Marathon';
             document.getElementById('global-btn-modal-save').click();
         })()`);
-        await delay(500);
+        await delay(600);
         const hasGoal = await evalInPage(`document.getElementById('app-root').innerText.includes('Courir Semi-Marathon')`);
         console.log(hasGoal ? "✅ [7/8 Objectif] 'Courir Semi-Marathon' créé et visible dans la liste Objectifs" : "❌ [7/8 Objectif] Échec création objectif");
 
@@ -339,8 +341,7 @@ async function run() {
             document.getElementById('coach-api-key-input').value = 'AIzaSyFakeKeyTestOnly123';
             document.getElementById('btn-coach-key-test').click();
         })()`);
-        await delay(1500);
-
+        await delay(2000);
         const statusText = await evalInPage(`document.getElementById('coach-api-key-status')?.innerText || ''`);
         console.log("Résultat affiché pour le test de la clé :", statusText);
         const safeOutput = !statusText.includes('AIzaSyFakeKeyTestOnly123');

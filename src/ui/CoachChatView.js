@@ -268,10 +268,8 @@ export class CoachChatView {
             </div>
             <div id="coach-api-key-warning" class="alert alert-warning" hidden></div>
             <div id="coach-api-key-status" class="alert" hidden></div>
-            <div id="coach-api-key-status" class="alert" hidden></div>
         </div>
         <div class="modal-actions">
-            <button type="button" id="btn-coach-key-test" class="btn btn-outline btn-sm">Tester ma clé</button>
             <button type="button" id="btn-coach-key-test" class="btn btn-outline btn-sm">Tester ma clé</button>
             ${maskedApiKey ? `<button type="button" id="btn-coach-key-clear" class="btn btn-danger btn-sm modal-actions-left">Supprimer la clé</button>` : ''}
             <button type="button" id="btn-coach-key-cancel" class="btn btn-ghost">Annuler</button>
@@ -428,10 +426,6 @@ export class CoachChatView {
                 keyStatus.hidden = true;
                 keyStatus.textContent = '';
             }
-            if (keyStatus) {
-                keyStatus.hidden = true;
-                keyStatus.textContent = '';
-            }
         };
 
         if (btnOpenKey && keyModal) {
@@ -443,13 +437,9 @@ export class CoachChatView {
                     keyWarning.textContent = '';
                 }
                 if (keyStatus) {
-                    keyStatus.hidden = true;
-                    keyStatus.textContent = '';
-                }
-                if (keyStatus) {
-                    keyStatus.hidden = true;
-                    keyStatus.textContent = '';
-                }
+                keyStatus.hidden = true;
+                keyStatus.textContent = '';
+            }
                 if (keyInput && typeof keyInput.focus === 'function') keyInput.focus();
             });
         }
