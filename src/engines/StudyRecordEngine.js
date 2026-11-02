@@ -54,6 +54,7 @@ export class StudyRecordEngine {
                 title: metrics.proof.title || `Preuve pour ${session.title}`,
                 description: metrics.proof.description || '',
                 url: metrics.proof.url || '',
+                image: metrics.proof.image || null,
                 createdAt: new Date().toISOString(),
                 verified: false,
                 metadata: metrics.proof.metadata || {}
@@ -100,6 +101,68 @@ export class StudyRecordEngine {
             let user = await this.storage.loadData('user_profile');
             AppLogger.info(`StudyRecordEngine: Session annulée (${sessionId}).`);
         }
+    }
+
+    async updateRecord(recordId, updates = {}) {
+        let history = await this.storage.loadData('study_history') || [];
+        const idx = history.findIndex(r => r.id === recordId);
+        if (idx === -1) return null;
+
+        const record = history[idx];
+        if (updates.quality !== undefined) {
+            record.quality = updates.quality;
+            if (record.metrics) record.metrics.quality = updates.quality;
+        }
+        if (updates.actualDifficulty !== undefined) {
+            record.actualDifficulty = updates.actualDifficulty;
+            if (record.metrics) record.metrics.difficulty = updates.actualDifficulty;
+        }
+        if (updates.difficulty !== undefined) {
+            record.actualDifficulty = updates.difficulty;
+            if (record.metrics) record.metrics.difficulty = updates.difficulty;
+        }
+        if (updates.reflection !== undefined) {
+            record.reflection = updates.reflection;
+            if (record.metrics) record.metrics.reflection = updates.reflection;
+        }
+        if (updates.notes !== undefined) {
+            record.notes = updates.notes;
+        }
+        if (updates.status !== undefined) {
+            record.status = updates.status;
+            if (record.metrics) record.metrics.status = updates.status;
+        }
+
+        history[idx] = record;
+        await this.storage.saveData('study_history', history);
+        AppLogger.info(`StudyRecordEngine: Enregistrement mis à jour (${recordId}).`);
+        return record;
+    }
+
+    async deleteRecord(recordId) {
+        let history = await this.storage.loadData('study_history') || [];
+        const initialLen = history.length;
+        history = history.filter(r => r.id !== recordId);
+        if (history.length !== initialLen) {
+            await this.storage.saveData('study_history', history);
+            AppLogger.info(`StudyRecordEngine: Enregistrement supprimé (${recordId}).`);
+            return true;
+        }
+        return false;
+    }
+
+    async deleteProof(recordId) {
+        let history = await this.storage.loadData('study_history') || [];
+        const idx = history.findIndex(r => r.id === recordId);
+        if (idx === -1) return false;
+
+        history[idx].proof = null;
+        if (history[idx].metrics) {
+            history[idx].metrics.proof = null;
+        }
+        await this.storage.saveData('study_history', history);
+        AppLogger.info(`StudyRecordEngine: Preuve supprimée pour ${recordId}.`);
+        return true;
     }
     
     async getDailyStats(dateStr) {

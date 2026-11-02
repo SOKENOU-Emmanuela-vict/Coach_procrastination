@@ -20,6 +20,9 @@ export class DailyCheckIn {
         this.date = config.date; 
         
         this.energy = config.energy || null; 
+        this.energyLevel = config.energyLevel !== undefined ? config.energyLevel : null;
+        this.water = config.water !== undefined ? config.water : null;
+        this.activity = config.activity !== undefined ? config.activity : null;
         this.mood = config.mood || null;
         this.motivation = config.motivation || null;
         this.sleep = config.sleep || null;

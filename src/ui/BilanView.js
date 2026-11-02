@@ -27,7 +27,7 @@ export class BilanView {
         const actualMinutes = summary ? ((summary.actual && summary.actual.minutes) || 0) : focusTime;
         const plannedItems = (summary && summary.planned && summary.planned.items) || [];
         
-        const isReadonly = checkIn !== null && checkIn !== undefined;
+        const isReadonly = Boolean(checkIn) && !this.isEditing;
 
         const emptyDayNotice = (completedSessions === 0 && actualMinutes === 0 && plannedItems.length === 0)
             ? `<p class="bilan-empty-notice">Aucune session enregistrée pour cette journée.</p>`
@@ -57,8 +57,13 @@ export class BilanView {
                 : 'Non renseigné';
             html += `
         <div class="bilan-success-card">
-            <h3 class="bilan-success-title"><i class="bi bi-check2-circle"></i> Check-in déjà validé !</h3>
-            <p class="bilan-success-details">Énergie: ${escapeHtml(checkIn.energy || 'Non renseignée')}, Sommeil: ${sleepDisplay}</p>
+            <h3 class="bilan-success-title"><i class="bi bi-check2-circle"></i> Bilan du jour validé</h3>
+            <p class="bilan-success-details">Énergie : <strong>${escapeHtml(checkIn.energy || 'Moyenne')}</strong> | Sommeil : <strong>${sleepDisplay}</strong> | Évaluation : <strong>${escapeHtml(checkIn.dayAssessment || 'Complétée')}</strong></p>
+            ${checkIn.blockers && checkIn.blockers.length > 0 ? `<p class="bilan-success-blockers"><em>Blocages :</em> ${escapeHtml(checkIn.blockers.join(', '))}</p>` : ''}
+            <div class="bilan-actions-row">
+                <button type="button" id="btn-edit-checkin" class="btn btn-secondary btn-sm"><i class="bi bi-pencil"></i> Modifier le bilan</button>
+                <button type="button" id="btn-delete-checkin" class="btn btn-secondary btn-sm text-danger"><i class="bi bi-trash"></i> Supprimer le bilan</button>
+            </div>
         </div>
             `;
         } else {
@@ -78,27 +83,33 @@ export class BilanView {
                 }
             }
 
+            const curEnergy = checkIn?.energy || 'medium';
+            const curSleepHours = (checkIn?.sleep?.durationMinutes) ? (Math.round((checkIn.sleep.durationMinutes / 60) * 10) / 10) : '';
+            const curSleepQuality = checkIn?.sleep?.quality || 'fair';
+            const curAssessment = checkIn?.dayAssessment || 'completed';
+            const curBlockers = Array.isArray(checkIn?.blockers) ? checkIn.blockers.join('\n') : (checkIn?.blockers || '');
+
             html += `
         <div class="bilan-form-card">
-            <h3 class="bilan-form-title"><i class="bi bi-bar-chart"></i> Mon état du jour</h3>
+            <h3 class="bilan-form-title"><i class="bi bi-bar-chart"></i> ${checkIn ? 'Modifier mon bilan du jour' : 'Mon état du jour'}</h3>
             
             <div class="bilan-form-group">
                 <label class="bilan-form-label"><i class="bi bi-lightning-charge"></i> Énergie :</label>
                 <div class="bilan-radio-group">
-                    <label class="bilan-radio-label"><input type="radio" name="energy" value="low"> <span class="badge badge-low">Basse</span></label>
-                    <label class="bilan-radio-label"><input type="radio" name="energy" value="medium" checked> <span class="badge badge-medium">Moyenne</span></label>
-                    <label class="bilan-radio-label"><input type="radio" name="energy" value="high"> <span class="badge badge-high">Haute</span></label>
+                    <label class="bilan-radio-label"><input type="radio" name="energy" value="low" ${curEnergy === 'low' ? 'checked' : ''}> <span class="badge badge-low">Basse</span></label>
+                    <label class="bilan-radio-label"><input type="radio" name="energy" value="medium" ${curEnergy === 'medium' ? 'checked' : ''}> <span class="badge badge-medium">Moyenne</span></label>
+                    <label class="bilan-radio-label"><input type="radio" name="energy" value="high" ${curEnergy === 'high' ? 'checked' : ''}> <span class="badge badge-high">Haute</span></label>
                 </div>
             </div>
 
             <div class="bilan-form-group">
                 <label class="bilan-form-label"><i class="bi bi-moon-stars"></i> Sommeil :</label>
                 <div class="bilan-sleep-inputs">
-                    <input type="number" id="chk-sleep-duration" class="form-input bilan-input-sleep" placeholder="Heures" min="0" step="0.5">
+                    <input type="number" id="chk-sleep-duration" class="form-input bilan-input-sleep" placeholder="Heures" min="0" step="0.5" value="${curSleepHours}">
                     <select id="chk-sleep-quality" class="form-select bilan-select-sleep">
-                        <option value="poor">Mauvaise</option>
-                        <option value="fair" selected>Moyenne</option>
-                        <option value="good">Bonne</option>
+                        <option value="poor" ${curSleepQuality === 'poor' ? 'selected' : ''}>Mauvaise</option>
+                        <option value="fair" ${curSleepQuality === 'fair' ? 'selected' : ''}>Moyenne</option>
+                        <option value="good" ${curSleepQuality === 'good' ? 'selected' : ''}>Bonne</option>
                     </select>
                 </div>
             </div>
@@ -106,23 +117,30 @@ export class BilanView {
             <div class="bilan-form-group">
                 <label class="bilan-form-label"><i class="bi bi-graph-up-arrow"></i> Évaluation de la journée :</label>
                 <select id="chk-assessment" class="form-select bilan-select-full">
-                    <option value="completed" selected>Complétée comme prévu</option>
-                    <option value="partial">Partielle</option>
-                    <option value="difficult">Difficile</option>
-                    <option value="blocked">Bloquée</option>
+                    <option value="completed" ${curAssessment === 'completed' ? 'selected' : ''}>Complétée comme prévu</option>
+                    <option value="partial" ${curAssessment === 'partial' ? 'selected' : ''}>Partielle</option>
+                    <option value="difficult" ${curAssessment === 'difficult' ? 'selected' : ''}>Difficile</option>
+                    <option value="blocked" ${curAssessment === 'blocked' ? 'selected' : ''}>Bloquée</option>
                 </select>
             </div>
 
             <div class="bilan-form-group">
                 <label class="bilan-form-label"><i class="bi bi-cone-striped"></i> Qu'est-ce qui m'a bloqué ou ralenti ? (Optionnel)</label>
-                <textarea id="chk-blockers" class="form-textarea bilan-textarea-full" rows="2"></textarea>
+                <textarea id="chk-blockers" class="form-textarea bilan-textarea-full" rows="2">${escapeHtml(curBlockers)}</textarea>
             </div>
 
             ${followupOptions}
 
-            <button id="btn-submit-checkin" class="btn btn-primary bilan-btn-submit" type="button">
-                <i class="bi bi-check2"></i> Valider le Check-in (Étape 1)
-            </button>
+            <div class="d-flex gap-2">
+                <button id="btn-submit-checkin" class="btn btn-primary bilan-btn-submit flex-1" type="button">
+                    <i class="bi bi-check2"></i> ${checkIn ? 'Enregistrer les modifications' : 'Valider le Check-in (Étape 1)'}
+                </button>
+                ${this.isEditing ? `
+                <button id="btn-cancel-edit-checkin" class="btn btn-secondary" type="button">
+                    Annuler
+                </button>
+                ` : ''}
+            </div>
         </div>
             `;
         }
@@ -137,10 +155,44 @@ export class BilanView {
 
         this.container.innerHTML = html;
 
+        const btnEditCheckin = document.getElementById('btn-edit-checkin');
+        if (btnEditCheckin && typeof btnEditCheckin.addEventListener === 'function') {
+            btnEditCheckin.addEventListener('click', () => {
+                Motion.buttonTap(btnEditCheckin);
+                this.isEditing = true;
+                this.render(data);
+            });
+        }
+
+        const btnDeleteCheckin = document.getElementById('btn-delete-checkin');
+        if (btnDeleteCheckin && typeof btnDeleteCheckin.addEventListener === 'function') {
+            btnDeleteCheckin.addEventListener('click', async () => {
+                Motion.buttonTap(btnDeleteCheckin);
+                const targetDate = summary ? summary.date : (checkIn?.date || this.app.getPedagogicalDate());
+                if (confirm(`Supprimer définitivement le bilan du jour (${targetDate}) ?`)) {
+                    await this.app.deleteCheckIn(targetDate);
+                    this.isEditing = false;
+                    if (this.app.renderView) {
+                        this.app.renderView('bilan');
+                    }
+                }
+            });
+        }
+
+        const btnCancelEdit = document.getElementById('btn-cancel-edit-checkin');
+        if (btnCancelEdit && typeof btnCancelEdit.addEventListener === 'function') {
+            btnCancelEdit.addEventListener('click', () => {
+                Motion.buttonTap(btnCancelEdit);
+                this.isEditing = false;
+                this.render(data);
+            });
+        }
+
         const btnSubmit = document.getElementById('btn-submit-checkin');
         if (btnSubmit && typeof btnSubmit.addEventListener === 'function') {
             btnSubmit.addEventListener('click', () => {
                 Motion.buttonTap(btnSubmit);
+                this.isEditing = false;
                 const energyRadio = document.querySelector('input[name="energy"]:checked');
                 const energy = energyRadio ? energyRadio.value : 'medium';
                 const sleepHours = parseFloat(document.getElementById('chk-sleep-duration').value) || 0;

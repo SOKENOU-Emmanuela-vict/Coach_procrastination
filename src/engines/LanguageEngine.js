@@ -132,6 +132,14 @@ export class LanguageEngine {
         return lang.tracking;
     }
 
+    async resetTracking(langId) {
+        const lang = await this.getLanguage(langId);
+        if (!lang) return null;
+        lang.tracking = { sessionsCompleted: 0, minutesStudied: 0, vocabularyWords: 0 };
+        await this.saveLanguage(lang);
+        return lang.tracking;
+    }
+
     /**
      * Crée des séances dans le planning à partir du plan d'apprentissage sur 4 semaines.
      */

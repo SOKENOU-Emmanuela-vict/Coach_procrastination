@@ -34,6 +34,16 @@ export class CheckInEngine {
         const checkins = await this.storage.loadData('daily_checkins') || {};
         return checkins[dateStr] ? new DailyCheckIn(checkins[dateStr]) : null;
     }
+
+    async deleteCheckIn(dateStr) {
+        let checkins = await this.storage.loadData('daily_checkins') || {};
+        if (checkins && checkins[dateStr]) {
+            delete checkins[dateStr];
+            await this.storage.saveData('daily_checkins', checkins);
+            return true;
+        }
+        return false;
+    }
     
     async getCheckIns(startDate, endDate) {
         const checkins = await this.storage.loadData('daily_checkins') || {};

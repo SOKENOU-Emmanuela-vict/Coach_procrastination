@@ -2389,6 +2389,106 @@ export class App {
         }
     }
 
+    async deleteCheckIn(dateStr) {
+        const targetDate = dateStr || this.getPedagogicalDate();
+        try {
+            if (this.checkInEngine && typeof this.checkInEngine.deleteCheckIn === 'function') {
+                await this.checkInEngine.deleteCheckIn(targetDate);
+            } else {
+                let checkins = await this.storage.loadData('daily_checkins') || {};
+                delete checkins[targetDate];
+                await this.storage.saveData('daily_checkins', checkins);
+            }
+            if (this.state && targetDate === this.getPedagogicalDate()) {
+                this.state.todayCheckIn = null;
+            }
+            await this.refreshUserStats();
+            return true;
+        } catch (e) {
+            AppLogger.error("Erreur suppression Check-in : " + e.message);
+            return false;
+        }
+    }
+
+    async saveQuickCheckInField(field, value, dateStr = null) {
+        const targetDate = dateStr || this.getPedagogicalDate();
+        let checkins = await this.storage.loadData('daily_checkins') || {};
+        let current = checkins[targetDate] || { date: targetDate, energy: 'medium', dayAssessment: 'completed', blockers: [] };
+
+        if (value === null || value === undefined) {
+            delete current[field];
+        } else {
+            current[field] = value;
+        }
+
+        if (this.checkInEngine && typeof this.checkInEngine.saveCheckIn === 'function') {
+            await this.checkInEngine.saveCheckIn(current);
+        } else {
+            checkins[targetDate] = current;
+            await this.storage.saveData('daily_checkins', checkins);
+        }
+
+        if (this.state && targetDate === this.getPedagogicalDate()) {
+            this.state.todayCheckIn = current;
+        }
+        await this.refreshUserStats();
+        return current;
+    }
+
+    async getStudyHistory() {
+        if (this.studyRecordEngine && typeof this.studyRecordEngine.getFullHistory === 'function') {
+            return await this.studyRecordEngine.getFullHistory();
+        }
+        return await this.storage.loadData('study_history') || [];
+    }
+
+    async updateStudyRecord(recordId, updates) {
+        if (this.studyRecordEngine && typeof this.studyRecordEngine.updateRecord === 'function') {
+            const res = await this.studyRecordEngine.updateRecord(recordId, updates);
+            await this.refreshUserStats();
+            return res;
+        }
+        let history = await this.storage.loadData('study_history') || [];
+        const idx = history.findIndex(r => r.id === recordId);
+        if (idx !== -1) {
+            Object.assign(history[idx], updates);
+            await this.storage.saveData('study_history', history);
+            await this.refreshUserStats();
+            return history[idx];
+        }
+        return null;
+    }
+
+    async deleteStudyRecord(recordId) {
+        if (this.studyRecordEngine && typeof this.studyRecordEngine.deleteRecord === 'function') {
+            const res = await this.studyRecordEngine.deleteRecord(recordId);
+            await this.refreshUserStats();
+            return res;
+        }
+        let history = await this.storage.loadData('study_history') || [];
+        history = history.filter(r => r.id !== recordId);
+        await this.storage.saveData('study_history', history);
+        await this.refreshUserStats();
+        return true;
+    }
+
+    async deleteStudyProof(recordId) {
+        if (this.studyRecordEngine && typeof this.studyRecordEngine.deleteProof === 'function') {
+            const res = await this.studyRecordEngine.deleteProof(recordId);
+            await this.refreshUserStats();
+            return res;
+        }
+        let history = await this.storage.loadData('study_history') || [];
+        const idx = history.findIndex(r => r.id === recordId);
+        if (idx !== -1) {
+            history[idx].proof = null;
+            await this.storage.saveData('study_history', history);
+            await this.refreshUserStats();
+            return true;
+        }
+        return false;
+    }
+
     async getWeeklyReport(startDate, endDate) {
         if (!this.weeklyReviewEngine) {
             AppLogger.error("WeeklyReviewEngine n'est pas initialisé");

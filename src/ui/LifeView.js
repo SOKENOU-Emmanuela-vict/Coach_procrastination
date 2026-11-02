@@ -121,22 +121,97 @@ export class LifeView {
                         </div>
                     </div>
                     
-                    <div class="life-kpi-row">
-                        <span class="life-kpi-label"><i class="bi bi-droplet"></i> Hydratation</span>
-                        <strong class="life-kpi-val">${state?.todayCheckIn?.water ? state.todayCheckIn.water + ' L' : 'Non renseigné'}</strong>
-                    </div>
-                    <div class="life-kpi-row">
-                        <span class="life-kpi-label"><i class="bi bi-moon-stars"></i> Sommeil</span>
-                        <strong class="life-kpi-val">${state?.todayCheckIn?.sleep?.durationMinutes ? (Math.round((state.todayCheckIn.sleep.durationMinutes / 60) * 10) / 10) + ' h' : 'Non renseigné'}</strong>
-                    </div>
-                    <div class="life-kpi-row">
-                        <span class="life-kpi-label"><i class="bi bi-lightning-charge"></i> Énergie</span>
-                        <strong class="life-kpi-val">${energyLabel}</strong>
-                    </div>
-                    <div class="life-kpi-row">
-                        <span class="life-kpi-label"><i class="bi bi-graph-up"></i> Bilan du jour</span>
-                        <strong class="life-kpi-val">${state?.todayCheckIn?.dayAssessment ? state.todayCheckIn.dayAssessment : 'Non renseigné'}</strong>
-                    </div>
+                    ${(() => {
+                        const checkIn = state?.todayCheckIn || {};
+                        const waterVal = checkIn.water;
+                        let waterDisplay = 'Non renseigné';
+                        let hasWater = false;
+                        if (waterVal !== undefined && waterVal !== null && waterVal > 0) {
+                            hasWater = true;
+                            waterDisplay = (typeof waterVal === 'number' && waterVal <= 5)
+                                ? `${waterVal} L (${Math.round(waterVal / 0.25)} verres)`
+                                : `${waterVal} verres (${(waterVal * 0.25).toFixed(1)} L)`;
+                        }
+
+                        const sleepMinutes = checkIn.sleep?.durationMinutes || 0;
+                        const sleepHours = sleepMinutes > 0 ? (Math.round((sleepMinutes / 60) * 10) / 10) : 0;
+                        const sleepQuality = checkIn.sleep?.quality || 'Moyenne';
+                        
+                        let curEnergyNum = checkIn.energyLevel || (checkIn.energy === 'high' ? 5 : (checkIn.energy === 'low' ? 1 : (checkIn.energy ? 3 : 0)));
+                        let energyDisplay = 'Non renseigné';
+                        if (curEnergyNum > 0 || checkIn.energy) {
+                            const eWord = checkIn.energy === 'high' ? 'Haute' : (checkIn.energy === 'low' ? 'Basse' : 'Moyenne');
+                            energyDisplay = `${eWord} (${curEnergyNum > 0 ? curEnergyNum : 3}/5)`;
+                        }
+
+                        const activity = checkIn.activity || null;
+                        const dayAssessment = checkIn.dayAssessment || '';
+
+                        return `
+                        <!-- Hydratation -->
+                        <div class="life-kpi-row">
+                            <div class="life-kpi-info">
+                                <span class="life-kpi-label"><i class="bi bi-droplet"></i> Hydratation</span>
+                                <strong class="life-kpi-val">${waterDisplay}</strong>
+                            </div>
+                            <div class="life-kpi-controls">
+                                <button type="button" class="btn-water-plus life-pill-btn" title="Ajouter 1 verre (+250 ml)">+1 verre</button>
+                                <button type="button" class="btn-water-edit life-kpi-action-btn" title="Modifier le nombre de verres"><i class="bi bi-pencil"></i></button>
+                                ${hasWater ? `<button type="button" class="btn-water-clear life-kpi-action-btn danger" title="Effacer l'hydratation"><i class="bi bi-trash"></i></button>` : ''}
+                            </div>
+                        </div>
+
+                        <!-- Sommeil -->
+                        <div class="life-kpi-row">
+                            <div class="life-kpi-info">
+                                <span class="life-kpi-label"><i class="bi bi-moon-stars"></i> Sommeil</span>
+                                <strong class="life-kpi-val">${sleepHours > 0 ? `${sleepHours} h (${sleepQuality})` : 'Non renseigné'}</strong>
+                            </div>
+                            <div class="life-kpi-controls">
+                                <button type="button" class="btn-sleep-edit life-kpi-action-btn" title="Renseigner / modifier le sommeil"><i class="bi bi-pencil"></i></button>
+                                ${sleepHours > 0 ? `<button type="button" class="btn-sleep-clear life-kpi-action-btn danger" title="Effacer le sommeil"><i class="bi bi-trash"></i></button>` : ''}
+                            </div>
+                        </div>
+
+                        <!-- Énergie -->
+                        <div class="life-kpi-row">
+                            <div class="life-kpi-info">
+                                <span class="life-kpi-label"><i class="bi bi-lightning-charge"></i> Énergie</span>
+                                <strong class="life-kpi-val">${energyDisplay}</strong>
+                            </div>
+                            <div class="life-kpi-controls">
+                                ${[1, 2, 3, 4, 5].map(n => `
+                                    <button type="button" class="btn-energy-pill life-pill-btn ${curEnergyNum === n ? 'active' : ''}" data-val="${n}">${n}</button>
+                                `).join('')}
+                                ${curEnergyNum > 0 ? `<button type="button" class="btn-energy-clear life-kpi-action-btn danger" title="Effacer l'énergie"><i class="bi bi-trash"></i></button>` : ''}
+                            </div>
+                        </div>
+
+                        <!-- Activité physique du jour -->
+                        <div class="life-kpi-row">
+                            <div class="life-kpi-info">
+                                <span class="life-kpi-label"><i class="bi bi-activity"></i> Sport / Activité</span>
+                                <strong class="life-kpi-val">${activity ? `${escapeHtml(activity.title)} (${activity.durationMinutes} min)` : 'Non renseigné'}</strong>
+                            </div>
+                            <div class="life-kpi-controls">
+                                <button type="button" class="btn-activity-edit life-kpi-action-btn" title="Renseigner / modifier l'activité du jour"><i class="bi bi-pencil"></i></button>
+                                ${activity ? `<button type="button" class="btn-activity-clear life-kpi-action-btn danger" title="Effacer l'activité"><i class="bi bi-trash"></i></button>` : ''}
+                            </div>
+                        </div>
+
+                        <!-- Bilan du jour -->
+                        <div class="life-kpi-row">
+                            <div class="life-kpi-info">
+                                <span class="life-kpi-label"><i class="bi bi-graph-up"></i> Bilan du jour</span>
+                                <strong class="life-kpi-val">${dayAssessment ? escapeHtml(dayAssessment) : 'Non renseigné'}</strong>
+                            </div>
+                            <div class="life-kpi-controls">
+                                <button type="button" class="btn-bilan-goto life-pill-btn" title="Ouvrir le bilan complet">Faire mon bilan</button>
+                                ${dayAssessment ? `<button type="button" class="btn-bilan-clear life-kpi-action-btn danger" title="Effacer le bilan"><i class="bi bi-trash"></i></button>` : ''}
+                            </div>
+                        </div>
+                        `;
+                    })()}
                 </div>
             </div>
 
@@ -208,7 +283,172 @@ export class LifeView {
             });
         });
 
-        // Event listeners pour les boutons Edit/Delete (Habitudes & Objectifs)
+        // --- GESTION RAPIDE FITNESS & BIEN-ÊTRE ---
+        const checkIn = state?.todayCheckIn || {};
+
+        // Hydratation : +1 verre
+        const btnWaterPlus = this.container.querySelector('.btn-water-plus');
+        if (btnWaterPlus) {
+            btnWaterPlus.addEventListener('click', async () => {
+                Motion.buttonTap(btnWaterPlus);
+                const cur = (checkIn.water || 0) + 1;
+                if (this.app.saveQuickCheckInField) {
+                    await this.app.saveQuickCheckInField('water', cur);
+                    this.render(this.app.state);
+                }
+            });
+        }
+
+        // Hydratation : modifier
+        const btnWaterEdit = this.container.querySelector('.btn-water-edit');
+        if (btnWaterEdit) {
+            btnWaterEdit.addEventListener('click', async () => {
+                Motion.buttonTap(btnWaterEdit);
+                const cur = checkIn.water || 0;
+                const val = prompt("Nombre de verres d'eau bus aujourd'hui (1 verre ≈ 250 ml) :", cur);
+                if (val !== null) {
+                    const parsed = Math.max(0, parseInt(val, 10) || 0);
+                    if (this.app.saveQuickCheckInField) {
+                        await this.app.saveQuickCheckInField('water', parsed);
+                        this.render(this.app.state);
+                    }
+                }
+            });
+        }
+
+        // Hydratation : effacer
+        const btnWaterClear = this.container.querySelector('.btn-water-clear');
+        if (btnWaterClear) {
+            btnWaterClear.addEventListener('click', async () => {
+                Motion.buttonTap(btnWaterClear);
+                if (confirm("Effacer l'hydratation du jour ?")) {
+                    if (this.app.saveQuickCheckInField) {
+                        await this.app.saveQuickCheckInField('water', null);
+                        this.render(this.app.state);
+                    }
+                }
+            });
+        }
+
+        // Sommeil : modifier
+        const btnSleepEdit = this.container.querySelector('.btn-sleep-edit');
+        if (btnSleepEdit) {
+            btnSleepEdit.addEventListener('click', async () => {
+                Motion.buttonTap(btnSleepEdit);
+                const curM = checkIn.sleep?.durationMinutes || 0;
+                const curH = curM > 0 ? (Math.round((curM / 60) * 10) / 10) : 7.5;
+                const valH = prompt("Durée de sommeil de la nuit dernière (en heures, ex: 7.5) :", curH);
+                if (valH !== null) {
+                    const hours = Math.max(0, parseFloat(valH) || 0);
+                    const curQ = checkIn.sleep?.quality || 'fair';
+                    const valQ = prompt("Qualité du sommeil (poor = Mauvaise, fair = Moyenne, good = Bonne) :", curQ);
+                    const quality = (valQ && ['poor', 'fair', 'good'].includes(valQ.trim().toLowerCase())) ? valQ.trim().toLowerCase() : 'fair';
+                    if (this.app.saveQuickCheckInField) {
+                        await this.app.saveQuickCheckInField('sleep', { durationMinutes: Math.round(hours * 60), quality });
+                        this.render(this.app.state);
+                    }
+                }
+            });
+        }
+
+        // Sommeil : effacer
+        const btnSleepClear = this.container.querySelector('.btn-sleep-clear');
+        if (btnSleepClear) {
+            btnSleepClear.addEventListener('click', async () => {
+                Motion.buttonTap(btnSleepClear);
+                if (confirm("Effacer le sommeil du jour ?")) {
+                    if (this.app.saveQuickCheckInField) {
+                        await this.app.saveQuickCheckInField('sleep', null);
+                        this.render(this.app.state);
+                    }
+                }
+            });
+        }
+
+        // Énergie : 1 à 5 en un clic
+        this.container.querySelectorAll('.btn-energy-pill').forEach(btn => {
+            btn.addEventListener('click', async () => {
+                Motion.buttonTap(btn);
+                const n = parseInt(btn.getAttribute('data-val'), 10) || 3;
+                const mapEnum = { 1: 'low', 2: 'low', 3: 'medium', 4: 'high', 5: 'high' };
+                if (this.app.saveQuickCheckInField) {
+                    await this.app.saveQuickCheckInField('energyLevel', n);
+                    await this.app.saveQuickCheckInField('energy', mapEnum[n] || 'medium');
+                    this.render(this.app.state);
+                }
+            });
+        });
+
+        // Énergie : effacer
+        const btnEnergyClear = this.container.querySelector('.btn-energy-clear');
+        if (btnEnergyClear) {
+            btnEnergyClear.addEventListener('click', async () => {
+                Motion.buttonTap(btnEnergyClear);
+                if (confirm("Effacer l'énergie du jour ?")) {
+                    if (this.app.saveQuickCheckInField) {
+                        await this.app.saveQuickCheckInField('energyLevel', null);
+                        await this.app.saveQuickCheckInField('energy', null);
+                        this.render(this.app.state);
+                    }
+                }
+            });
+        }
+
+        // Activité physique du jour : modifier
+        const btnActivityEdit = this.container.querySelector('.btn-activity-edit');
+        if (btnActivityEdit) {
+            btnActivityEdit.addEventListener('click', async () => {
+                Motion.buttonTap(btnActivityEdit);
+                const curTitle = checkIn.activity?.title || 'Course à pied';
+                const curDur = checkIn.activity?.durationMinutes || 30;
+                const title = prompt("Activité physique du jour (ex: Course à pied, Yoga, Musculation...) :", curTitle);
+                if (title && title.trim()) {
+                    const durVal = prompt("Durée de l'activité (en minutes) :", curDur);
+                    const dur = Math.max(1, parseInt(durVal, 10) || 30);
+                    if (this.app.saveQuickCheckInField) {
+                        await this.app.saveQuickCheckInField('activity', { title: title.trim(), durationMinutes: dur });
+                        this.render(this.app.state);
+                    }
+                }
+            });
+        }
+
+        // Activité physique du jour : effacer
+        const btnActivityClear = this.container.querySelector('.btn-activity-clear');
+        if (btnActivityClear) {
+            btnActivityClear.addEventListener('click', async () => {
+                Motion.buttonTap(btnActivityClear);
+                if (confirm("Effacer l'activité physique du jour ?")) {
+                    if (this.app.saveQuickCheckInField) {
+                        await this.app.saveQuickCheckInField('activity', null);
+                        this.render(this.app.state);
+                    }
+                }
+            });
+        }
+
+        // Bilan du jour : aller au bilan
+        const btnBilanGoto = this.container.querySelector('.btn-bilan-goto');
+        if (btnBilanGoto) {
+            btnBilanGoto.addEventListener('click', () => {
+                Motion.buttonTap(btnBilanGoto);
+                if (this.app.renderView) this.app.renderView('bilan');
+            });
+        }
+
+        // Bilan du jour : effacer
+        const btnBilanClear = this.container.querySelector('.btn-bilan-clear');
+        if (btnBilanClear) {
+            btnBilanClear.addEventListener('click', async () => {
+                Motion.buttonTap(btnBilanClear);
+                if (confirm("Supprimer définitivement le bilan du jour ?")) {
+                    if (this.app.deleteCheckIn) {
+                        await this.app.deleteCheckIn();
+                        this.render(this.app.state);
+                    }
+                }
+            });
+        }
         this.container.querySelectorAll('.btn-open-modal').forEach(btn => {
             btn.addEventListener('click', () => {
                 Motion.buttonTap(btn);

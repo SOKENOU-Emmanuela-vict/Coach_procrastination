@@ -373,3 +373,63 @@
         padding: var(--space-4) var(--space-3);
     }
 }
+
+
+/* ACTIONS RAPIDES FITNESS & BIEN-ETRE */
+.life-kpi-row {
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.life-kpi-info {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.life-kpi-controls {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.life-pill-btn {
+    background: var(--bg-surface-alt);
+    border: 1px solid var(--border-subtle);
+    border-radius: 12px;
+    padding: 2px 8px;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    color: var(--text-primary);
+    transition: all 0.15s ease;
+}
+
+.life-pill-btn:hover {
+    background: var(--border-subtle);
+}
+
+.life-pill-btn.active {
+    background: var(--accent-primary);
+    color: #ffffff;
+    border-color: var(--accent-primary);
+}
+
+.life-kpi-action-btn {
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    color: var(--text-tertiary);
+    font-size: 14px;
+    padding: 2px 5px;
+    border-radius: 4px;
+    transition: color 0.15s ease;
+}
+
+.life-kpi-action-btn:hover {
+    color: var(--accent-primary);
+}
+
+.life-kpi-action-btn.danger:hover {
+    color: #ef4444;
+}

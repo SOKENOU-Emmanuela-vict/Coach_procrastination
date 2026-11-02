@@ -1,4 +1,5 @@
 import { sanitizeUrl } from '../utils/security.js';
+import { escapeHtml } from '../utils/html.js';
 import { Motion } from './motion.js';
 
 export class FocusView {
@@ -62,7 +63,7 @@ export class FocusView {
         }
     }
     
-    render(session) {
+    async render(session) {
         if (typeof document !== 'undefined' && document.body) {
             document.body.className = 'theme-light';
             if (typeof document.body.setAttribute === 'function') {
@@ -73,6 +74,10 @@ export class FocusView {
         if (this.timerInterval) {
             clearInterval(this.timerInterval);
         }
+
+        const historyList = (this.app && typeof this.app.getStudyHistory === 'function')
+            ? await this.app.getStudyHistory()
+            : (this.app?.state?.fullHistory || []);
 
         if (!session) {
             const hasAnyPlanned = this.app?.state?.dailyPlan?.sessions?.length > 0;
@@ -101,6 +106,7 @@ export class FocusView {
                 <button type="button" id="btn-focus-bilan" class="btn-focus-action-secondary"><i class="bi bi-trophy"></i> Faire mon Bilan</button>
             </div>
         </div>
+        ${this.renderHistorySection(historyList)}
     </div>
 </div>
             `;
@@ -129,6 +135,8 @@ export class FocusView {
                     this.app.renderView('planning');
                 });
             }
+
+            this.attachHistoryEvents(session, historyList);
             
             if (typeof document !== 'undefined') {
                 Motion.fadeIn('.focus-card', { duration: 0.25 });
@@ -238,6 +246,7 @@ export class FocusView {
 
             <button type="button" id="btn-pre-complete-task" class="btn-pre-complete"><i class="bi bi-check2"></i> Valider ou stopper la session</button>
         </div>
+        ${this.renderHistorySection(historyList)}
     </div>
 </div>
         `;
@@ -507,8 +516,140 @@ export class FocusView {
             });
         }
 
+        this.attachHistoryEvents(session, historyList);
+
         if (typeof document !== 'undefined') {
             Motion.fadeIn('.focus-card', { duration: 0.25 });
         }
+    }
+
+    renderHistorySection(historyList) {
+        if (!historyList || historyList.length === 0) {
+            return `
+            <div class="focus-card focus-history-card">
+                <div class="focus-history-header">
+                    <h3 class="focus-history-title"><i class="bi bi-clock-history"></i> Historique des séances d'étude</h3>
+                </div>
+                <p class="focus-empty-subtitle">Aucune séance d'étude enregistrée dans l'historique.</p>
+            </div>
+            `;
+        }
+        return `
+        <div class="focus-card focus-history-card">
+            <div class="focus-history-header">
+                <h3 class="focus-history-title"><i class="bi bi-clock-history"></i> Historique des séances d'étude (${historyList.length})</h3>
+            </div>
+            <div class="focus-history-list">
+                ${historyList.slice().reverse().map(rec => {
+                    const hasProof = rec.proof && (rec.proof.type || rec.proof.image || rec.proof.url);
+                    const qualityVal = rec.quality || rec.metrics?.quality || 3;
+                    const qualityStars = '★'.repeat(qualityVal) + '☆'.repeat(5 - qualityVal);
+                    const diffBadge = rec.actualDifficulty || rec.difficulty || '🟢';
+                    return `
+                    <div class="focus-history-item" data-id="${escapeHtml(rec.id)}">
+                        <div class="focus-history-item-top">
+                            <div>
+                                <span class="focus-history-date">${escapeHtml(rec.date)}</span>
+                                <strong class="focus-history-name">${escapeHtml(rec.title || rec.sessionId || 'Séance de travail')}</strong>
+                            </div>
+                            <div class="focus-history-badges">
+                                <span class="focus-badge-duration"><i class="bi bi-stopwatch"></i> ${rec.actualDuration || rec.plannedDuration || 0} min</span>
+                                <span class="focus-badge-diff" title="Difficulté">${escapeHtml(diffBadge)}</span>
+                                <span class="focus-badge-quality" title="Note">${qualityStars} (${qualityVal}/5)</span>
+                            </div>
+                        </div>
+                        ${rec.reflection ? `<div class="focus-history-reflection">« ${escapeHtml(rec.reflection)} »</div>` : ''}
+                        ${hasProof ? `
+                        <div class="focus-history-proof-box">
+                            <div class="focus-history-proof-meta">
+                                <span class="badge"><i class="bi bi-file-earmark-check"></i> Preuve : ${escapeHtml(rec.proof.type || 'Capture')}</span>
+                                ${rec.proof.description ? `<span>${escapeHtml(rec.proof.description)}</span>` : ''}
+                                ${rec.proof.url ? `<a href="${escapeHtml(sanitizeUrl(rec.proof.url))}" target="_blank" rel="noopener noreferrer">${escapeHtml(rec.proof.url)}</a>` : ''}
+                            </div>
+                            ${rec.proof.image ? `
+                            <div class="focus-history-proof-img-wrap">
+                                <img src="${escapeHtml(rec.proof.image)}" class="focus-history-thumb" alt="Capture jointe">
+                            </div>
+                            ` : ''}
+                            <div>
+                                <button type="button" class="btn-delete-study-proof btn btn-ghost btn-sm text-danger" data-id="${escapeHtml(rec.id)}" title="Supprimer la capture / preuve">
+                                    <i class="bi bi-trash"></i> Supprimer la preuve
+                                </button>
+                            </div>
+                        </div>
+                        ` : ''}
+                        <div class="focus-history-actions">
+                            <button type="button" class="btn-edit-study-record btn btn-secondary btn-sm" data-id="${escapeHtml(rec.id)}">
+                                <i class="bi bi-pencil"></i> Modifier note / difficulté
+                            </button>
+                            <button type="button" class="btn-delete-study-record btn btn-secondary btn-sm text-danger" data-id="${escapeHtml(rec.id)}">
+                                <i class="bi bi-trash"></i> Supprimer la séance
+                            </button>
+                        </div>
+                    </div>
+                    `;
+                }).join('')}
+            </div>
+        </div>
+        `;
+    }
+
+    attachHistoryEvents(session, historyList) {
+        if (!this.container) return;
+        // Modifier la note / difficulté
+        this.container.querySelectorAll('.btn-edit-study-record').forEach(btn => {
+            btn.addEventListener('click', async () => {
+                const id = btn.getAttribute('data-id');
+                const rec = (historyList || []).find(r => r.id === id);
+                if (!rec) return;
+
+                const curQuality = rec.quality || rec.metrics?.quality || 3;
+                const curDiff = rec.actualDifficulty || rec.difficulty || '🟢';
+                const curRef = rec.reflection || rec.metrics?.reflection || '';
+
+                const newDiff = prompt("Difficulté ressentie (🟢 = Maîtrisé, 🟡 = À revoir, 🔴 = Non compris) :", curDiff);
+                if (newDiff === null) return;
+
+                const newQuality = prompt("Note de qualité ressentie (1 à 5) :", curQuality);
+                if (newQuality === null) return;
+
+                const newRef = prompt("Commentaire / réflexion (optionnel) :", curRef);
+
+                const q = Math.max(1, Math.min(5, parseInt(newQuality, 10) || 3));
+                const d = newDiff.trim() || '🟢';
+                const r = newRef !== null ? newRef.trim() : curRef;
+
+                if (this.app.updateStudyRecord) {
+                    await this.app.updateStudyRecord(id, { quality: q, difficulty: d, actualDifficulty: d, reflection: r });
+                }
+                await this.render(session);
+            });
+        });
+
+        // Supprimer la preuve
+        this.container.querySelectorAll('.btn-delete-study-proof').forEach(btn => {
+            btn.addEventListener('click', async () => {
+                const id = btn.getAttribute('data-id');
+                if (confirm("Supprimer définitivement la preuve (capture) associée à cette séance ?")) {
+                    if (this.app.deleteStudyProof) {
+                        await this.app.deleteStudyProof(id);
+                    }
+                    await this.render(session);
+                }
+            });
+        });
+
+        // Supprimer la séance
+        this.container.querySelectorAll('.btn-delete-study-record').forEach(btn => {
+            btn.addEventListener('click', async () => {
+                const id = btn.getAttribute('data-id');
+                if (confirm("Supprimer définitivement cette séance d'étude de l'historique ?")) {
+                    if (this.app.deleteStudyRecord) {
+                        await this.app.deleteStudyRecord(id);
+                    }
+                    await this.render(session);
+                }
+            });
+        });
     }
 }

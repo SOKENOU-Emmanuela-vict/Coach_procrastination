@@ -388,7 +388,12 @@ export class LanguageView {
         this.container.querySelectorAll('.btn-delete-lang').forEach(btn => {
             btn.addEventListener('click', async () => {
                 const id = btn.getAttribute('data-id');
-                if (confirm("Supprimer cette langue et ses ressources associées ?")) {
+                const lang = languages.find(l => l.id === id);
+                const langName = lang ? lang.name : 'cette langue';
+                const resCount = lang?.resources?.length || 0;
+                const tracking = lang?.tracking || { sessionsCompleted: 0, minutesStudied: 0, vocabularyWords: 0 };
+                const confirmMsg = `Supprimer la langue "${langName}" ?\n\nAttention : cette action est irréversible. Seront définitivement supprimés :\n- Toutes les ressources associées (${resCount})\n- L'historique de suivi (${tracking.sessionsCompleted} séances, ${tracking.minutesStudied} min, ${tracking.vocabularyWords} mots)\n- L'objectif et le plan d'apprentissage.`;
+                if (confirm(confirmMsg)) {
                     if (this.app.languageEngine) {
                         await this.app.languageEngine.deleteLanguage(id);
                     }
@@ -495,7 +500,10 @@ export class LanguageView {
             btn.addEventListener('click', async () => {
                 const langId = btn.getAttribute('data-lang-id');
                 const resId = btn.getAttribute('data-res-id');
-                if (confirm("Supprimer cette ressource ?")) {
+                const lang = languages.find(l => l.id === langId);
+                const res = (lang?.resources || []).find(r => r.id === resId);
+                const resTitle = res ? res.title : 'cette ressource';
+                if (confirm(`Supprimer définitivement la ressource "${resTitle}" ?`)) {
                     await this.app.languageEngine.deleteResource(langId, resId);
                     this.render(this.app.state);
                 }
@@ -633,6 +641,7 @@ export class LanguageView {
                             <input type="number" min="0" id="track-vocab" class="lang-form-input" value="${tracking.vocabularyWords || 0}">
                         </div>
                         <div class="lang-form-actions">
+                            <button type="button" id="btn-reset-track" class="btn btn-secondary text-danger"><i class="bi bi-trash"></i> Remettre à zéro</button>
                             <button type="button" id="btn-cancel-track" class="btn btn-secondary">Annuler</button>
                             <button type="submit" class="btn btn-primary">Sauvegarder</button>
                         </div>
@@ -640,6 +649,13 @@ export class LanguageView {
                     `
                 );
                 modalContent.querySelector('#btn-cancel-track')?.addEventListener('click', closeModal);
+                modalContent.querySelector('#btn-reset-track')?.addEventListener('click', async () => {
+                    if (confirm(`Réinitialiser tout le suivi de ${lang.name} à 0 (séances, minutes, vocabulaire) ?`)) {
+                        await this.app.languageEngine.resetTracking(id);
+                        closeModal();
+                        this.render(this.app.state);
+                    }
+                });
                 modalContent.querySelector('#form-tracking')?.addEventListener('submit', async (e) => {
                     e.preventDefault();
                     const sessions = parseInt(modalContent.querySelector('#track-sessions').value, 10) || 0;
