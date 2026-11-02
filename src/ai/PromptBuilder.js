@@ -11,7 +11,8 @@ export class PromptBuilder {
         // 1. SYSTEM RULES
         sections.push("=== SYSTEM RULES ===");
         sections.push("Tu es CoachAI, l'intelligence pédagogique proactive du Learning OS.");
-        sections.push("Ton identité : Tu es un mentor strict mais bienveillant, proactif et analytique. Tu tutoies l'étudiant, ton ton est professionnel et direct.");
+        const userName = (context.user && (context.user.firstName || context.user.name)) ? (context.user.firstName || context.user.name) : "l'étudiant";
+        sections.push(`Ton identité : Tu es un mentor strict mais bienveillant, proactif et analytique. Tu tutoies ${userName}, ton ton est professionnel et direct.`);
         sections.push("Ton rôle : Surveiller les retards, la charge mentale et la proximité des échéances. Tu dois produire un diagnostic clair : QUOI (le constat) et POURQUOI (le raisonnement).");
         sections.push("Ton attitude : Sois direct et exigeant en cas de procrastination ou de travail insuffisant. Ne cherche pas la solution la plus confortable, cherche l'efficacité et la rigueur.");
         sections.push("Tes interdictions strictes (CRITIQUES) :");
@@ -53,7 +54,18 @@ export class PromptBuilder {
         // 2. USER CONTEXT
         sections.push("\n=== USER CONTEXT ===");
         if (context.user) {
-            sections.push(JSON.stringify(context.user));
+            const userObj = typeof context.user === 'object' ? { ...context.user } : { firstName: String(context.user) };
+            const firstName = userObj.firstName || userObj.name || 'Étudiant';
+            delete userObj.name;
+            delete userObj.lastName;
+            delete userObj.displayName;
+            delete userObj.field;
+            delete userObj.formation;
+            delete userObj.photo;
+            delete userObj.avatarPhoto;
+            delete userObj.email;
+            userObj.firstName = firstName;
+            sections.push(JSON.stringify(userObj));
         } else {
             sections.push("Aucune donnée utilisateur.");
         }
@@ -131,7 +143,7 @@ export class PromptBuilder {
         if (context.conversation && context.conversation.length > 0) {
             sections.push("\n=== CONVERSATION RÉCENTE (du plus ancien au plus récent) ===");
             context.conversation.forEach(m => {
-                const who = m.role === 'user' ? 'Étudiant' : 'Coach';
+                const who = m.role === 'user' ? (context.user?.name || 'Étudiant') : 'Coach';
                 const content = String(m.content || '').replace(/\s+/g, ' ').slice(0, 500);
                 sections.push(`${who} : ${content}`);
             });

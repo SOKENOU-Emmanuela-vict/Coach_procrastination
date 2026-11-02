@@ -1,4 +1,4 @@
-const CACHE_NAME = 'learning-os-v2.15';
+const CACHE_NAME = 'learning-os-v2.16';
 const ASSETS_TO_CACHE = [
   './',
   './index.html',
@@ -103,6 +103,7 @@ const ASSETS_TO_CACHE = [
   './src/utils/AppLogger.js',
   './src/utils/dateUtils.js',
   './src/utils/html.js',
+  './src/utils/image.js',
   './src/utils/security.js',
   './vendor/bootstrap-icons/bootstrap-icons.min.css',
   './vendor/bootstrap-icons/fonts/bootstrap-icons.woff2',

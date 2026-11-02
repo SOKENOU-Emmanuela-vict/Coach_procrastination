@@ -102,8 +102,8 @@ export class DesktopView {
                 <button type="button" id="btn-backup-modal" class="btn btn-secondary btn-sm" title="Sauvegarde et restauration des données">
                     <i class="bi bi-shield-check"></i> <span>Sauvegarde</span>
                 </button>
-                <div id="btn-profile" class="bureau-profile-btn" title="Mon profil & Sauvegarde">
-                    ${(state.userProfile?.name || 'T').charAt(0).toUpperCase()}
+                <div id="btn-profile" class="bureau-profile-btn" role="button" tabindex="0" title="Mon profil">
+                    ${state.userProfile?.avatarPhoto ? `<img src="${escapeHtml(state.userProfile.avatarPhoto)}" class="bureau-avatar-img" alt="Avatar">` : escapeHtml((state.userProfile?.name || 'É').charAt(0).toUpperCase())}
                 </div>
             </div>
         </header>
@@ -467,7 +467,7 @@ export class DesktopView {
 
         if (btnOpenBackup) btnOpenBackup.addEventListener('click', openBackup);
         if (btnCloseBackup) btnCloseBackup.addEventListener('click', closeBackup);
-        if (btnProfile) btnProfile.addEventListener('click', openBackup);
+        if (btnProfile) btnProfile.addEventListener('click', () => { if (this.app.openProfileModal) this.app.openProfileModal(); });
         if (backupModal) {
             backupModal.addEventListener('click', (e) => {
                 if (e.target === backupModal) closeBackup();

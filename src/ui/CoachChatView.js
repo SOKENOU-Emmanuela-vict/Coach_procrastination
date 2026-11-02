@@ -85,8 +85,8 @@ export class CoachChatView {
                     <i class="bi ${maskedApiKey ? 'bi-key-fill' : 'bi-key'}"></i>
                     ${maskedApiKey ? `Clé IA active (${escapeHtml(maskedApiKey)})` : 'Configurer ma clé IA'}
                 </button>
-                <div class="coach-avatar-topbar">
-                    É
+                <div id="btn-profile" class="coach-avatar-topbar bureau-profile-btn" role="button" tabindex="0" title="Mon profil">
+                    ${st.userProfile?.avatarPhoto ? `<img src="${escapeHtml(st.userProfile.avatarPhoto)}" class="coach-avatar-img" alt="Avatar">` : escapeHtml((st.userProfile?.name || 'É').charAt(0).toUpperCase())}
                 </div>
             </div>
         </div>
@@ -282,7 +282,7 @@ export class CoachChatView {
         this.container.innerHTML = html;
 
         // Auto-scroll to bottom
-        const msgContainer = document.getElementById('chat-messages-container');
+        const msgContainer = typeof document !== 'undefined' ? document.getElementById('chat-messages-container') : null;
         if (msgContainer) {
             msgContainer.scrollTop = msgContainer.scrollHeight;
         }

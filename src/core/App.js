@@ -224,6 +224,7 @@ export class App {
         try { await this.syncProactiveCoachMessages(); } catch (e) { AppLogger.error("Messages du coach: " + e.message); }
 
         this.setupGlobalItemEditor();
+        this.setupProfileModal();
     }
 
     setupGlobalItemEditor() {
@@ -305,6 +306,155 @@ export class App {
                 modal.hidden = true; modal.style.display = 'none';
                 this.renderView(this.state.currentView);
             });
+        }
+    }
+
+    
+    async saveUserProfile(profileData = {}) {
+        const existing = (await this.storage.loadData('user_profile')) || {};
+        const updated = {
+            ...existing,
+            ...profileData
+        };
+        if (profileData.name && typeof profileData.name === 'string') {
+            updated.name = profileData.name.trim();
+        }
+        await this.storage.saveData('user_profile', updated);
+        this.state.userProfile = { ...(this.state.userProfile || {}), ...updated };
+        return updated;
+    }
+
+    setupProfileModal() {
+        if (typeof document === 'undefined') return;
+        const modal = document.getElementById('user-profile-modal');
+        if (!modal) return;
+        const closeBtn = document.getElementById('btn-profile-modal-close');
+        const cancelBtn = document.getElementById('btn-profile-modal-cancel');
+        const saveBtn = document.getElementById('btn-profile-modal-save');
+        const photoInput = document.getElementById('profile-modal-photo');
+        const removePhotoBtn = document.getElementById('btn-profile-remove-photo');
+        const previewImg = document.getElementById('profile-modal-preview');
+        const initialPreview = document.getElementById('profile-modal-initial-preview');
+        const firstnameInput = document.getElementById('profile-modal-firstname');
+        const lastnameInput = document.getElementById('profile-modal-lastname');
+        const formationInput = document.getElementById('profile-modal-formation');
+
+        this._profileModalPendingPhoto = undefined;
+
+        const closeModal = () => {
+            modal.hidden = true;
+            modal.style.display = 'none';
+        };
+
+        if (closeBtn && typeof closeBtn.addEventListener === 'function') closeBtn.addEventListener('click', closeModal);
+        if (cancelBtn && typeof cancelBtn.addEventListener === 'function') cancelBtn.addEventListener('click', closeModal);
+        if (modal && typeof modal.addEventListener === 'function') {
+            modal.addEventListener('click', (e) => {
+                if (e.target === modal) closeModal();
+            });
+        }
+
+        if (photoInput && typeof photoInput.addEventListener === 'function') {
+            photoInput.addEventListener('change', async (e) => {
+                const file = e.target.files && e.target.files[0];
+                if (!file) return;
+                try {
+                    const dataUrl = await resizeImageToMax256(file);
+                    this._profileModalPendingPhoto = dataUrl;
+                    if (previewImg) {
+                        previewImg.src = dataUrl;
+                        previewImg.hidden = false;
+                    }
+                    if (initialPreview) initialPreview.hidden = true;
+                    if (removePhotoBtn) removePhotoBtn.hidden = false;
+                } catch (err) {
+                    alert("Erreur image : " + err.message);
+                }
+            });
+        }
+
+        if (removePhotoBtn && typeof removePhotoBtn.addEventListener === 'function') {
+            removePhotoBtn.addEventListener('click', () => {
+                this._profileModalPendingPhoto = null;
+                if (photoInput) photoInput.value = '';
+                if (previewImg) {
+                    previewImg.src = '';
+                    previewImg.hidden = true;
+                }
+                if (initialPreview) initialPreview.hidden = false;
+                removePhotoBtn.hidden = true;
+            });
+        }
+
+        if (saveBtn && typeof saveBtn.addEventListener === 'function') {
+            saveBtn.addEventListener('click', async () => {
+                const firstName = firstnameInput ? firstnameInput.value.trim() : '';
+                if (!firstName) {
+                    alert("Le prénom est obligatoire.");
+                    if (firstnameInput) firstnameInput.focus();
+                    return;
+                }
+                const lastName = lastnameInput ? lastnameInput.value.trim() : '';
+                const formation = formationInput ? formationInput.value.trim() : '';
+                const updates = {
+                    name: firstName,
+                    lastName,
+                    formation
+                };
+                if (this._profileModalPendingPhoto !== undefined) {
+                    updates.avatarPhoto = this._profileModalPendingPhoto;
+                }
+                await this.saveUserProfile(updates);
+                closeModal();
+                if (this.renderView && this.state && this.state.currentView) {
+                    await this.renderView(this.state.currentView);
+                }
+            });
+        }
+    }
+
+    openProfileModal() {
+        if (typeof document === 'undefined') return;
+        const modal = document.getElementById('user-profile-modal');
+        if (!modal) return;
+        const firstnameInput = document.getElementById('profile-modal-firstname');
+        const lastnameInput = document.getElementById('profile-modal-lastname');
+        const formationInput = document.getElementById('profile-modal-formation');
+        const previewImg = document.getElementById('profile-modal-preview');
+        const initialPreview = document.getElementById('profile-modal-initial-preview');
+        const removePhotoBtn = document.getElementById('btn-profile-remove-photo');
+        const photoInput = document.getElementById('profile-modal-photo');
+
+        this._profileModalPendingPhoto = undefined;
+        const profile = (this.state && this.state.userProfile) || {};
+        if (firstnameInput) firstnameInput.value = (profile.name && profile.name !== 'Étudiant') ? profile.name : '';
+        if (lastnameInput) lastnameInput.value = profile.lastName || '';
+        if (formationInput) formationInput.value = profile.formation || '';
+        if (photoInput) photoInput.value = '';
+
+        if (profile.avatarPhoto) {
+            if (previewImg) {
+                previewImg.src = profile.avatarPhoto;
+                previewImg.hidden = false;
+            }
+            if (initialPreview) initialPreview.hidden = true;
+            if (removePhotoBtn) removePhotoBtn.hidden = false;
+        } else {
+            if (previewImg) {
+                previewImg.src = '';
+                previewImg.hidden = true;
+            }
+            if (initialPreview) {
+                initialPreview.hidden = false;
+                initialPreview.textContent = (profile.name || 'É').charAt(0).toUpperCase();
+            }
+            if (removePhotoBtn) removePhotoBtn.hidden = true;
+        }
+
+        modal.hidden = false;
+        modal.style.display = 'flex';
+        if (typeof window !== 'undefined' && window.gsap && window.gsap.fromTo) {
+            window.gsap.fromTo(modal.querySelector('.modal-box'), { opacity: 0, scale: 0.95 }, { opacity: 1, scale: 1, duration: 0.2 });
         }
     }
 

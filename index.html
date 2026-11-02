@@ -87,6 +87,46 @@
         </div>
     </div>
     
+    
+    <!-- MODAL MON PROFIL -->
+    <div id="user-profile-modal" class="modal-backdrop" hidden>
+        <div class="modal-box" role="dialog" aria-modal="true" aria-labelledby="profile-modal-title">
+            <div class="modal-header">
+                <h3 id="profile-modal-title" class="modal-title"><i class="bi bi-person-circle"></i> Mon profil</h3>
+                <button type="button" id="btn-profile-modal-close" class="btn btn-ghost btn-sm" aria-label="Fermer">✕</button>
+            </div>
+            <div class="modal-body">
+                <div>
+                    <label class="form-label" for="profile-modal-firstname">Prénom <span class="text-danger">*</span></label>
+                    <input type="text" id="profile-modal-firstname" class="form-input" required placeholder="Ex. Emmanuela" autocomplete="given-name">
+                </div>
+                <div>
+                    <label class="form-label" for="profile-modal-lastname">Nom affiché (optionnel)</label>
+                    <input type="text" id="profile-modal-lastname" class="form-input" placeholder="Ex. Sokenou" autocomplete="family-name">
+                </div>
+                <div>
+                    <label class="form-label" for="profile-modal-formation">Filière / Niveau (optionnel)</label>
+                    <input type="text" id="profile-modal-formation" class="form-input" placeholder="Ex. L2 Informatique">
+                </div>
+                <div>
+                    <label class="form-label" for="profile-modal-photo">Photo de profil (optionnelle, max 256 px)</label>
+                    <input type="file" id="profile-modal-photo" class="form-input" accept="image/*">
+                    <div class="profile-photo-actions">
+                        <div id="profile-modal-preview-wrap" class="profile-photo-preview">
+                            <span id="profile-modal-initial-preview" class="profile-initial-preview">É</span>
+                            <img id="profile-modal-preview" class="profile-avatar-img" alt="Aperçu photo" hidden>
+                        </div>
+                        <button type="button" id="btn-profile-remove-photo" class="btn btn-ghost btn-sm" hidden><i class="bi bi-trash"></i> Supprimer la photo</button>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-actions">
+                <button type="button" id="btn-profile-modal-cancel" class="btn btn-ghost">Annuler</button>
+                <button type="button" id="btn-profile-modal-save" class="btn btn-primary">Enregistrer</button>
+            </div>
+        </div>
+    </div>
+
     <!-- La navigation principale se fait via DesktopView.js désormais -->
     <script>
         window.addEventListener('error', function(e) {

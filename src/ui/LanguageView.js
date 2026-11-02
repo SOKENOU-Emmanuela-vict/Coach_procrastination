@@ -217,8 +217,8 @@ export class LanguageView {
                 <button type="button" id="btn-add-language" class="languages-btn-add">
                     <i class="bi bi-plus-circle"></i> + Ajouter une langue
                 </button>
-                <div class="bureau-profile-avatar" id="btn-profile">
-                    ${(state.userProfile?.name || 'E').charAt(0).toUpperCase()}
+                <div class="bureau-profile-avatar bureau-profile-btn" id="btn-profile" role="button" tabindex="0" title="Mon profil">
+                    ${state.userProfile?.avatarPhoto ? `<img src="${escapeHtml(state.userProfile.avatarPhoto)}" class="bureau-avatar-img" alt="Avatar">` : escapeHtml((state.userProfile?.name || 'É').charAt(0).toUpperCase())}
                 </div>
             </div>
         </div>
@@ -275,7 +275,7 @@ export class LanguageView {
         const btnProfile = this.container.querySelector('#btn-profile');
         if (btnProfile) {
             btnProfile.addEventListener('click', () => {
-                if (this.app.renderView) this.app.renderView('portfolio');
+                if (this.app.openProfileModal) this.app.openProfileModal(); else if (this.app.renderView) this.app.renderView('portfolio');
             });
         }
 

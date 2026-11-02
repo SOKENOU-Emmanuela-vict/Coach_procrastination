@@ -556,7 +556,9 @@ export class PlanningView {
                 
                 <div class="planning-user-profile">
                     <strong class="planning-user-name">${escapeHtml(state.userProfile?.name || 'Étudiant')}</strong>
-                    <div class="planning-user-avatar">É</div>
+                    <div class="planning-user-avatar bureau-profile-btn" id="btn-profile" role="button" tabindex="0" title="Mon profil">
+                        ${state.userProfile?.avatarPhoto ? `<img src="${escapeHtml(state.userProfile.avatarPhoto)}" class="planning-avatar-img" alt="Avatar">` : escapeHtml((state.userProfile?.name || 'É').charAt(0).toUpperCase())}
+                    </div>
                 </div>
             </div>
         </div>

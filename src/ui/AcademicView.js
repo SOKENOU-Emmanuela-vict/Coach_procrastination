@@ -372,8 +372,8 @@ export class AcademicView {
                     <i class="${isBlockProjects ? 'bi bi-briefcase' : 'bi bi-journal-bookmark'}"></i>
                     <span>${isBlockProjects ? 'Mes Projets & Stages' : `Détails du ${escapeHtml(blocks[this.selectedBlock].title)}`}</span>
                 </h2>
-                <div id="btn-profile" class="bureau-profile-btn" title="Mon profil">
-                    ${(state.userProfile?.name || 'E').charAt(0).toUpperCase()}
+                <div id="btn-profile" class="bureau-profile-btn" role="button" tabindex="0" title="Mon profil">
+                    ${state.userProfile?.avatarPhoto ? `<img src="${escapeHtml(state.userProfile.avatarPhoto)}" class="bureau-avatar-img" alt="Avatar">` : escapeHtml((state.userProfile?.name || 'É').charAt(0).toUpperCase())}
                 </div>
             </div>
 
@@ -427,7 +427,7 @@ export class AcademicView {
         const btnProfile = this.container.querySelector('#btn-profile');
         if (btnProfile) {
             btnProfile.addEventListener('click', () => {
-                if (this.app.renderView) this.app.renderView('desktop');
+                if (this.app.openProfileModal) this.app.openProfileModal(); else if (this.app.renderView) this.app.renderView('desktop');
             });
         }
 

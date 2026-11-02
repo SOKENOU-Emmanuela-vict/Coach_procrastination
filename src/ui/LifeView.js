@@ -1,4 +1,5 @@
 import { Motion } from './motion.js';
+import { escapeHtml } from '../utils/html.js';
 
 export class LifeView {
     constructor(containerId, app) {
@@ -70,6 +71,9 @@ export class LifeView {
                 <h2 class="life-hero-headline">VIE & BIEN-ÊTRE</h2>
             </div>
             <div class="life-hero-right">
+                <div id="btn-profile" class="bureau-profile-btn" role="button" tabindex="0" title="Mon profil">
+                    ${state.userProfile?.avatarPhoto ? `<img src="${escapeHtml(state.userProfile.avatarPhoto)}" class="bureau-avatar-img" alt="Avatar">` : escapeHtml((state.userProfile?.name || 'É').charAt(0).toUpperCase())}
+                </div>
                 <i class="bi bi-quote life-hero-quote-icon"></i>
                 <p class="life-hero-quote-text">
                     "Tu ne peux pas changer ton passé, mais tu peux détruire ton futur si tu restes bloqué dessus."
