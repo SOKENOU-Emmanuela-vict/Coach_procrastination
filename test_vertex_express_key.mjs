@@ -31,27 +31,31 @@ try {
     assert(gpVertex.apiKey === 'AQ.FAKE_TEST_TOKEN_1234', '1. Clé nettoyée des espaces et retours ligne');
     assert(gpVertex.isVertexExpressKey() === true, '2. Clé AQ. reconnue comme clé Vertex AI Express Mode');
 
-    // 2. Appel generate() avec clé AQ. → endpoint aiplatform.googleapis.com + role: "user"
+    // 2. Appel generate() avec clé AQ. → generativelanguage.googleapis.com essayé en premier (avec en-tête x-goog-api-key)
     let capturedUrl = null;
     let capturedBody = null;
+    let capturedHeaders = null;
     global.fetch = async (url, opts) => {
         capturedUrl = String(url);
         capturedBody = JSON.parse(opts.body);
+        capturedHeaders = opts.headers || {};
         return ok('{"ok":"vertex"}');
     };
     const outVertex = await gpVertex.generate('Bonjour coach');
-    assert(outVertex === '{"ok":"vertex"}', '3. Réponse obtenue via Vertex AI Express Mode');
-    assert(capturedUrl.startsWith(`https://aiplatform.googleapis.com/v1/publishers/google/models/${GEMINI_PRIMARY_MODEL}:generateContent?key=`),
-        '4. URL routée vers aiplatform.googleapis.com/v1/publishers/google/models/...');
+    assert(outVertex === '{"ok":"vertex"}', '3. Réponse obtenue via Google AI Studio');
+    assert(capturedUrl.startsWith(`https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_PRIMARY_MODEL}:generateContent`),
+        '4. URL routée vers generativelanguage.googleapis.com en premier');
+    assert(capturedHeaders['x-goog-api-key'] === 'AQ.FAKE_TEST_TOKEN_1234',
+        '4b. En-tête x-goog-api-key présent');
     assert(capturedBody && capturedBody.contents && capturedBody.contents[0] && capturedBody.contents[0].role === 'user',
-        '5. generate() inclut bien role: "user" exigé par Vertex AI');
+        '5. generate() inclut bien role: "user" exigé par Google');
 
-    // 3. Clé Google AI Studio classique → endpoint generativelanguage.googleapis.com inchangé
+    // 3. Clé Google AI Studio classique → endpoint generativelanguage.googleapis.com
     const gpStudio = new GeminiProvider('CLE_STUDIO_TEST_5678');
     gpStudio.retryDelayMs = 0;
     assert(gpStudio.isVertexExpressKey() === false, '6. Clé AI Studio standard non marquée Vertex Express');
     await gpStudio.generate('Salut');
-    assert(capturedUrl.startsWith(`https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_PRIMARY_MODEL}:generateContent?key=`),
+    assert(capturedUrl.startsWith(`https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_PRIMARY_MODEL}:generateContent`),
         '7. Clé AI Studio routée vers generativelanguage.googleapis.com');
 
     // 4. Repli automatique jusqu'à gemini-2.5-flash si les modèles 3.x renvoient 404 sur Vertex Express
@@ -66,15 +70,15 @@ try {
     assert(outFallback === '{"fallback":"2.5"}' && gpVertex.lastModelUsed === 'gemini-2.5-flash',
         '8. Repli automatique sur gemini-2.5-flash en cas de 404 sur les modèles précédents');
 
-    // 5. generateFromFile() routé vers aiplatform.googleapis.com avec clé AQ.
+    // 5. generateFromFile() routé vers generativelanguage en premier avec clé AQ.
     capturedUrl = null;
     global.fetch = async (url) => {
         capturedUrl = String(url);
         return ok('{"entries":[]}');
     };
     const outFile = await gpVertex.generateFromFile({ prompt: 'Lis', mimeType: 'application/pdf', data: 'JVBERi0=' });
-    assert(outFile === '{"entries":[]}' && capturedUrl.startsWith('https://aiplatform.googleapis.com/v1/publishers/google/models/'),
-        '9. generateFromFile() utilise aussi aiplatform.googleapis.com avec une clé AQ.');
+    assert(outFile === '{"entries":[]}' && capturedUrl.startsWith('https://generativelanguage.googleapis.com/v1beta/models/'),
+        '9. generateFromFile() utilise aussi generativelanguage.googleapis.com en premier avec une clé AQ.');
 
     // 6. Confidentialité : la clé AQ. n'apparaît jamais dans GeminiError
     global.fetch = async () => fail(401, 'Invalid key AQ.FAKE_TEST_TOKEN_1234 rejected');

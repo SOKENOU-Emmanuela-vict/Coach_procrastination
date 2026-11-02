@@ -150,13 +150,14 @@ global.window = {
 };
 
 async function testNavigation() {
+    const todayDate = new Date().toISOString().slice(0, 10);
     console.log("=== TESTS X1 : ACCES AUX ÉCRANS & MODE FOCUS ===");
 
     // Mock storage
     const storage = {
         data: {
             'events': [
-                { id: 'ev-1', title: 'Révision Algo', type: 'revision', date: '2026-10-27', startTime: '14:00', endTime: '15:30', duration: 90, subjectId: 'algo' }
+                { id: 'ev-1', title: 'Révision Algo', type: 'revision', date: todayDate, startTime: '14:00', endTime: '15:30', duration: 90, subjectId: 'algo' }
             ]
         },
         loadData: async (k) => storage.data[k] || null,
@@ -185,7 +186,7 @@ async function testNavigation() {
 
     const checkInEngine = {
         buildDailySummary: async () => ({
-            date: '2026-10-27',
+            date: todayDate,
             execution: { completionRate: 100, completed: 1, missed: 0 },
             energy: 'high'
         }),
@@ -217,14 +218,14 @@ async function testNavigation() {
         currentView: 'desktop',
         userProfile: { name: 'Test User', streak: 5, gamification: { level: 2, xp: 250, nextLevelXp: 500 } },
         dailyPlan: {
-            date: '2026-10-27',
+            date: todayDate,
             sessions: [
                 { id: 'sess-1', title: 'Cours Réseau', type: 'course', startTime: '08:00', endTime: '10:00', duration: 120, completed: false }
             ]
         },
         calendarData: {
             events: [
-                { id: 'ev-1', title: 'Révision Algo', type: 'revision', date: '2026-10-27', startTime: '14:00', endTime: '15:30', duration: 90, subjectId: 'algo' }
+                { id: 'ev-1', title: 'Révision Algo', type: 'revision', date: todayDate, startTime: '14:00', endTime: '15:30', duration: 90, subjectId: 'algo' }
             ],
             availabilities: [],
             subjects: [],

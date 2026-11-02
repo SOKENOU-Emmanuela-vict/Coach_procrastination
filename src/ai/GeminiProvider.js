@@ -126,7 +126,7 @@ export async function diagnoseNetworkFailure(error, key = '') {
 
     return {
         code: 'CORS_OR_AQ',
-        message: "Google est joignable mais refuse l'appel depuis le navigateur (CORS ou clé de type AQ.). Utilise une clé AIza créée dans Google AI Studio."
+        message: "Google est joignable mais l'appel a été refusé ou bloqué par le navigateur. Vérifie que la clé vient de Google AI Studio et que l'API Gemini est activée sur son projet. Ouvre la Console (F12) pour le détail."
     };
 }
 
@@ -148,7 +148,7 @@ export class GeminiError extends Error {
 /** Code court + explication en français selon le status HTTP (ou l'absence de réponse). */
 export function describeGeminiFailure(status, rawMessage = '', context = {}) {
     const raw = String(rawMessage || '');
-    if (/sk-|openai/i.test(raw)) return { code: 'AUTH', text: 'cette clé commence par « sk- » (clé OpenAI) ; utilise une clé Google (AI Studio ou Vertex AI « AQ.… »)' };
+    if (/sk-|openai/i.test(raw)) return { code: 'AUTH', text: 'cette clé commence par « sk- » (clé OpenAI) ; utilise une clé Google AI Studio (commençant par « AQ.… » ou « AIza… »)' };
     if (status === 503 || /high demand|overloaded|unavailable/i.test(raw)) return { code: 'OVERLOADED', text: 'les serveurs de Gemini sont saturés' };
     if (status === 429 || /quota|rate limit|resource.?exhausted/i.test(raw)) return { code: 'QUOTA', text: 'le quota gratuit de la clé est épuisé pour le moment' };
     if (status === 401) {
@@ -198,12 +198,15 @@ export class GeminiProvider extends LLMProvider {
         return typeof this.apiKey === 'string' && this.apiKey.startsWith('AQ.');
     }
 
-    _url(model, useStudioFallback = false) {
+    _url(model, mode = 'studio_header') {
         const keyParam = encodeURIComponent(this.apiKey);
-        if (this.isVertexExpressKey() && !useStudioFallback && !this.usesStudioOnly && !sessionUsesStudioOnly) {
+        if (mode === 'aiplatform') {
             return `https://aiplatform.googleapis.com/v1/publishers/google/models/${model}:generateContent?key=${keyParam}`;
         }
-        return `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${keyParam}`;
+        if (mode === 'studio_query') {
+            return `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${keyParam}`;
+        }
+        return `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`;
     }
 
     _modelsUrl(candidateKey = null) {
@@ -323,18 +326,63 @@ export class GeminiProvider extends LLMProvider {
             return { ok: false, status: 0, code: 'AUTH', message: "Colle ta clé API avant de tester." };
         }
         if (/^sk-/i.test(key)) {
-            return { ok: false, status: 401, code: 'AUTH', message: "Erreur 401 : Cette clé commence par « sk- » (clé OpenAI) ; utilise une clé Google (AI Studio ou Vertex AI « AQ.… »)." };
+            return { ok: false, status: 401, code: 'AUTH', message: "Erreur 401 : Cette clé commence par « sk- » (clé OpenAI) ; utilise une clé Google AI Studio (commençant par « AQ.… » ou « AIza… »)." };
         }
 
-        // Cas d'une clé AQ. (Vertex AI Express Mode) :
-        // 1. Tente l'adresse aiplatform.
-        // 2. Tente l'autre adresse generativelanguage.
-        // 3. Si les deux échouent : vérifie la joignabilité via la sonde no-cors.
+        // Cas d'une clé AQ. (Google AI Studio nouvelle génération ou Vertex AI) :
+        // 1. Tente generativelanguage.googleapis.com (avec en-tête x-goog-api-key)
+        // 2. Tente generativelanguage.googleapis.com (avec ?key=)
+        // 3. Tente aiplatform.googleapis.com
+        // 4. Si tous échouent : vérifie la joignabilité via la sonde no-cors.
         if (key.startsWith('AQ.')) {
-            let aiplatformErr = null;
             let studioErr = null;
+            let aiplatformErr = null;
 
-            // Essai 1 : aiplatform.googleapis.com
+            // Essai 1 : generativelanguage.googleapis.com avec en-tête x-goog-api-key
+            try {
+                const urlStudioHeader = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_PRIMARY_MODEL}:generateContent`;
+                const res = await fetch(urlStudioHeader, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'x-goog-api-key': key },
+                    body: JSON.stringify({ contents: [{ role: 'user', parts: [{ text: 'test' }] }] })
+                });
+                if (res.ok) {
+                    this.selectedModel = GEMINI_PRIMARY_MODEL;
+                    sessionSelectedModel = GEMINI_PRIMARY_MODEL;
+                    this.usesStudioOnly = true;
+                    sessionUsesStudioOnly = true;
+                    return { ok: true, model: GEMINI_PRIMARY_MODEL, message: `OK (modèle retenu : ${GEMINI_PRIMARY_MODEL})` };
+                } else {
+                    studioErr = new Error(`HTTP ${res.status}`);
+                    studioErr.status = res.status;
+                }
+            } catch (e) {
+                studioErr = e;
+            }
+
+            // Essai 2 : generativelanguage.googleapis.com avec ?key=
+            try {
+                const urlStudioKey = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_PRIMARY_MODEL}:generateContent?key=${encodeURIComponent(key)}`;
+                const res = await fetch(urlStudioKey, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ contents: [{ role: 'user', parts: [{ text: 'test' }] }] })
+                });
+                if (res.ok) {
+                    this.selectedModel = GEMINI_PRIMARY_MODEL;
+                    sessionSelectedModel = GEMINI_PRIMARY_MODEL;
+                    this.usesStudioOnly = true;
+                    sessionUsesStudioOnly = true;
+                    return { ok: true, model: GEMINI_PRIMARY_MODEL, message: `OK (modèle retenu : ${GEMINI_PRIMARY_MODEL})` };
+                } else {
+                    studioErr = new Error(`HTTP ${res.status}`);
+                    studioErr.status = res.status;
+                }
+            } catch (e) {
+                studioErr = e;
+            }
+
+            // Essai 3 : aiplatform.googleapis.com
             try {
                 const urlPlatform = `https://aiplatform.googleapis.com/v1/publishers/google/models/${GEMINI_PRIMARY_MODEL}:generateContent?key=${encodeURIComponent(key)}`;
                 const res = await fetch(urlPlatform, {
@@ -354,24 +402,11 @@ export class GeminiProvider extends LLMProvider {
                 aiplatformErr = e;
             }
 
-            // Essai 2 : generativelanguage.googleapis.com
-            try {
-                const available = await this.listAvailableModels(key);
-                const chosen = PREFERRED_MODELS.find(p => available.includes(p)) || available[0] || GEMINI_PRIMARY_MODEL;
-                this.selectedModel = chosen;
-                sessionSelectedModel = chosen;
-                this.usesStudioOnly = true;
-                sessionUsesStudioOnly = true;
-                return { ok: true, model: chosen, message: `OK (modèle retenu : ${chosen})` };
-            } catch (e) {
-                studioErr = e;
-            }
-
-            // Les deux ont échoué : sonde no-cors pour distinguer coupure réseau vs refus Google
-            const diag = await diagnoseNetworkFailure(aiplatformErr || studioErr, key);
+            // Tous ont échoué : sonde no-cors pour distinguer coupure réseau vs refus Google
+            const diag = await diagnoseNetworkFailure(studioErr || aiplatformErr, key);
             return {
                 ok: false,
-                status: (aiplatformErr && aiplatformErr.status) || (studioErr && studioErr.status) || 0,
+                status: (studioErr && studioErr.status) || (aiplatformErr && aiplatformErr.status) || 0,
                 code: diag.code,
                 message: diag.message
             };
@@ -417,35 +452,39 @@ export class GeminiProvider extends LLMProvider {
     /**
      * Un appel generateContent sur UN modèle. Lève une GeminiError (status, code) en cas d'échec.
      */
-    async _callOnce(model, body, timeoutMs, useStudioFallback = false) {
+    async _callOnce(model, body, timeoutMs, mode = 'studio_header') {
         const controller = typeof AbortController === 'function' ? new AbortController() : null;
         const timer = controller ? setTimeout(() => controller.abort(), timeoutMs) : null;
-        const targetUrl = this._url(model, useStudioFallback);
+        const targetUrl = this._url(model, mode);
+        const headers = { 'Content-Type': 'application/json' };
+        if (mode === 'studio_header') {
+            headers['x-goog-api-key'] = this.apiKey;
+        }
+
         let response;
         try {
             response = await fetch(targetUrl, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers,
                 body: JSON.stringify(body),
                 ...(controller ? { signal: controller.signal } : {})
             });
         } catch (e) {
             if (timer) clearTimeout(timer);
-            // Repli transparent sur l'autre adresse si clé AQ.
-            if (this.isVertexExpressKey() && !useStudioFallback) {
-                try {
-                    const res = await this._callOnce(model, body, timeoutMs, true);
-                    this.usesStudioOnly = true;
-                    sessionUsesStudioOnly = true;
-                    return res;
-                } catch (fallbackErr) {
-                    if (fallbackErr instanceof GeminiError) throw fallbackErr;
-                }
+            const aborted = e && (e.name === 'AbortError' || /abort/i.test(String(e.message)));
+            if (aborted) {
+                // Délai dépassé : on ne réessaie pas sur le même modèle, on lève TIMEOUT pour passer au modèle suivant
+                throw new GeminiError("Gemini n'a pas répondu à temps (délai dépassé).", { status: 0, code: 'TIMEOUT', model, detail: this._safe(String((e && e.message) || e)) });
+            }
+            // Repli vers le niveau suivant si possible : studio_header -> studio_query -> aiplatform
+            if (mode === 'studio_header') {
+                return await this._callOnce(model, body, timeoutMs, 'studio_query');
+            }
+            if (mode === 'studio_query' && this.isVertexExpressKey()) {
+                return await this._callOnce(model, body, timeoutMs, 'aiplatform');
             }
 
-            const aborted = e && (e.name === 'AbortError' || /abort/i.test(String(e.message)));
-            const raw = aborted ? 'timeout' : e;
-            const diag = await diagnoseNetworkFailure(raw, this.apiKey);
+            const diag = await diagnoseNetworkFailure(e, this.apiKey);
             throw new GeminiError(diag.message, { status: 0, code: diag.code, model, detail: this._safe(String((e && e.message) || e)) });
         } finally {
             if (timer) clearTimeout(timer);
@@ -458,13 +497,10 @@ export class GeminiProvider extends LLMProvider {
                 if (err && err.error && err.error.message) raw = err.error.message;
             } catch (e) { /* ignore parse error on error response */ }
 
-            // Si c'est une clé AQ. qui échoue sur aiplatform, repli immédiat sur generativelanguage
-            if (this.isVertexExpressKey() && !useStudioFallback) {
+            // Si statut 400 (en-tête éventuellement mal interprété par un proxy), tente avec ?key=
+            if (mode === 'studio_header' && response.status === 400) {
                 try {
-                    const res = await this._callOnce(model, body, timeoutMs, true);
-                    this.usesStudioOnly = true;
-                    sessionUsesStudioOnly = true;
-                    return res;
+                    return await this._callOnce(model, body, timeoutMs, 'studio_query');
                 } catch (fallbackErr) {
                     if (fallbackErr instanceof GeminiError) throw fallbackErr;
                 }

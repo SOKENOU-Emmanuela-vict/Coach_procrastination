@@ -174,10 +174,10 @@ console.log("✅ PASS: 1. Modèle principal gemini-3.8-flash et liste de repli c
         ok: false,
         status: 0,
         code: 'CORS_OR_AQ',
-        message: "Google est joignable mais refuse l'appel depuis le navigateur (CORS ou clé de type AQ.). Utilise une clé AIza créée dans Google AI Studio."
+        message: "Google est joignable mais l'appel a été refusé ou bloqué par le navigateur. Vérifie que la clé vient de Google AI Studio et que l'API Gemini est activée sur son projet. Ouvre la Console (F12) pour le détail."
     });
     assert(lineCorsAQ.includes("Teste ta clé dans les réglages"));
-    assert(lineCorsAQ.includes("Google est joignable mais refuse l'appel depuis le navigateur"));
+    assert(lineCorsAQ.includes("Google est joignable mais l'appel a été refusé ou bloqué par le navigateur"));
 
     console.log("✅ PASS: 5. Message d'erreur du chat clair, en français avec conseil 'Teste ta clé dans les réglages'");
 }
@@ -212,7 +212,7 @@ console.log("✅ PASS: 1. Modèle principal gemini-3.8-flash et liste de repli c
     assert.strictEqual(resCors.ok, false);
     assert.strictEqual(resCors.status, 0);
     assert.strictEqual(resCors.code, 'CORS_OR_AQ');
-    assert.strictEqual(resCors.message, "Google est joignable mais refuse l'appel depuis le navigateur (CORS ou clé de type AQ.). Utilise une clé AIza créée dans Google AI Studio.");
+    assert.strictEqual(resCors.message, "Google est joignable mais l'appel a été refusé ou bloqué par le navigateur. Vérifie que la clé vient de Google AI Studio et que l'API Gemini est activée sur son projet. Ouvre la Console (F12) pour le détail.");
     assert(!resCors.message.includes(testKeyAIza));
     console.log("✅ PASS: 6b. Sonde no-cors réussit : diagnostic honnête de refus navigateur (CORS ou clé AQ.)");
 
@@ -231,7 +231,7 @@ console.log("✅ PASS: 1. Modèle principal gemini-3.8-flash et liste de repli c
     assert(triedUrlsAQ.some(u => u.includes('aiplatform.googleapis.com')), "Doit avoir tenté l'adresse aiplatform");
     assert(triedUrlsAQ.some(u => u.includes('generativelanguage.googleapis.com')), "Doit avoir tenté generativelanguage");
     assert.strictEqual(resAQReachable.code, 'CORS_OR_AQ');
-    assert.strictEqual(resAQReachable.message, "Google est joignable mais refuse l'appel depuis le navigateur (CORS ou clé de type AQ.). Utilise une clé AIza créée dans Google AI Studio.");
+    assert.strictEqual(resAQReachable.message, "Google est joignable mais l'appel a été refusé ou bloqué par le navigateur. Vérifie que la clé vient de Google AI Studio et que l'API Gemini est activée sur son projet. Ouvre la Console (F12) pour le détail.");
     assert(!resAQReachable.message.includes("AQ.TestVertexReach123"));
     console.log("✅ PASS: 6c. Clé AQ. : tentative double endpoint + sonde no-cors orientant vers clé AIza");
 
