@@ -1,4 +1,4 @@
-const CACHE_NAME = 'learning-os-v2.17';
+const CACHE_NAME = 'learning-os-v2.18';
 const ASSETS_TO_CACHE = [
   './',
   './index.html',
@@ -171,8 +171,8 @@ self.addEventListener('fetch', (e) => {
   // Uniquement les requêtes GET de même origine (jamais Gemini ni ressources externes)
   if (url.origin !== self.location.origin) return;
 
-  // Ne jamais intercepter le script du service worker lui-même
-  if (url.pathname.endsWith('/sw.js')) return;
+  // Ne jamais intercepter le script du service worker lui-même ni les endpoints /api/ locaux
+  if (url.pathname.endsWith('/sw.js') || url.pathname.startsWith('/api/')) return;
 
   const cleanUrl = url.origin + url.pathname;
 

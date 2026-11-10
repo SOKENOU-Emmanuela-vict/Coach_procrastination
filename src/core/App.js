@@ -96,25 +96,51 @@ export class App {
     }
 
     /**
-     * Tente de synchroniser la clé IA depuis le fichier local (endpoint /api/config/key).
-     * Si une clé est renvoyée et différente de la clé en cours, met à jour localStorage et les moteurs IA.
+     * Tente de synchroniser la clé IA depuis le fichier local (endpoint /api/config/key)
+     * uniquement sur serveur de développement local (http://127.0.0.1 ou http://localhost).
+     * En HTTPS (Firebase Hosting), Capacitor Android ou hors-ligne, le stockage local
+     * fait foi exclusivement et /api/config/key n'est jamais appelé (zéro erreur console).
      */
     async syncApiKeyFromFile() {
         try {
-            if (typeof window !== 'undefined' && window.localStorage && typeof fetch === 'function') {
-                const res = await fetch('/api/config/key');
-                if (res.ok) {
-                    const data = await res.json();
-                    if (data && data.apiKey) {
-                        const currentKey = window.localStorage.getItem('gemini_api_key');
-                        if (currentKey !== data.apiKey) {
-                            if (window.localStorage.getItem('gemini_api_key_disabled_key') === data.apiKey) {
-                                return false;
-                            }
-                            this.setGeminiApiKey(data.apiKey);
-                            return true;
-                        }
+            if (typeof window === 'undefined' || !window.localStorage || typeof fetch !== 'function') {
+                return false;
+            }
+            if (window.Capacitor) {
+                return false;
+            }
+            if (typeof navigator !== 'undefined' && navigator.onLine === false) {
+                return false;
+            }
+            if (window.location) {
+                const proto = String(window.location.protocol || '').toLowerCase();
+                const host = String(window.location.hostname || '').toLowerCase();
+                const isLocalDevHttp = proto === 'http:' && (host === '127.0.0.1' || host === 'localhost');
+                if (!isLocalDevHttp) {
+                    return false;
+                }
+            }
+
+            const res = await fetch('/api/config/key', { cache: 'no-store' });
+            if (!res || !res.ok) {
+                return false;
+            }
+            const contentType = res.headers && typeof res.headers.get === 'function'
+                ? String(res.headers.get('content-type') || '').toLowerCase()
+                : 'application/json';
+            if (contentType && !contentType.includes('application/json')) {
+                return false;
+            }
+
+            const data = await res.json();
+            if (data && data.apiKey) {
+                const currentKey = window.localStorage.getItem('gemini_api_key');
+                if (currentKey !== data.apiKey) {
+                    if (window.localStorage.getItem('gemini_api_key_disabled_key') === data.apiKey) {
+                        return false;
                     }
+                    this.setGeminiApiKey(data.apiKey);
+                    return true;
                 }
             }
         } catch (_) { }
@@ -218,7 +244,7 @@ export class App {
                     initialView = saved;
                 }
             }
-        } catch (_) {}
+        } catch (_) { }
         await this.renderView(initialView);
         // Messages proactifs du jour dans le chat (rappels d'examen, notes à donner, emploi du temps à importer)
         try { await this.syncProactiveCoachMessages(); } catch (e) { AppLogger.error("Messages du coach: " + e.message); }
@@ -309,7 +335,7 @@ export class App {
         }
     }
 
-    
+
     async saveUserProfile(profileData = {}) {
         const existing = (await this.storage.loadData('user_profile')) || {};
         const updated = {
@@ -2314,7 +2340,7 @@ export class App {
             if (typeof localStorage !== 'undefined' && viewName && typeof viewName === 'string') {
                 localStorage.setItem('learning_os_current_view', viewName);
             }
-        } catch (_) {}
+        } catch (_) { }
 
         // THEME MANAGEMENT
         if (typeof document !== 'undefined' && document.body && document.body.classList) {
