@@ -4,6 +4,7 @@
   "private": true,
   "scripts": {
     "start": "node server.js",
+    "build": "node scripts/build_www.mjs",
     "test": "echo \"Runner de tests global prevu au chantier W\""
   },
   "devDependencies": {

@@ -9,3 +9,7 @@ node_modules/
 .env.*
 api_key.txt
 *.key
+
+# Dossier de publication généré (Firebase Hosting & Capacitor) et cache Firebase
+www/
+.firebase/
