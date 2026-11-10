@@ -1,5 +1,6 @@
 import http from 'http';
 import fs from 'fs';
+import os from 'os';
 import path from 'path';
 import { spawn } from 'child_process';
 import { fileURLToPath } from 'url';
@@ -81,8 +82,7 @@ async function run() {
     check(Boolean(chromePath), '1. Navigateur Chromium détecté');
 
     const chromePort = 9351;
-    const tmpProfileDir = path.join(ROOT, '.chrome_tmp_a4');
-    fs.rmSync(tmpProfileDir, { recursive: true, force: true });
+    const tmpProfileDir = fs.mkdtempSync(path.join(os.tmpdir(), 'learning_os_a4_'));
 
     const chromeProcess = spawn(chromePath, [
         '--headless=new',
@@ -211,11 +211,16 @@ async function run() {
         check(allIconsOk && iconAudit.icons.length >= 4, `6. Toutes les icônes (${iconAudit.icons.length}) chargées et décodées dans Chromium aux dimensions exactes`);
         check(iconAudit.cachedUrls >= 100, `7. Précache PWA actif (${iconAudit.cachedUrls} ressources en cache dans ${iconAudit.cachesList.join(', ')})`);
 
+        const saveDocs = process.argv.includes('--save-docs');
+
         // 5. Capture Desktop (1280x820)
         const shotDesktop = await send('Page.captureScreenshot', { format: 'png' });
+        const desktopBuf = Buffer.from(shotDesktop.data, 'base64');
         const desktopPath = path.join(PWA_DOCS_DIR, 'pwa_desktop.png');
-        fs.writeFileSync(desktopPath, Buffer.from(shotDesktop.data, 'base64'));
-        check(fs.existsSync(desktopPath) && fs.statSync(desktopPath).size > 5000, '8. Capture PWA Desktop enregistrée');
+        if (saveDocs || !fs.existsSync(desktopPath)) {
+            fs.writeFileSync(desktopPath, desktopBuf);
+        }
+        check(desktopBuf.length > 5000 && desktopBuf.subarray(0, 4).toString('hex') === '89504e47', '8. Capture PWA Desktop PNG valide');
 
         // 6. Test Responsive Android Mobile (390x844) + Capture Mobile
         await send('Emulation.setDeviceMetricsOverride', {
@@ -226,9 +231,12 @@ async function run() {
         });
         await new Promise(r => setTimeout(r, 800));
         const shotMobile = await send('Page.captureScreenshot', { format: 'png' });
+        const mobileBuf = Buffer.from(shotMobile.data, 'base64');
         const mobilePath = path.join(PWA_DOCS_DIR, 'pwa_mobile.png');
-        fs.writeFileSync(mobilePath, Buffer.from(shotMobile.data, 'base64'));
-        check(fs.existsSync(mobilePath) && fs.statSync(mobilePath).size > 5000, '9. Capture PWA Mobile (390x844) enregistrée');
+        if (saveDocs || !fs.existsSync(mobilePath)) {
+            fs.writeFileSync(mobilePath, mobileBuf);
+        }
+        check(mobileBuf.length > 5000 && mobileBuf.subarray(0, 4).toString('hex') === '89504e47', '9. Capture PWA Mobile (390x844) PNG valide');
 
         // 7. Test réel de fonctionnement HORS-LIGNE dans Chromium (émulation coupure réseau totale)
         await send('Network.emulateNetworkConditions', {
@@ -260,7 +268,7 @@ async function run() {
             `11. Zéro erreur console/exception tout au long du test (erreurs=${consoleErrors.length}, exceptions=${pageExceptions.length})`
         );
 
-        // Copie des captures dans l'artifact dir si existant
+        // Copie des captures dans l'artifact dir si --save-docs ou absent
         const artifactDir = 'C:\\Users\\HP\\.gemini\\antigravity\\brain\\d069e758-d031-41ef-85cc-669bd3238cc3';
         if (fs.existsSync(artifactDir)) {
             fs.copyFileSync(desktopPath, path.join(artifactDir, 'pwa_desktop.png'));

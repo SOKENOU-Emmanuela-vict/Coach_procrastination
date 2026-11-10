@@ -1,6 +1,7 @@
 import assert from 'assert';
 import http from 'http';
 import fs from 'fs';
+import os from 'os';
 import path from 'path';
 import { spawn } from 'child_process';
 import { fileURLToPath } from 'url';
@@ -183,17 +184,17 @@ async function runBrowserStaticHostingTest() {
     await new Promise(resolve => staticServer.listen(0, '127.0.0.1', resolve));
     const port = staticServer.address().port;
     const chromePort = 9348;
+    const tmpProfileDir = fs.mkdtempSync(path.join(os.tmpdir(), 'learning_os_a3_'));
 
     const chromeProcess = spawn(chromePath, [
         '--headless=new',
         `--remote-debugging-port=${chromePort}`,
         '--disable-gpu',
         '--no-sandbox',
-        `--user-data-dir=${path.join(ROOT, 'www', '..', '.chrome_tmp_a3')}`,
+        `--user-data-dir=${tmpProfileDir}`,
         '--window-size=1280,800'
     ]);
 
-    const tmpProfileDir = path.join(ROOT, '.chrome_tmp_a3');
     try {
         await new Promise(r => setTimeout(r, 1500));
         const targets = await new Promise((res, rej) => {
