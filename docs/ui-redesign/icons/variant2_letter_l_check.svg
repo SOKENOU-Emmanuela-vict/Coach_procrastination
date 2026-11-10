@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <!-- Learning OS - Variante 2 : Lettre « L » stylisée en coche ascendante -->
+  <!-- Safe zone 80% (410x410 au centre) respectée pour Android maskable -->
+  <rect width="512" height="512" rx="112" fill="#183d3d"/>
+  <!-- Fût vertical de l'« L », base assise et élan ascendant en coche dynamique -->
+  <path d="M 174 136 L 174 340 C 174 362 188 368 210 368 L 238 368 C 256 368 270 358 280 344 L 354 196" fill="none" stroke="#fbf9f4" stroke-width="36" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

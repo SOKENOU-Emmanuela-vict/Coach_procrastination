@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <!-- Learning OS - Variante 3 : Silhouette d'agenda / planning avec coche centrale -->
+  <!-- Safe zone 80% (410x410 au centre) respectée pour Android maskable -->
+  <rect width="512" height="512" rx="112" fill="#183d3d"/>
+  <!-- Anneaux supérieurs du carnet / calendrier -->
+  <line x1="196" y1="104" x2="196" y2="152" stroke="#fbf9f4" stroke-width="24" stroke-linecap="round"/>
+  <line x1="316" y1="104" x2="316" y2="152" stroke="#fbf9f4" stroke-width="24" stroke-linecap="round"/>
+  <!-- Corps du calendrier -->
+  <rect x="124" y="132" width="264" height="264" rx="36" fill="none" stroke="#fbf9f4" stroke-width="28" stroke-linejoin="round"/>
+  <!-- Séparateur d'en-tête de page -->
+  <line x1="126" y1="206" x2="386" y2="206" stroke="#fbf9f4" stroke-width="20"/>
+  <!-- Coche d'accomplissement au centre du jour -->
+  <path d="M184 296 L236 344 L328 248" fill="none" stroke="#fbf9f4" stroke-width="30" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

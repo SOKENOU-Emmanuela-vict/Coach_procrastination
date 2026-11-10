@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <!-- Learning OS - Variante 3 : La Boussole du Coach (Inspirée de Lucide & Bootstrap Compass) -->
+  <!-- Safe zone 80% (410x410 au centre) respectée pour Android maskable -->
+  <rect width="512" height="512" rx="112" fill="#183d3d"/>
+  
+  <g transform="translate(64, 64) scale(16)" fill="none" stroke="#fbf9f4" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+    <!-- Cadran circulaire extérieur -->
+    <circle cx="12" cy="12" r="10" stroke-width="1.8"/>
+    <!-- Repères cardinaux subtils -->
+    <line x1="12" y1="3" x2="12" y2="4.5" stroke-width="1.5"/>
+    <line x1="12" y1="19.5" x2="12" y2="21" stroke-width="1.5"/>
+    <line x1="3" y1="12" x2="4.5" y2="12" stroke-width="1.5"/>
+    <line x1="19.5" y1="12" x2="21" y2="12" stroke-width="1.5"/>
+    <!-- Aiguille de boussole pointant vers l'avant (Nord-Est / Cap) -->
+    <!-- Moitié Nord remplie pleine -->
+    <polygon points="16.24,7.76 12,12 10.2,10.2" fill="#fbf9f4" stroke="#fbf9f4" stroke-width="0.8"/>
+    <polygon points="16.24,7.76 12,12 13.8,13.8" fill="#fbf9f4" stroke="#fbf9f4" stroke-width="0.8"/>
+    <!-- Moitié Sud en contour fin -->
+    <polygon points="7.76,16.24 12,12 10.2,10.2" fill="none" stroke="#fbf9f4" stroke-width="1.2"/>
+    <polygon points="7.76,16.24 12,12 13.8,13.8" fill="none" stroke="#fbf9f4" stroke-width="1.2"/>
+    <!-- Pivot central -->
+    <circle cx="12" cy="12" r="1" fill="#183d3d" stroke="#fbf9f4" stroke-width="1"/>
+  </g>
+</svg>
+

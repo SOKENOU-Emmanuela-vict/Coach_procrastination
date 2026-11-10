@@ -26,6 +26,11 @@ function toSwRelPath(absPath) {
 export function collectPrecacheAssets(rootDir = ROOT_DIR) {
     const assets = new Set(['./', './index.html']);
 
+    // 0. Manifeste PWA à la racine
+    if (fs.existsSync(path.join(rootDir, 'manifest.webmanifest'))) {
+        assets.add('./manifest.webmanifest');
+    }
+
     // 1. data/*.json (dont data/manifest.json)
     for (const f of walkFiles(path.join(rootDir, 'data'), (p) => p.endsWith('.json'))) {
         assets.add('./' + path.relative(rootDir, f).replace(/\\/g, '/'));

@@ -1,12 +1,20 @@
-const CACHE_NAME = 'learning-os-v2.16';
+const CACHE_NAME = 'learning-os-v2.17';
 const ASSETS_TO_CACHE = [
   './',
   './index.html',
+  './assets/icons/apple-touch-icon.png',
+  './assets/icons/favicon-48.png',
+  './assets/icons/icon-192.png',
+  './assets/icons/icon-512.png',
+  './assets/icons/icon-maskable-192.png',
+  './assets/icons/icon-maskable-512.png',
+  './assets/icons/icon.svg',
   './assets/profile.jpg',
   './data/events.json',
   './data/manifest.json',
   './data/resources.json',
   './data/skills.json',
+  './manifest.webmanifest',
   './src/ai/ChatIntentParser.js',
   './src/ai/CoachAI.js',
   './src/ai/CoachContext.js',
