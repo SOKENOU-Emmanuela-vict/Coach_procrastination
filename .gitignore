@@ -13,3 +13,13 @@ api_key.txt
 # Dossier de publication généré (Firebase Hosting & Capacitor) et cache Firebase
 www/
 .firebase/
+
+# Android Gradle build artifacts
+android/.gradle/
+android/build/
+android/app/build/
+android/.idea/
+android/*.iml
+android/app/*.iml
+android/local.properties
+android/.cxx/

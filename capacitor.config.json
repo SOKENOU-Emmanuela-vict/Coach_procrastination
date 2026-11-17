@@ -1,0 +1,9 @@
+{
+  "appId": "com.learningos.app",
+  "appName": "Learning OS",
+  "webDir": "www",
+  "bundledWebRuntime": false,
+  "server": {
+    "androidScheme": "https"
+  }
+}

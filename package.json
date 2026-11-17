@@ -8,6 +8,9 @@
     "test": "echo \"Runner de tests global prevu au chantier W\""
   },
   "devDependencies": {
+    "@capacitor/android": "^8.6.2",
+    "@capacitor/cli": "^8.6.2",
+    "@capacitor/core": "^8.6.2",
     "mammoth": "1.13.0",
     "pdfjs-dist": "3.11.174",
     "xlsx": "0.18.5"
