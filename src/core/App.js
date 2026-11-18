@@ -21,8 +21,10 @@ import { TimetableImportEngine, DEFAULT_GROUP } from '../engines/TimetableImport
 import { CourseProgressEngine } from '../engines/CourseProgressEngine.js';
 import { SubjectMatcher } from '../engines/SubjectMatcher.js';
 import { ExamRevisionPlanner } from '../ai/ExamRevisionPlanner.js';
-import { parseExamAnnouncement, parseGradeAnswer, parseGradeStatement, isNotYetAnswer, parseBookProgress, parsePersonalTaskCreation, parseTaskCompletion, parseItemUpdate, parseItemDeletion } from '../ai/ChatIntentParser.js';
+import { parseExamAnnouncement, parseGradeAnswer, parseGradeStatement, isNotYetAnswer, parseBookProgress, parsePersonalTaskCreation, parseTaskCompletion, parseItemUpdate, parseItemDeletion, parseCourseRevisionIntent } from '../ai/ChatIntentParser.js';
 import { DailySnapshotEngine } from '../engines/DailySnapshotEngine.js';
+import { CourseRevisionScheduler } from '../engines/CourseRevisionScheduler.js';
+import { NotificationService } from '../services/NotificationService.js';
 import { LanguageEngine } from '../engines/LanguageEngine.js';
 import { Event } from '../models/Event.js';
 import { EventModal } from '../ui/EventModal.js';
@@ -59,6 +61,12 @@ export class App {
         this.coachEngine = new CoachOrchestrator(this.planningIntelligence, this.knowledgeRetriever, this.riskEngine);
         // Import de l'emploi du temps : même fournisseur Gemini que le coach (aucune clé supplémentaire)
         this.timetableImporter = new TimetableImportEngine({ storage, planningEngine: this.planningEngine, llmProvider: this.coachEngine.llmProvider || null });
+        this.courseRevisionScheduler = new CourseRevisionScheduler({
+            planningEngine: this.planningEngine,
+            planningIntelligence: this.planningIntelligence,
+            storage
+        });
+        this.notificationService = new NotificationService();
         this.clock = () => new Date();
 
         this.state = {
@@ -811,7 +819,45 @@ export class App {
         }
         await this.refreshCourseProgress();
         try { await this._announceTimetableImport(res); } catch (e) { AppLogger.error("Message d'import: " + e.message); }
+        if (choices && choices.autoScheduleRevisions) {
+            try {
+                await this.scheduleWeeklyCourseRevisions({ weekStart: res.weekStart, weekEnd: res.weekEnd });
+            } catch (e) {
+                AppLogger.error("Auto revision après import: " + e.message);
+            }
+        }
         return res;
+    }
+
+    /**
+     * Planifie automatiquement des séances de révision pour chaque cours de la semaine dans les créneaux libres.
+     */
+    async scheduleWeeklyCourseRevisions({ weekStart = null, weekEnd = null, durationMinutes = 60 } = {}) {
+        const start = weekStart || CourseRevisionScheduler.mondayOf(this._todayStr());
+        const end = weekEnd || addDaysStr(start, 6);
+        const result = await this.courseRevisionScheduler.scheduleWeeklyRevisions({
+            weekStart: start,
+            weekEnd: end,
+            durationMinutes
+        });
+
+        // Programmer les rappels de notification pour les nouvelles séances
+        if (result.scheduled && result.scheduled.length > 0 && this.notificationService) {
+            await this.notificationService.scheduleWeekReminders(result.scheduled, 15);
+        }
+
+        // Rafraîchir les données de l'agenda et de l'état
+        if (this.state && this.state.calendarData) {
+            this.state.calendarData.events = await this.planningEngine.getEvents();
+        }
+        this.state.todayEvents = await this.planningEngine.getEventsForDate(this._todayStr());
+
+        // Re-rendre la vue courante si on est dans le planning ou l'agenda
+        if (this.router && this.router.currentView === 'planning') {
+            await this.renderView('planning');
+        }
+
+        return result;
     }
 
     /**
@@ -2668,6 +2714,15 @@ export class App {
         }
 
         try {
+            // Planification automatique des révisions de cours si demandée
+            if (parseCourseRevisionIntent(text)) {
+                try {
+                    await this.scheduleWeeklyCourseRevisions();
+                } catch (e) {
+                    AppLogger.error("Erreur auto revision dans le chat: " + e.message);
+                }
+            }
+
             // 2. Contexte identique à celui du tableau de bord + mémoire courte de la conversation
             let chatHistory = [];
             if (this.chatHistoryEngine && typeof this.chatHistoryEngine.getRecentMessages === 'function') {

@@ -552,6 +552,9 @@ export class PlanningView {
                 <button id="btn-import-timetable" class="planning-btn-import">
                     <i class="bi bi-file-earmark-arrow-up"></i> Importer l'emploi du temps
                 </button>
+                <button id="btn-plan-course-revisions" class="planning-btn-import" title="Planifier automatiquement des créneaux de révision pour mes cours de la semaine">
+                    <i class="bi bi-clock-history"></i> Révisions de cours
+                </button>
                 <input type="file" id="input-import-timetable" accept="application/pdf,image/*,.docx,.xlsx,.csv" class="sr-only" hidden>
                 
                 <div class="planning-user-profile">
@@ -722,6 +725,32 @@ export class PlanningView {
 
         // BINDING IMPORT EMPLOI DU TEMPS
         this.attachTimetableImport();
+
+        // BINDING PLANIFICATION AUTOMATIQUE DES RÉVISIONS
+        const btnPlanRev = this.container.querySelector('#btn-plan-course-revisions');
+        if (btnPlanRev) {
+            btnPlanRev.addEventListener('click', async () => {
+                Motion.buttonTap(btnPlanRev);
+                btnPlanRev.disabled = true;
+                const oldHtml = btnPlanRev.innerHTML;
+                btnPlanRev.innerHTML = '<i class="bi bi-hourglass-split"></i> Planification...';
+                try {
+                    const res = await this.app.scheduleWeeklyCourseRevisions();
+                    if (this.app.notificationService) {
+                        await this.app.notificationService.requestPermission();
+                    }
+                    if (res && res.message) {
+                        alert(res.message);
+                    }
+                } catch (e) {
+                    alert("Erreur planification révisions : " + e.message);
+                } finally {
+                    btnPlanRev.disabled = false;
+                    btnPlanRev.innerHTML = oldHtml;
+                    await this.app.renderView('planning');
+                }
+            });
+        }
 
         // CRUD Événements
         const btnAdd = this.container.querySelector('#btn-add-event-planning');
@@ -1161,7 +1190,10 @@ export class PlanningView {
             overlap_in_timetable: 'chevauchement',
             times_inverted: 'horaire invalide'
         };
-        const groups = [...new Set(['Groupe 1', 'Groupe 2'].concat(preview.groupsFound || []))];
+        const defaultGroups = (preview.groupsFound && preview.groupsFound.some(g => ['SI', 'GL', 'IA', 'IM', 'SEIOT', 'SE&IOT'].includes(String(g).toUpperCase().replace(/\s+/g, ''))))
+            ? preview.groupsFound
+            : ['Groupe 1', 'Groupe 2'].concat(preview.groupsFound || []);
+        const groups = [...new Set(defaultGroups)];
         const rowsHtml = preview.rows.map(r => {
             const flags = (r.flags || []).filter(f => {
                 if (f === 'missing_hours' && (!hasHourlyVolume || (r.startTime && r.endTime))) return false;
@@ -1194,7 +1226,7 @@ export class PlanningView {
         content.innerHTML = `
             <div class="tt-preview-meta">
                 <div>${preview.weekStart ? `Semaine du <strong>${escapeHtml(fmt(preview.weekStart))}</strong> au <strong>${escapeHtml(fmt(preview.weekEnd))}</strong>` : 'Semaine non reconnue'}</div>
-                <label class="tt-group-label">Groupe :
+                <label class="tt-group-label">Filière / Groupe :
                     <select class="tt-group form-input form-select-sm">
                         ${groups.map(g => `<option value="${escapeHtml(g)}" ${g === preview.group ? 'selected' : ''}>${escapeHtml(g)}</option>`).join('')}
                     </select>

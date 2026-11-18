@@ -1,5 +1,5 @@
 import { describeGeminiFailure } from './GeminiProvider.js';
-import { parseCourseQuery } from './ChatIntentParser.js';
+import { parseCourseQuery, parseCourseRevisionIntent } from './ChatIntentParser.js';
 
 function extractSnippet(content, keyword = '', maxLen = 180) {
     if (!content) return '';
@@ -140,6 +140,11 @@ export class CoachLocalReply {
         // 4. Combien de livres j'ai lus ?
         if (/\blivres?\b/.test(q) && /combien|lus?|termines?|finis?/.test(q)) {
             return 'books';
+        }
+
+        // 7. Planification des révisions de cours
+        if (parseCourseRevisionIntent(q)) {
+            return 'plan_course_revisions';
         }
 
         return null;
@@ -572,6 +577,25 @@ export class CoachLocalReply {
                 message,
                 question: null,
                 facts: { topic: 'courses', count: sorted.length }
+            };
+        }
+
+        // 1.1.6 Révisions de cours : Planifier mes révisions
+        if (exactIntent === 'plan_course_revisions') {
+            const allEvents = [...sessions, ...(planning.events || []), ...(context.temporalEvents || [])];
+            const revEvents = allEvents.filter(e => e && (e.type === 'revision' || /r[ée]vision/i.test(e.title || '')));
+            let answerText = "";
+            if (revEvents.length > 0) {
+                const lines = revEvents.map(e => `• ${CoachLocalReply._frDay(e.date)} ${e.startTime ? `${e.startTime}–${e.endTime || ''}` : ''} : ${CoachLocalReply._short(e.title, 45)}`);
+                answerText = `Tes créneaux de révision (${revEvents.length} séance${revEvents.length > 1 ? 's' : ''}) :\n${lines.join('\n')}\nTu peux les retrouver dans ton Planning et les lancer en mode Focus !`;
+            } else {
+                answerText = "Tes séances de révision ont été positionnées dans tes créneaux libres de la semaine. Retrouve-les dans ton Planning et lance-les quand tu es prête !";
+            }
+            const message = [statusLine, answerText].filter(Boolean).join('\n');
+            return {
+                message,
+                question: null,
+                facts: { topic: 'course_revisions', count: revEvents.length }
             };
         }
 

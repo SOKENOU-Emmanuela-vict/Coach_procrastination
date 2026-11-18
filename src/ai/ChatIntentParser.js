@@ -261,3 +261,15 @@ export function parseCourseQuery(text) {
 
     return null;
 }
+
+/**
+ * Détection des demandes de planification automatique des révisions de cours :
+ * « planifie mes révisions », « programme mes révisions », « révisions de la semaine », « cale mes révisions »
+ */
+export function parseCourseRevisionIntent(text) {
+    const t = norm(text);
+    if (!t || t.length > 150) return false;
+    return /\b(planifie|programme|cale|organise|pose|ajoute|mets|genere)\s+(?:mes\s+|les\s+|un\s+programme\s+de\s+)?r[ée]visions?\b/.test(t)
+        || /\b(?:programme\s+de\s+|plan\s+de\s+)?r[ée]visions?\s+(?:de\s+la\s+semaine|des\s+cours|automatique)\b/.test(t)
+        || t === 'revisions' || t === 'mes revisions' || t === 'reviser mes cours';
+}

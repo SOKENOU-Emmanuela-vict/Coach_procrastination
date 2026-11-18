@@ -1,4 +1,4 @@
-const CACHE_NAME = 'learning-os-v2.18';
+const CACHE_NAME = 'learning-os-v2.19';
 const ASSETS_TO_CACHE = [
   './',
   './index.html',
@@ -44,6 +44,7 @@ const ASSETS_TO_CACHE = [
   './src/engines/ChatHistoryEngine.js',
   './src/engines/CheckInEngine.js',
   './src/engines/CourseProgressEngine.js',
+  './src/engines/CourseRevisionScheduler.js',
   './src/engines/DailySnapshotEngine.js',
   './src/engines/DocumentChunker.js',
   './src/engines/DocumentExtractor.js',
@@ -88,6 +89,7 @@ const ASSETS_TO_CACHE = [
   './src/models/WeeklyReview.js',
   './src/services/IndexedDBProvider.js',
   './src/services/MemoryProvider.js',
+  './src/services/NotificationService.js',
   './src/services/StorageProvider.js',
   './src/ui/AcademicView.js',
   './src/ui/BilanView.js',

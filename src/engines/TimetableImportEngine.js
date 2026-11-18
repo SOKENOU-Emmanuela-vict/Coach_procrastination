@@ -78,7 +78,7 @@ export class TimetableImportEngine {
         this.ingestion = ingestion || new ScheduleIngestionEngine();
     }
 
-    /** « Groupe 2 », « G2 », « groupe2 », 2 → '2' ; null si absent. */
+    /** « Groupe 2 », « G2 », « groupe2 », 2 → '2' ; « SI », « GL » → 'si', 'gl' ; null si absent. */
     static normalizeGroup(g) {
         if (g === null || g === undefined) return null;
         const t = TextNormalizer.forMatching(String(g));
@@ -87,8 +87,41 @@ export class TimetableImportEngine {
     }
 
     static groupLabel(g) {
-        const n = TimetableImportEngine.normalizeGroup(g);
-        return n && /^\d+$/.test(n) ? `Groupe ${n}` : (g || DEFAULT_GROUP);
+        if (!g) return DEFAULT_GROUP;
+        const s = String(g).trim();
+        const n = TimetableImportEngine.normalizeGroup(s);
+        if (n && /^\d+$/.test(n)) return `Groupe ${n}`;
+        const upper = s.toUpperCase().replace(/\s+/g, '');
+        if (['SI', 'GL', 'IA', 'IM', 'SEIOT', 'SE&IOT'].includes(upper)) {
+            return upper === 'SEIOT' ? 'SE&IoT' : upper;
+        }
+        return s;
+    }
+
+    /**
+     * Vérifie si un groupe/filière d'entrée correspond au groupe recherché.
+     * Prend en compte les cours multi-filières (ex. GL&IM&IA, SI, @tous).
+     */
+    static matchesGroup(entryGroup, wantedGroup) {
+        if (!wantedGroup || !entryGroup) return true;
+        const normWanted = TimetableImportEngine.normalizeGroup(wantedGroup);
+        const normEntry = TimetableImportEngine.normalizeGroup(entryGroup);
+        if (!normWanted || !normEntry) return true;
+        if (normEntry === normWanted) return true;
+
+        // Si les deux sont des numéros de groupe (ex. '1' et '2'), ils sont strictement exclusifs
+        if (/^\d+$/.test(normWanted) && /^\d+$/.test(normEntry)) {
+            return false;
+        }
+
+        // Découpage pour les filières (ex. "GL&IM&IA", "GL", "SI", "@tous")
+        const cleanEntry = String(entryGroup).toLowerCase().replace(/[@&+#/_]/g, ' ');
+        const cleanWanted = String(wantedGroup).toLowerCase().replace(/[@&+#/_]/g, ' ');
+        const entryTokens = cleanEntry.split(/\s+/).filter(Boolean);
+        const wantedTokens = cleanWanted.split(/\s+/).filter(Boolean);
+
+        if (entryTokens.some(t => ['tous', 'all', 'commun'].includes(t))) return true;
+        return wantedTokens.some(w => entryTokens.includes(w));
     }
 
     canExtract() {
@@ -98,20 +131,22 @@ export class TimetableImportEngine {
     buildPrompt({ referenceDate = null } = {}) {
         return [
             "Tu lis un emploi du temps universitaire hebdomadaire scanné (IFRI, Université d'Abomey-Calavi).",
-            "Structure : un tableau. Colonnes = jours (ex. « Lundi 05 oct. » … « Samedi 10 oct. »). Lignes = groupes",
-            "(« Groupe 1 » : 7h – 09h45 puis 10h – 12h45 ; « Groupe 2 » : 13h – 15h45 puis 16h – 18h45), avec la salle (ex. IRAN 2).",
-            "Chaque cellule non vide = une séance : « @tous », l'intitulé du cours, « (XXH/YYH) » et l'enseignant.",
+            "Structure : un tableau. Colonnes = jours (ex. « Lundi 16 nov. » … « Samedi 21 nov. »).",
+            "Lignes ou créneaux :",
+            "- Matin (8h à 13h ou 7h à 12h45) et Après-midi (14h à 19h ou 13h à 18h45).",
+            "- Groupes ou filières : badges noirs ou mentions [SI], [GL], [IA], [SEIoT], [IM], [GL&IM], [GL&IM&IA], ou Groupe 1, Groupe 2.",
+            "Chaque cellule non vide = une séance : intitulé du cours, badge de filière ou groupe, « (XXH/YYH) » et l'enseignant.",
             "XXH = heures CUMULÉES faites après cette séance, YYH = volume horaire total prévu pour ce cours.",
             "Règles :",
-            "- Extrais les séances de TOUS les groupes, une entrée par cellule non vide, avec son groupe.",
+            "- Extrais les séances de TOUTES les filières et groupes, une entrée par case avec son groupe/filière (ex. SI, IA, GL, SEIoT, Groupe 1, Groupe 2).",
             "- Si la cellule indique un horaire particulier (ex. « 8h à 12h »), il remplace l'horaire de la ligne.",
             "- Une cellule peut se poursuivre sur la page suivante (même colonne de jour) : fusionne la suite dans la MÊME entrée",
             "  (intitulé complet, heures, enseignant). Ne crée jamais d'entrée séparée pour une suite de cellule.",
             "- hoursDone = XX et hoursTotal = YY en nombres entiers ; null si illisible. N'invente rien.",
             "- startTime / endTime au format HH:MM (24 h). date au format AAAA-MM-JJ, l'année étant celle du document"
                 + (referenceDate ? ` (date de référence : ${referenceDate})` : '') + '.',
-            "- title = intitulé du cours seul, sans « @tous », sans les heures ni l'enseignant.",
-            "- documentDate = date du document (ex. « SSE du 02/10/2026 »).",
+            "- title = intitulé du cours seul, sans les heures ni l'enseignant ni la filière.",
+            "- documentDate = date du document (ex. « 16/11/2026 »).",
             "Réponds UNIQUEMENT avec le JSON demandé."
         ].join('\n');
     }
@@ -278,9 +313,19 @@ export class TimetableImportEngine {
                 const y = yearFor(parsedDay.month, parsedDay.day);
                 date = `${y}-${String(parsedDay.month).padStart(2, '0')}-${String(parsedDay.day).padStart(2, '0')}`;
             }
+            let group = this._pick(e, ['group', 'groupe']);
+            if (!group) {
+                const combined = (titleRaw + ' ' + rawText);
+                const badgeMatch = combined.match(/(?:\[|\()\s*(GL&IM&IA|GL&IM|SE&IoT|SEIoT|SI|GL|IA|IM)\s*(?:\]|\))/i)
+                    || combined.match(/\b(GL&IM&IA|GL&IM|SE&IoT|SEIoT|SI|GL|IA|IM)\b/);
+                if (badgeMatch) {
+                    group = badgeMatch[1].toUpperCase();
+                    titleRaw = titleRaw.replace(badgeMatch[0], ' ');
+                }
+            }
             const continuation = e.continuation === true || (!startTime && !endTime);
             return {
-                idx, group: this._pick(e, ['group', 'groupe']), dayLabel, parsedDay, date, startTime, endTime,
+                idx, group: group ? TimetableImportEngine.groupLabel(group) : null, dayLabel, parsedDay, date, startTime, endTime,
                 title: this._cleanTitle(titleRaw, teacher), teacher: teacher ? String(teacher).replace(/\s+/g, ' ').trim() : null,
                 hoursDone: Number.isFinite(hoursDone) ? hoursDone : null, hoursTotal: Number.isFinite(hoursTotal) ? hoursTotal : null,
                 room: this._pick(e, ['room', 'salle']), rawText: rawText || titleRaw, continuation, page: e.page || null
@@ -396,11 +441,19 @@ export class TimetableImportEngine {
         return this.selectGroup(preview, group, subjects);
     }
 
-    /** (Re)calcule les lignes de l'aperçu pour un groupe, sans nouvel appel à Gemini. */
+    /** (Re)calcule les lignes de l'aperçu pour un groupe/filière, sans nouvel appel à Gemini. */
     selectGroup(preview, group, subjects = []) {
-        const wanted = TimetableImportEngine.normalizeGroup(group || DEFAULT_GROUP);
+        const targetGroup = group || DEFAULT_GROUP;
         const anyGroup = preview.allEntries.some(e => e.group);
-        const own = preview.allEntries.filter(e => !anyGroup || TimetableImportEngine.normalizeGroup(e.group) === wanted);
+        let own = preview.allEntries.filter(e => !anyGroup || TimetableImportEngine.matchesGroup(e.group, targetGroup));
+
+        // Repli intelligent : si le groupe par défaut n'a rien donné mais que des filières existent, basculer sur la première
+        let effectiveGroup = targetGroup;
+        if (own.length === 0 && anyGroup && preview.groupsFound && preview.groupsFound.length > 0 && targetGroup === DEFAULT_GROUP) {
+            effectiveGroup = preview.groupsFound[0];
+            own = preview.allEntries.filter(e => TimetableImportEngine.matchesGroup(e.group, effectiveGroup));
+        }
+
         const matcher = new SubjectMatcher(subjects, { semesterId: preview.semesterId });
         const warnings = preview.baseWarnings.slice();
         const dates = own.filter(e => e.date && e.status !== 'invalid').map(e => e.date).sort();
@@ -412,7 +465,7 @@ export class TimetableImportEngine {
             weekEnd = addDaysStr(weekStart, 6);
             if (dates[dates.length - 1] > weekEnd) warnings.push("L'emploi du temps couvre plus d'une semaine : seules les séances de la première semaine sont proposées.");
         }
-        if (own.length === 0) warnings.push(`Aucune séance trouvée pour le ${TimetableImportEngine.groupLabel(group)}.`);
+        if (own.length === 0) warnings.push(`Aucune séance trouvée pour le ${TimetableImportEngine.groupLabel(effectiveGroup)}.`);
 
         const rows = own.map(e => {
             const m = matcher.match(e.title, { teacher: e.teacher });
@@ -448,7 +501,7 @@ export class TimetableImportEngine {
 
         return {
             ...preview,
-            group: TimetableImportEngine.groupLabel(group || DEFAULT_GROUP),
+            group: TimetableImportEngine.groupLabel(effectiveGroup),
             weekStart, weekEnd,
             rows,
             coursesCount,
