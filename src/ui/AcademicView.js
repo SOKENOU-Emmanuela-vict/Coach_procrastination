@@ -19,7 +19,8 @@ export class AcademicView {
 
         const blocks = [
             { id: 0, title: "L2 IA 2026-2027", icon: '<i class="bi bi-mortarboard"></i>' },
-            { id: 1, title: "Projets & Stages", icon: '<i class="bi bi-briefcase"></i>' }
+            { id: 1, title: "Projets & Stages", icon: '<i class="bi bi-briefcase"></i>' },
+            { id: 2, title: "Certifications & Formations", icon: '<i class="bi bi-patch-check"></i>' }
         ];
 
         const allSubjects = state.academicSubjects || [];
@@ -27,6 +28,7 @@ export class AcademicView {
         const allAssessments = state.academicAssessments || [];
         const allGrades = state.academicGrades || [];
         const allProjects = state.projects || [];
+        const allCertifications = state.certifications || [];
 
         // Build list of semesters to display
         let semestersToDisplay = [];
@@ -279,6 +281,49 @@ export class AcademicView {
                                 <button type="submit" class="btn btn-outline btn-sm">Ajouter</button>
                             </form>
                         </div>
+
+                        <!-- Phase 1 : Étude comparative des 3 problèmes (18-21 nov) -->
+                        ${(p.ideationStudies && p.ideationStudies.length > 0) ? `
+                        <div class="project-ideation-section" style="margin-top:1rem; padding-top:1rem; border-top:1px solid var(--border-color, #e5e7eb);">
+                            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.5rem;">
+                                <h5 style="font-size:0.9rem; font-weight:700; color:var(--text-primary); margin:0;">
+                                    <i class="bi bi-lightbulb-fill" style="color:#f59e0b;"></i> Phase 1 : Comparatif des 3 Problèmes (18–21 nov)
+                                </h5>
+                                <span class="badge badge-info" style="font-size:0.75rem;">1 Idée à choisir</span>
+                            </div>
+                            <p style="font-size:0.8rem; color:var(--text-secondary); margin-bottom:0.75rem;">
+                                Analyse rigoureuse de 3 problèmes réels au Bénin / Afrique avant sélection et spécification de l'architecture.
+                            </p>
+                            <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(260px, 1fr)); gap:0.75rem;">
+                                ${p.ideationStudies.map(idea => `
+                                    <div class="ideation-card p-3" style="background:var(--bg-surface-alt, #f8f9fa); border-radius:8px; border:2px solid ${idea.chosen ? '#10b981' : 'var(--border-color, #e5e7eb)'}; padding:0.85rem;">
+                                        <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:0.5rem;">
+                                            <strong style="font-size:0.85rem; color:var(--text-primary);">${escapeHtml(idea.title)}</strong>
+                                            ${idea.chosen ? '<span class="badge badge-success" style="font-size:0.7rem;">✓ Retenu</span>' : ''}
+                                        </div>
+                                        <div style="font-size:0.8rem; color:var(--text-secondary); margin-bottom:0.4rem;">
+                                            <strong>Problème :</strong> ${escapeHtml(idea.problem)}
+                                        </div>
+                                        <div style="font-size:0.8rem; color:var(--text-secondary); margin-bottom:0.4rem;">
+                                            <strong>Solutions existantes :</strong> ${escapeHtml(idea.existingSolutions)}
+                                        </div>
+                                        <div style="font-size:0.8rem; color:var(--text-secondary); margin-bottom:0.4rem;">
+                                            <strong>Innovation réelle :</strong> ${escapeHtml(idea.innovation)}
+                                        </div>
+                                        <div style="font-size:0.8rem; color:var(--text-secondary); margin-bottom:0.4rem;">
+                                            <strong>Coût & Faisabilité :</strong> ${escapeHtml(idea.feasibilityCost)}
+                                        </div>
+                                        <div style="font-size:0.8rem; color:var(--text-secondary); margin-bottom:0.5rem;">
+                                            <strong>Cible :</strong> ${escapeHtml(idea.targetUsers)}
+                                        </div>
+                                        <button type="button" class="btn btn-sm ${idea.chosen ? 'btn-success' : 'btn-outline'} btn-select-idea w-100" data-project-id="${p.id}" data-idea-id="${idea.id}" style="width:100%; font-size:0.75rem;">
+                                            ${idea.chosen ? '✓ Idée choisie pour le prototype' : 'Sélectionner cette idée'}
+                                        </button>
+                                    </div>
+                                `).join('')}
+                            </div>
+                        </div>
+                        ` : ''}
                     </article>
                     `;
                 }).join('')}
@@ -286,7 +331,94 @@ export class AcademicView {
             `;
         };
 
+        const renderCertifications = () => {
+            const certs = state.certifications || allCertifications;
+            return `
+            <div class="academic-certifications-wrapper">
+                <div class="d-flex justify-between align-center mb-3" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem;">
+                    <div>
+                        <p style="font-size:0.9rem; color:var(--text-secondary); margin:0;">
+                            Suivi des formations obligatoires et complémentaires du programme intensif (50 min/jour).
+                        </p>
+                    </div>
+                    <button type="button" id="btn-add-certification" class="btn btn-primary btn-sm">
+                        <i class="bi bi-plus-lg"></i> Ajouter une formation
+                    </button>
+                </div>
+                <div class="academic-subjects-grid">
+                    ${certs.map(c => {
+                        const isDone = c.status === 'completed' || c.status === 'verified';
+                        const statusBadge = isDone 
+                            ? '<span class="badge badge-success">Validé</span>' 
+                            : (c.progress > 0 ? '<span class="badge badge-warning">En cours</span>' : (c.status === 'optional' ? '<span class="badge badge-secondary">Facultatif</span>' : '<span class="badge badge-secondary">À démarrer</span>'));
+                        const typeBadge = String(c.type || '').includes('Pro') ? '<span class="badge badge-danger">Certif Pro</span>' : (String(c.type || '').includes('Badge') ? '<span class="badge badge-info">Badge numérique</span>' : '<span class="badge badge-primary">Certificat</span>');
+                        return `
+                        <article class="academic-subject-card cert-card" data-cert-id="${escapeHtml(c.id)}">
+                            <div class="academic-card-tools">
+                                <button class="academic-btn-icon btn-edit-cert" data-id="${escapeHtml(c.id)}" title="Modifier">
+                                    <i class="bi bi-pencil-square"></i>
+                                </button>
+                                <button class="academic-btn-icon danger btn-delete-cert" data-id="${escapeHtml(c.id)}" title="Supprimer">
+                                    <i class="bi bi-trash"></i>
+                                </button>
+                            </div>
+                            <div>
+                                <span class="academic-subject-meta">
+                                    ${typeBadge} • <span class="text-muted">${escapeHtml(c.provider || '')}</span>
+                                </span>
+                                <h4 class="academic-subject-title" style="margin-top:0.3rem;">${escapeHtml(c.title)}</h4>
+                                <div style="font-size:0.8rem; color:var(--accent-primary); font-weight:600;"><i class="bi bi-diagram-3"></i> ${escapeHtml(c.domain || 'Tech')}</div>
+                            </div>
+
+                            <div class="project-steps-section" style="margin-top:0.75rem;">
+                                <div class="project-steps-header" style="display:flex; justify-content:space-between; font-size:0.8rem; margin-bottom:0.25rem;">
+                                    <span class="academic-subject-meta">Progression (${c.completedModules || 0}/${c.totalModules || 1} modules) • ${c.progress || 0}%</span>
+                                    ${statusBadge}
+                                </div>
+                                <div class="project-progress-bar-bg" style="background:var(--border-subtle, #e5e7eb); height:6px; border-radius:3px; overflow:hidden;">
+                                    <div class="project-progress-bar-fill" style="width: ${c.progress || 0}%; background:var(--accent-primary, #6366f1); height:100%;"></div>
+                                </div>
+                            </div>
+
+                            <div style="font-size:0.8rem; color:var(--text-secondary); margin-top:0.5rem;">
+                                <div><i class="bi bi-card-checklist"></i> <strong>Évaluations :</strong> ${escapeHtml(c.evaluations || 'Non spécifié')}</div>
+                                ${c.notes ? `<div style="margin-top:0.25rem;"><i class="bi bi-info-circle"></i> ${escapeHtml(c.notes)}</div>` : ''}
+                                ${c.justification ? `<div style="margin-top:0.25rem; color:#10b981;"><i class="bi bi-award"></i> <strong>Justificatif :</strong> ${escapeHtml(c.justification)}</div>` : ''}
+                            </div>
+
+                            <div style="display:flex; gap:0.5rem; margin-top:0.85rem; padding-top:0.6rem; border-top:1px solid var(--border-color, #e5e7eb);">
+                                ${c.url ? `
+                                <a href="${escapeHtml(c.url)}" target="_blank" rel="noopener noreferrer" class="btn btn-outline btn-sm flex-1" style="flex:1; text-align:center; text-decoration:none; font-size:0.75rem; padding:0.25rem 0.5rem;">
+                                    <i class="bi bi-box-arrow-up-right"></i> Accéder au cours
+                                </a>` : ''}
+                                <button type="button" class="btn btn-secondary btn-sm btn-quick-module-cert" data-id="${escapeHtml(c.id)}" style="font-size:0.75rem; padding:0.25rem 0.5rem;" title="Valider un module (+1)">
+                                    +1 Module
+                                </button>
+                            </div>
+                        </article>
+                        `;
+                    }).join('')}
+                </div>
+            </div>
+            `;
+        };
+
         const isBlockProjects = this.selectedBlock === 1;
+        const isBlockCerts = this.selectedBlock === 2;
+
+        let dynamicContent = renderSemestersList();
+        let sectionTitle = `Détails du ${escapeHtml(blocks[this.selectedBlock]?.title || '')}`;
+        let sectionIcon = 'bi-journal-bookmark';
+
+        if (isBlockProjects) {
+            dynamicContent = renderProjectsAndStages();
+            sectionTitle = 'Mes Projets & Stages';
+            sectionIcon = 'bi-briefcase';
+        } else if (isBlockCerts) {
+            dynamicContent = renderCertifications();
+            sectionTitle = 'Certifications & Formations (Programme Nov–Déc)';
+            sectionIcon = 'bi-patch-check';
+        }
 
         let html = `
 <div class="bureau" data-univers="ecole">
@@ -369,17 +501,17 @@ export class AcademicView {
         <div>
             <div class="academic-section-subhead">
                 <h2 class="academic-semester-title">
-                    <i class="${isBlockProjects ? 'bi bi-briefcase' : 'bi bi-journal-bookmark'}"></i>
-                    <span>${isBlockProjects ? 'Mes Projets & Stages' : `Détails du ${escapeHtml(blocks[this.selectedBlock].title)}`}</span>
+                    <i class="bi ${sectionIcon}"></i>
+                    <span>${sectionTitle}</span>
                 </h2>
                 <div id="btn-profile" class="bureau-profile-btn" role="button" tabindex="0" title="Mon profil">
                     ${state.userProfile?.avatarPhoto ? `<img src="${escapeHtml(state.userProfile.avatarPhoto)}" class="bureau-avatar-img" alt="Avatar">` : escapeHtml((state.userProfile?.name || 'É').charAt(0).toUpperCase())}
                 </div>
             </div>
 
-            <!-- Contenu dynamique : Cursus ou Projets & Stages -->
+            <!-- Contenu dynamique : Cursus, Projets ou Certifications -->
             <div>
-                ${isBlockProjects ? renderProjectsAndStages() : renderSemestersList()}
+                ${dynamicContent}
             </div>
         </div>
     </main>
@@ -693,6 +825,113 @@ export class AcademicView {
                 }
             });
         });
+
+        // --- GESTION PHASE 1 : SÉLECTION D'IDÉE PROJET ---
+        this.container.querySelectorAll('.btn-select-idea').forEach(btn => {
+            btn.addEventListener('click', async () => {
+                Motion.buttonTap(btn);
+                const projectId = btn.getAttribute('data-project-id');
+                const ideaId = btn.getAttribute('data-idea-id');
+                const projects = this.app.state.projects || (this.app.projectEngine ? await this.app.projectEngine.getProjects() : []);
+                const p = projects.find(proj => proj.id === projectId);
+                if (p && p.ideationStudies) {
+                    p.ideationStudies.forEach(idea => {
+                        idea.chosen = (idea.id === ideaId);
+                    });
+                    if (this.app.projectEngine) {
+                        await this.app.projectEngine.saveProject(p);
+                    }
+                    if (this.app.renderView) await this.app.renderView('academic');
+                    else this.render(this.app.state);
+                }
+            });
+        });
+
+        // --- GESTION DES CERTIFICATIONS & FORMATIONS ---
+        this.container.querySelectorAll('.btn-quick-module-cert').forEach(btn => {
+            btn.addEventListener('click', async () => {
+                Motion.buttonTap(btn);
+                const id = btn.getAttribute('data-id');
+                const certs = this.app.state.certifications || (this.app.academicEngine ? await this.app.academicEngine.getCertifications() : []);
+                const cert = certs.find(c => c.id === id);
+                if (cert && this.app.saveCertification) {
+                    cert.completedModules = Math.min(cert.totalModules || 1, (cert.completedModules || 0) + 1);
+                    cert.progress = Math.min(100, Math.round((cert.completedModules / (cert.totalModules || 1)) * 100));
+                    cert.status = cert.progress >= 100 ? 'completed' : 'in_progress';
+                    await this.app.saveCertification(cert);
+                    if (this.app.renderView) await this.app.renderView('academic');
+                    else this.render(this.app.state);
+                }
+            });
+        });
+
+        this.container.querySelectorAll('.btn-edit-cert').forEach(btn => {
+            btn.addEventListener('click', async () => {
+                Motion.buttonTap(btn);
+                const id = btn.getAttribute('data-id');
+                const certs = this.app.state.certifications || (this.app.academicEngine ? await this.app.academicEngine.getCertifications() : []);
+                const cert = certs.find(c => c.id === id);
+                if (!cert) return;
+                const newProgress = prompt(`Progression en % pour "${cert.title}" :`, cert.progress || 0);
+                if (newProgress !== null) {
+                    cert.progress = Math.max(0, Math.min(100, parseInt(newProgress, 10) || 0));
+                    cert.status = cert.progress >= 100 ? 'completed' : (cert.progress > 0 ? 'in_progress' : 'to_start');
+                    const newJustif = prompt(`Justificatif ou URL du certificat/badge :`, cert.justification || '');
+                    if (newJustif !== null) cert.justification = newJustif.trim();
+                    const newNotes = prompt(`Notes ou remarques d'apprentissage :`, cert.notes || '');
+                    if (newNotes !== null) cert.notes = newNotes.trim();
+                    if (this.app.saveCertification) {
+                        await this.app.saveCertification(cert);
+                    }
+                    if (this.app.renderView) await this.app.renderView('academic');
+                    else this.render(this.app.state);
+                }
+            });
+        });
+
+        this.container.querySelectorAll('.btn-delete-cert').forEach(btn => {
+            btn.addEventListener('click', async () => {
+                Motion.buttonTap(btn);
+                const id = btn.getAttribute('data-id');
+                if (confirm("Supprimer cette certification / formation ?")) {
+                    if (this.app.deleteCertification) {
+                        await this.app.deleteCertification(id);
+                    }
+                    if (this.app.renderView) await this.app.renderView('academic');
+                    else this.render(this.app.state);
+                }
+            });
+        });
+
+        const btnAddCert = this.container.querySelector('#btn-add-certification');
+        if (btnAddCert) {
+            btnAddCert.addEventListener('click', async () => {
+                Motion.buttonTap(btnAddCert);
+                const title = prompt("Intitulé de la formation / certification :");
+                if (!title || !title.trim()) return;
+                const provider = prompt("Organisme / Plateforme (ex: Cisco, Kaggle, NVIDIA, Coursera) :", "En ligne");
+                const domain = prompt("Domaine prioritaire (ex: IoT, Machine Learning, Deep Learning PyTorch) :", "Machine Learning");
+                const url = prompt("Lien d'accès ou URL de la formation :", "");
+                if (this.app.saveCertification) {
+                    await this.app.saveCertification({
+                        id: `cert_${Date.now()}`,
+                        title: title.trim(),
+                        provider: (provider || '').trim(),
+                        domain: (domain || '').trim(),
+                        type: "Certificat de réussite",
+                        status: "to_start",
+                        progress: 0,
+                        totalModules: 5,
+                        completedModules: 0,
+                        url: (url || '').trim(),
+                        evaluations: "Quiz et projets",
+                        notes: ""
+                    });
+                    if (this.app.renderView) await this.app.renderView('academic');
+                    else this.render(this.app.state);
+                }
+            });
+        }
 
         // --- IMPORT PROGRAMME TYPE (EXEMPLE) ---
         const handleImportExample = async () => {

@@ -4,6 +4,60 @@ import { PersonalTask } from '../models/PersonalTask.js';
 import { Goal } from '../models/Goal.js';
 import { AppLogger } from '../utils/AppLogger.js';
 
+export const DEFAULT_GRAND_PROJECT = {
+    id: 'proj_grand_programme_2026',
+    title: "Grand Projet Innovant (IoT & IA)",
+    type: "projet",
+    description: "Projet résolvant un véritable problème dans un contexte africain / béninois intégrant IoT, IA et services connectés.",
+    status: "in_progress",
+    startDate: "2026-11-18",
+    endDate: "2026-12-25",
+    targetDate: "2026-12-25",
+    duration: "111h (45 min/jour)",
+    location: "Bénin / Local",
+    notes: "Livrable final au 25 décembre : prototype fonctionnel, testé, documenté et présentable, avec dépôt GitHub et démonstration.",
+    steps: [
+        { id: 'step_mod1_iot', title: "Module 1 : Acquisition de données IoT (capteurs & protocoles)", status: "todo", completed: false },
+        { id: 'step_mod2_storage', title: "Module 2 : Préparation et stockage des données", status: "todo", completed: false },
+        { id: 'step_mod3_ml', title: "Module 3 : Modèle de Machine Learning", status: "todo", completed: false },
+        { id: 'step_mod4_dl', title: "Module 4 : Modèle de Deep Learning (PyTorch)", status: "todo", completed: false },
+        { id: 'step_mod5_api', title: "Module 5 : API et communication entre composants", status: "todo", completed: false },
+        { id: 'step_mod6_ui', title: "Module 6 : Interface, visualisation et alertes", status: "todo", completed: false }
+    ],
+    ideationStudies: [
+        {
+            id: 'idea_1',
+            title: "Idée 1 : Suivi et alerte chaîne du froid médicale / agricole (Bénin)",
+            problem: "Rupture de conservation des vaccins et denrées périssables causée par les coupures de courant imprévisibles.",
+            existingSolutions: "Enregistreurs de température manuels ou alertes SMS rudimentaires sans anticipation.",
+            innovation: "Capteur IoT basse consommation + prédiction ML de défaillance thermique avant rupture critique.",
+            feasibilityCost: "ESP32 / DHT22 / SIM800L (< 15 000 FCFA), faisable avec matériel disponible localement.",
+            targetUsers: "Centres de santé ruraux, coopératives agricoles.",
+            chosen: false
+        },
+        {
+            id: 'idea_2',
+            title: "Idée 2 : Surveillance intelligente de la qualité de l'eau de consommation / lagune",
+            problem: "Contamination chimique et bactérienne rapide de l'eau des forages et zones lagunaires sans contrôle continu.",
+            existingSolutions: "Prélèvements manuels trimestriels en laboratoire, longs et coûteux.",
+            innovation: "Sonde multiparamètre IoT + classification ML du niveau de potabilité/danger en temps réel.",
+            feasibilityCost: "Capteurs pH/turbidité + ESP32 (~25 000 FCFA), étalonnage délicat.",
+            targetUsers: "Municipalités, gestionnaires de forages communautaires, riverains.",
+            chosen: false
+        },
+        {
+            id: 'idea_3',
+            title: "Idée 3 : Détection précoce des maladies des cultures maraîchères (Tomates/Piments)",
+            problem: "Pertes massives de récoltes dues aux ravageurs et maladies foliaires détectées trop tard.",
+            existingSolutions: "Inspection visuelle empirique par les agriculteurs, recours tardif aux pesticides chimiques.",
+            innovation: "Station IoT micro-climat + modèle Deep Learning (Vision Mobile / PyTorch) de classification sur feuilles.",
+            feasibilityCost: "Caméra ESP32-CAM + station météo miniature (< 20 000 FCFA), forte valeur ajoutée.",
+            targetUsers: "Maraîchers locaux, groupements de femmes agricultrices.",
+            chosen: false
+        }
+    ]
+};
+
 export class ProjectEngine {
     constructor(storage) {
         this.storage = storage;
@@ -11,7 +65,14 @@ export class ProjectEngine {
 
     // --- PROJETS ---
     async getProjects() {
-        const raw = await this.storage.loadData('projects') || [];
+        let raw = await this.storage.loadData('projects');
+        if (!raw || !Array.isArray(raw) || raw.length === 0) {
+            raw = [DEFAULT_GRAND_PROJECT];
+            await this.storage.saveData('projects', raw);
+        } else if (!raw.some(p => p.id === 'proj_grand_programme_2026' || (p.ideationStudies && p.ideationStudies.length > 0))) {
+            raw.push(DEFAULT_GRAND_PROJECT);
+            await this.storage.saveData('projects', raw);
+        }
         return raw.map(p => new Project(p));
     }
 
@@ -117,8 +178,21 @@ export class ProjectEngine {
     }
 
     // --- LECTURES ---
+    static DEFAULT_PROGRAM_BOOKS = [
+        { id: 'book_covey_7habits', title: "Les 7 habitudes de ceux qui réalisent tout ce qu'ils entreprennent", author: "Stephen Covey", totalPages: 432, pagesRead: 0, status: "to_read", targetDate: "2026-12-25", notes: "" },
+        { id: 'book_clear_atomic', title: "Un rien peut tout changer", author: "James Clear", totalPages: 320, pagesRead: 0, status: "to_read", targetDate: "2026-12-25", notes: "" },
+        { id: 'book_carnegie_public', title: "Comment parler en public", author: "Dale Carnegie", totalPages: 256, pagesRead: 0, status: "to_read", targetDate: "2026-12-25", notes: "" },
+        { id: 'book_carnegie_friends', title: "Comment se faire des amis", author: "Dale Carnegie", totalPages: 320, pagesRead: 0, status: "to_read", targetDate: "2026-12-25", notes: "" },
+        { id: 'book_mckeown_essentialism', title: "L'Essentialisme", author: "Greg McKeown", totalPages: 272, pagesRead: 0, status: "to_read", targetDate: "2026-12-25", notes: "" },
+        { id: 'book_newport_deepwork', title: "Deep Work", author: "Cal Newport", totalPages: 304, pagesRead: 0, status: "to_read", targetDate: "2026-12-25", notes: "" }
+    ];
+
     async getBooks() {
-        const raw = await this.storage.loadData('books') || [];
+        let raw = await this.storage.loadData('books');
+        if (!raw || !Array.isArray(raw) || raw.length === 0) {
+            raw = ProjectEngine.DEFAULT_PROGRAM_BOOKS;
+            await this.storage.saveData('books', raw);
+        }
         return raw.map(b => new Book(b));
     }
 

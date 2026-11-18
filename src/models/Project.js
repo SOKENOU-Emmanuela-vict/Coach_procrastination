@@ -20,6 +20,7 @@ export class Project {
                 if (typeof t === 'string') return { id: `step_${Date.now()}_${Math.floor(Math.random() * 1000)}`, title: t, status: 'todo' };
                 return t;
             });
+            this.ideationStudies = Array.isArray(config.ideationStudies) ? config.ideationStudies : [];
             this.coachAssessments = config.coachAssessments || [];
             this.determination = config.determination || null;
             this.sessionsPlanned = config.sessionsPlanned ?? null;

@@ -1,5 +1,68 @@
 import { AppLogger } from '../utils/AppLogger.js';
 
+export const DEFAULT_PROGRAM_CERTIFICATIONS = [
+    {
+        id: 'cert_cisco_iot',
+        title: "Introduction to IoT",
+        provider: "Cisco Networking Academy",
+        domain: "Internet of Things (IoT)",
+        type: "Badge numérique & Certificat",
+        status: "to_start",
+        progress: 0,
+        totalModules: 5,
+        completedModules: 0,
+        url: "https://www.netacad.com/courses/iot/introduction-iot",
+        evaluations: "Quiz de fin de chapitres + Examen final",
+        justification: "",
+        notes: "Comprendre la connexion des capteurs, la sécurité IoT et l'analyse des données."
+    },
+    {
+        id: 'cert_kaggle_ml',
+        title: "Intro to Machine Learning",
+        provider: "Kaggle Learn",
+        domain: "Machine Learning",
+        type: "Certificat de réussite",
+        status: "to_start",
+        progress: 0,
+        totalModules: 7,
+        completedModules: 0,
+        url: "https://www.kaggle.com/learn/intro-to-machine-learning",
+        evaluations: "Exercices pratiques de validation de modèle et métriques MAE",
+        justification: "",
+        notes: "Arbres de décision, Random Forest, validation croisée et soumission de prédictions."
+    },
+    {
+        id: 'cert_nvidia_dl',
+        title: "Fundamentals of Deep Learning",
+        provider: "NVIDIA (via Nebius Academy)",
+        domain: "Deep Learning (PyTorch)",
+        type: "Certificat professionnel",
+        status: "to_start",
+        progress: 0,
+        totalModules: 8,
+        completedModules: 0,
+        url: "https://nebius.academy",
+        evaluations: "Évaluation finale pratique avec score minimal de 70%",
+        justification: "",
+        notes: "Réseaux neuronaux convolutifs (CNN), entraînement PyTorch, vision par ordinateur et déploiement."
+    },
+    {
+        id: 'cert_ibm_ai',
+        title: "AI Fundamentals (Complémentaire)",
+        provider: "IBM SkillsBuild",
+        domain: "Intelligence Artificielle",
+        type: "Badge numérique",
+        status: "optional",
+        progress: 0,
+        totalModules: 6,
+        completedModules: 0,
+        url: "https://skillsbuild.org",
+        evaluations: "Quiz d'évaluation des concepts d'IA éthique et générative",
+        justification: "",
+        notes: "Formation complémentaire facultative pour consolider la culture IA."
+    }
+];
+
 export class AcademicEngine {
     constructor(storageProvider) {
         this.storage = storageProvider;
@@ -12,6 +75,7 @@ export class AcademicEngine {
         await this.storage.saveData('acad_subjects', []);
         await this.storage.saveData('acad_assessments', []);
         await this.storage.saveData('acad_grades', []);
+        await this.storage.saveData('acad_certifications', []);
     }
 
     async getYears() { return await this.storage.loadData('acad_years') || []; }
@@ -94,6 +158,32 @@ export class AcademicEngine {
         let items = await this.getGrades();
         items = items.filter(i => i.id !== id);
         await this.storage.saveData('acad_grades', items);
+    }
+
+    // --- CERTIFICATIONS & FORMATIONS TECHNIQUES ---
+    async getCertifications() {
+        let items = await this.storage.loadData('acad_certifications');
+        if (!items || !Array.isArray(items) || items.length === 0) {
+            items = DEFAULT_PROGRAM_CERTIFICATIONS;
+            await this.storage.saveData('acad_certifications', items);
+        }
+        return items;
+    }
+
+    async saveCertification(cert) {
+        let items = await this.getCertifications();
+        const id = cert.id || `cert_${Date.now()}`;
+        const item = { ...cert, id };
+        const index = items.findIndex(i => i.id === id);
+        if (index >= 0) items[index] = item; else items.push(item);
+        await this.storage.saveData('acad_certifications', items);
+        return item;
+    }
+
+    async deleteCertification(id) {
+        let items = await this.getCertifications();
+        items = items.filter(i => i.id !== id);
+        await this.storage.saveData('acad_certifications', items);
     }
 
     // 1. Validation de l'intégrité des données

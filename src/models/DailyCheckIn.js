@@ -32,6 +32,20 @@ export class DailyCheckIn {
         
         this.dayAssessment = config.dayAssessment || null;
         
+        this.personalStep = config.personalStep ? {
+            action: config.personalStep.action || '',
+            expectedResult: config.personalStep.expectedResult || '',
+            status: config.personalStep.status || 'pending',
+            reflection: config.personalStep.reflection || ''
+        } : null;
+
+        this.professionalStep = config.professionalStep ? {
+            action: config.professionalStep.action || '',
+            expectedResult: config.professionalStep.expectedResult || '',
+            status: config.professionalStep.status || 'pending',
+            reflection: config.professionalStep.reflection || ''
+        } : null;
+
         this.needsFollowUp = Array.isArray(config.needsFollowUp) ? config.needsFollowUp : [];
         
         this.createdAt = config.createdAt || new Date().toISOString();

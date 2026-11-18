@@ -6,7 +6,7 @@ export class LifeView {
         this.container = typeof containerId === 'string' && typeof document !== 'undefined' ? document.getElementById(containerId) : (containerId || (typeof document !== 'undefined' ? document.getElementById('view-container') : null));
         this.app = app;
     }
-    
+
     async render(state) {
         if (!this.container) return;
         if (typeof document !== 'undefined' && document.body) {
@@ -16,10 +16,12 @@ export class LifeView {
             }
         }
 
-        const habits = (this.app.scheduler && typeof this.app.scheduler.getHabits === 'function') 
+        const habits = (this.app.scheduler && typeof this.app.scheduler.getHabits === 'function')
             ? (await this.app.scheduler.getHabits() || []) : [];
-        const goals = (this.app.projectEngine && typeof this.app.projectEngine.getGoals === 'function') 
+        const goals = (this.app.projectEngine && typeof this.app.projectEngine.getGoals === 'function')
             ? await this.app.projectEngine.getGoals() : [];
+        const books = (this.app.projectEngine && typeof this.app.projectEngine.getBooks === 'function')
+            ? await this.app.projectEngine.getBooks() : [];
 
         let energyLabel = 'Non renseigné';
         if (state?.todayCheckIn?.energy) {
@@ -122,32 +124,32 @@ export class LifeView {
                     </div>
                     
                     ${(() => {
-                        const checkIn = state?.todayCheckIn || {};
-                        const waterVal = checkIn.water;
-                        let waterDisplay = 'Non renseigné';
-                        let hasWater = false;
-                        if (waterVal !== undefined && waterVal !== null && waterVal > 0) {
-                            hasWater = true;
-                            waterDisplay = (typeof waterVal === 'number' && waterVal <= 5)
-                                ? `${waterVal} L (${Math.round(waterVal / 0.25)} verres)`
-                                : `${waterVal} verres (${(waterVal * 0.25).toFixed(1)} L)`;
-                        }
+                const checkIn = state?.todayCheckIn || {};
+                const waterVal = checkIn.water;
+                let waterDisplay = 'Non renseigné';
+                let hasWater = false;
+                if (waterVal !== undefined && waterVal !== null && waterVal > 0) {
+                    hasWater = true;
+                    waterDisplay = (typeof waterVal === 'number' && waterVal <= 5)
+                        ? `${waterVal} L (${Math.round(waterVal / 0.25)} verres)`
+                        : `${waterVal} verres (${(waterVal * 0.25).toFixed(1)} L)`;
+                }
 
-                        const sleepMinutes = checkIn.sleep?.durationMinutes || 0;
-                        const sleepHours = sleepMinutes > 0 ? (Math.round((sleepMinutes / 60) * 10) / 10) : 0;
-                        const sleepQuality = checkIn.sleep?.quality || 'Moyenne';
-                        
-                        let curEnergyNum = checkIn.energyLevel || (checkIn.energy === 'high' ? 5 : (checkIn.energy === 'low' ? 1 : (checkIn.energy ? 3 : 0)));
-                        let energyDisplay = 'Non renseigné';
-                        if (curEnergyNum > 0 || checkIn.energy) {
-                            const eWord = checkIn.energy === 'high' ? 'Haute' : (checkIn.energy === 'low' ? 'Basse' : 'Moyenne');
-                            energyDisplay = `${eWord} (${curEnergyNum > 0 ? curEnergyNum : 3}/5)`;
-                        }
+                const sleepMinutes = checkIn.sleep?.durationMinutes || 0;
+                const sleepHours = sleepMinutes > 0 ? (Math.round((sleepMinutes / 60) * 10) / 10) : 0;
+                const sleepQuality = checkIn.sleep?.quality || 'Moyenne';
 
-                        const activity = checkIn.activity || null;
-                        const dayAssessment = checkIn.dayAssessment || '';
+                let curEnergyNum = checkIn.energyLevel || (checkIn.energy === 'high' ? 5 : (checkIn.energy === 'low' ? 1 : (checkIn.energy ? 3 : 0)));
+                let energyDisplay = 'Non renseigné';
+                if (curEnergyNum > 0 || checkIn.energy) {
+                    const eWord = checkIn.energy === 'high' ? 'Haute' : (checkIn.energy === 'low' ? 'Basse' : 'Moyenne');
+                    energyDisplay = `${eWord} (${curEnergyNum > 0 ? curEnergyNum : 3}/5)`;
+                }
 
-                        return `
+                const activity = checkIn.activity || null;
+                const dayAssessment = checkIn.dayAssessment || '';
+
+                return `
                         <!-- Hydratation -->
                         <div class="life-kpi-row">
                             <div class="life-kpi-info">
@@ -211,7 +213,7 @@ export class LifeView {
                             </div>
                         </div>
                         `;
-                    })()}
+            })()}
                 </div>
             </div>
 
@@ -259,6 +261,62 @@ export class LifeView {
                 </div>
             </div>
 
+        </div>
+
+        <!-- LECTURES & DÉVELOPPEMENT PERSONNEL (PROGRAMME NOV-DÉC) -->
+        <div class="life-card life-books-card">
+            <div class="life-card-header">
+                <div class="life-card-title-wrap">
+                    <i class="bi bi-book-half life-card-icon orange"></i>
+                    <div>
+                        <h3 class="life-card-title">Lectures : Développement Personnel (Programme Nov–Déc)</h3>
+                        <p class="life-card-subtitle" style="font-size:0.85rem; color:var(--text-secondary); margin:0;">25 min de lecture quotidienne • 6 livres de fond • Idées clés & Applications personnelles</p>
+                    </div>
+                </div>
+                <div class="life-books-header-actions">
+                    <span class="badge badge-info">${books.filter(b => b.status === 'finished').length}/${books.length} lus</span>
+                </div>
+            </div>
+            <div class="life-books-grid">
+                ${books.map(b => {
+                    const total = b.totalPages || 300;
+                    const read = b.pagesRead || 0;
+                    const pct = Math.min(100, Math.round((read / total) * 100));
+                    const statusBadge = b.status === 'finished' 
+                        ? '<span class="badge badge-success">Lu</span>' 
+                        : (read > 0 ? '<span class="badge badge-warning">En cours</span>' : '<span class="badge badge-secondary">À lire</span>');
+                    return `
+                    <div class="life-book-item" data-book-id="${escapeHtml(b.id)}">
+                        <div class="life-book-header">
+                            <div class="life-book-info">
+                                <h4 class="life-book-title">${escapeHtml(b.title)}</h4>
+                                <p class="life-book-author"><i class="bi bi-person"></i> ${escapeHtml(b.author || 'Auteur')}</p>
+                            </div>
+                            ${statusBadge}
+                        </div>
+                        <div class="life-book-progress-wrap">
+                            <div class="life-book-progress-meta">
+                                <span>${read} / ${total} pages</span>
+                                <strong>${pct}%</strong>
+                            </div>
+                            <div class="progress-bar-bg" style="background:var(--border-subtle); height:6px; border-radius:3px; overflow:hidden;">
+                                <div class="progress-bar-fill" style="width: ${pct}%; background:var(--accent-primary); height:100%;"></div>
+                            </div>
+                        </div>
+                        ${(b.notes || (b.practicalApplications && b.practicalApplications.length > 0)) ? `
+                            <div class="life-book-reflection-preview">
+                                <i class="bi bi-lightbulb"></i> <em>${escapeHtml(b.notes || b.practicalApplications.join(', '))}</em>
+                            </div>
+                        ` : ''}
+                        <div class="life-book-actions">
+                            <button type="button" class="btn-book-quick-add life-pill-btn" data-id="${escapeHtml(b.id)}" data-pages="10" title="Ajouter 10 pages">+10 p</button>
+                            <button type="button" class="btn-book-quick-add life-pill-btn" data-id="${escapeHtml(b.id)}" data-pages="25" title="Ajouter 25 pages">+25 p</button>
+                            <button type="button" class="btn-edit-book life-kpi-action-btn" data-id="${escapeHtml(b.id)}" title="Éditer pages & applications"><i class="bi bi-pencil"></i></button>
+                        </div>
+                    </div>
+                    `;
+                }).join('')}
+            </div>
         </div>
     </div>
 </div>
@@ -484,6 +542,46 @@ export class LifeView {
                     if (type === 'habit' && this.app.scheduler) await this.app.scheduler.deleteHabit(id);
                     if (type === 'goal' && this.app.projectEngine) await this.app.projectEngine.deleteGoal(id);
                     if (this.app.renderView) this.app.renderView('life');
+                }
+            });
+        });
+
+        // --- GESTION DES LIVRES (PROGRAMME) ---
+        this.container.querySelectorAll('.btn-book-quick-add').forEach(btn => {
+            btn.addEventListener('click', async () => {
+                Motion.buttonTap(btn);
+                const id = btn.getAttribute('data-id');
+                const addP = parseInt(btn.getAttribute('data-pages'), 10) || 10;
+                const book = books.find(b => b.id === id);
+                if (book && this.app.projectEngine) {
+                    book.pagesRead = Math.min(book.totalPages || 300, (book.pagesRead || 0) + addP);
+                    book.status = book.pagesRead >= (book.totalPages || 300) ? 'finished' : 'reading';
+                    await this.app.projectEngine.saveBook(book);
+                    this.render(this.app.state);
+                }
+            });
+        });
+
+        this.container.querySelectorAll('.btn-edit-book').forEach(btn => {
+            btn.addEventListener('click', async () => {
+                Motion.buttonTap(btn);
+                const id = btn.getAttribute('data-id');
+                const book = books.find(b => b.id === id);
+                if (!book) return;
+                const newPages = prompt(`Pages lues pour "${book.title}" (sur ${book.totalPages}) :`, book.pagesRead || 0);
+                if (newPages !== null) {
+                    const parsedPages = Math.max(0, Math.min(book.totalPages, parseInt(newPages, 10) || 0));
+                    book.pagesRead = parsedPages;
+                    book.status = parsedPages >= book.totalPages ? 'finished' : (parsedPages > 0 ? 'reading' : 'to_read');
+                    const newNotes = prompt(`Idée clé ou application personnelle pour "${book.title}" :`, book.notes || (book.practicalApplications || []).join('; '));
+                    if (newNotes !== null) {
+                        book.notes = newNotes.trim();
+                        if (newNotes.trim()) book.practicalApplications = [newNotes.trim()];
+                    }
+                    if (this.app.projectEngine) {
+                        await this.app.projectEngine.saveBook(book);
+                    }
+                    this.render(this.app.state);
                 }
             });
         });

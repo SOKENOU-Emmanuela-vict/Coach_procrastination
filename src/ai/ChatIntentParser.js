@@ -273,3 +273,14 @@ export function parseCourseRevisionIntent(text) {
         || /\b(?:programme\s+de\s+|plan\s+de\s+)?r[ée]visions?\s+(?:de\s+la\s+semaine|des\s+cours|automatique)\b/.test(t)
         || t === 'revisions' || t === 'mes revisions' || t === 'reviser mes cours';
 }
+
+/**
+ * Détection des demandes de planification du Programme 3h (180 min strict) :
+ * « programme 3h », « planifie mon programme », « mes 3 heures », « programme intensif »
+ */
+export function parseDailyProgramIntent(text) {
+    const t = norm(text);
+    if (!t || t.length > 150) return false;
+    return /\b(programme\s+(?:3\s*h|3\s*heures|intensif)|planifie\s+(?:mon\s+)?programme|mes\s+3\s*heures|3\s*h\s+par\s+jour|programme\s+du\s+jour)\b/.test(t)
+        || t === 'programme 3h' || t === 'programme intensif' || t === 'mes 3h';
+}

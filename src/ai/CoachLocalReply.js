@@ -1,5 +1,5 @@
 import { describeGeminiFailure } from './GeminiProvider.js';
-import { parseCourseQuery, parseCourseRevisionIntent } from './ChatIntentParser.js';
+import { parseCourseQuery, parseCourseRevisionIntent, parseDailyProgramIntent } from './ChatIntentParser.js';
 
 function extractSnippet(content, keyword = '', maxLen = 180) {
     if (!content) return '';
@@ -145,6 +145,11 @@ export class CoachLocalReply {
         // 7. Planification des révisions de cours
         if (parseCourseRevisionIntent(q)) {
             return 'plan_course_revisions';
+        }
+
+        // 8. Planification du Programme Intensif 3h (180 min)
+        if (parseDailyProgramIntent(q)) {
+            return 'plan_daily_program_180';
         }
 
         return null;
@@ -596,6 +601,25 @@ export class CoachLocalReply {
                 message,
                 question: null,
                 facts: { topic: 'course_revisions', count: revEvents.length }
+            };
+        }
+
+        // 1.1.7 Programme 3h quotidien (180 min strict)
+        if (exactIntent === 'plan_daily_program_180') {
+            const allEvents = [...sessions, ...(planning.events || []), ...(context.temporalEvents || [])];
+            const progEvents = allEvents.filter(e => e && e.source === 'program_180');
+            let answerText = "";
+            if (progEvents.length > 0) {
+                const lines = progEvents.map(e => `• ${e.startTime ? `${e.startTime}–${e.endTime || ''}` : ''} : ${CoachLocalReply._short(e.title, 45)} (${e.duration || 45}m)`);
+                answerText = `Voici tes blocs du Programme 3h (${progEvents.length} sessions, 180 min) calés aujourd'hui :\n${lines.join('\n')}\nIls respectent tes cours et créneaux de repos. Prête à attaquer ?`;
+            } else {
+                answerText = "Les 5 blocs de ton Programme 3h (Formations 50m, Grand Projet 45m, Anglais 45m, Lecture 25m, Bilan 15m) sont planifiés dans tes créneaux libres ! Retrouve-les dans ton Planning.";
+            }
+            const message = [statusLine, answerText].filter(Boolean).join('\n');
+            return {
+                message,
+                question: null,
+                facts: { topic: 'daily_program_180', count: progEvents.length }
             };
         }
 

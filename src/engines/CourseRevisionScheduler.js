@@ -198,4 +198,157 @@ export class CourseRevisionScheduler {
             message
         };
     }
+
+    /**
+     * Planifie les 5 blocs du programme quotidien intensif (180 min strict) dans les créneaux libres du jour.
+     * Répartition :
+     * 1. Formations techniques (IoT, ML, DL) : 50 min
+     * 2. Grand projet : 45 min
+     * 3. Anglais (Routine 4 piliers) : 45 min
+     * 4. Lecture développement personnel : 25 min
+     * 5. Bilan et révision : 15 min
+     * @param {Object} options
+     * @param {string} [options.dateStr] - YYYY-MM-DD
+     */
+    async scheduleDailyProgram180({ dateStr = null } = {}) {
+        if (!this.planningEngine) {
+            return { success: false, scheduled: [], count: 0, message: "PlanningEngine non disponible" };
+        }
+
+        const targetDate = dateStr || toLocalDateStr(new Date());
+
+        const PROGRAM_BLOCKS = [
+            {
+                key: 'formations',
+                title: "Formations Techniques (IoT / ML / DL)",
+                duration: 50,
+                type: 'formation',
+                priority: 'high',
+                notes: "NVIDIA Deep Learning, Cisco IoT ou Kaggle ML (50 min)."
+            },
+            {
+                key: 'projet',
+                title: "Grand Projet Innovant (IoT & IA)",
+                duration: 45,
+                type: 'project',
+                priority: 'high',
+                notes: "Avancement sur l'un des 6 modules ou étude comparative Phase 1 (45 min)."
+            },
+            {
+                key: 'anglais',
+                title: "Anglais A1→A2 (Routine 4 Piliers)",
+                duration: 45,
+                type: 'language',
+                priority: 'medium',
+                notes: "10m Vocabulaire, 10m Écoute, 10m Prononciation, 15m Conversation (45 min)."
+            },
+            {
+                key: 'lecture',
+                title: "Lecture : Développement Personnel",
+                duration: 25,
+                type: 'reading',
+                priority: 'medium',
+                notes: "Lecture libre de 25 min parmi les 6 livres du programme."
+            },
+            {
+                key: 'bilan',
+                title: "Bilan & Pas Quotidiens",
+                duration: 15,
+                type: 'bilan',
+                priority: 'high',
+                notes: "Synthèse de la journée, pas personnel & pas professionnel (15 min)."
+            }
+        ];
+
+        // 1. Récupérer les événements existants de ce jour
+        const allEvents = (await this.planningEngine.getEvents()) || [];
+        const dayEvents = allEvents.filter(e => e.date === targetDate);
+
+        // 2. Vérifier les blocs déjà planifiés pour éviter les doublons
+        const scheduled = [];
+        const existingProgramEvents = dayEvents.filter(e => e.source === 'program_180');
+
+        // Créneaux horaires prioritaires selon l'heure de la journée (12h-14h, 17h-22h30)
+        // On explore les minutes de la journée (08:00 à 22:30 = 480 à 1350)
+        let currentScanMinute = 480; // 08:00
+        const endScanMinute = 1350;   // 22:30
+
+        const activeIntervals = [
+            ...dayEvents.filter(e => e.startTime && e.endTime).map(e => ({
+                start: timeToMinutes(e.startTime),
+                end: timeToMinutes(e.endTime)
+            }))
+        ];
+
+        for (const block of PROGRAM_BLOCKS) {
+            const alreadyExists = existingProgramEvents.some(e => 
+                (e.notes && e.notes.includes(block.key)) || 
+                (e.title && e.title.toLowerCase().includes(block.key.toLowerCase())) ||
+                e.type === block.type
+            );
+
+            if (alreadyExists) continue;
+
+            const dur = block.duration;
+            let bookedSlot = null;
+
+            // Scanner minute par minute pour trouver une plage continue libre
+            for (let m = currentScanMinute; m + dur <= endScanMinute; m += 15) {
+                const slotStart = m;
+                const slotEnd = m + dur;
+
+                const hasConflict = activeIntervals.some(inter => {
+                    return (slotStart < inter.end && inter.start < slotEnd);
+                });
+
+                if (!hasConflict) {
+                    bookedSlot = {
+                        start: slotStart,
+                        end: slotEnd,
+                        startTime: this._minutesToTime(slotStart),
+                        endTime: this._minutesToTime(slotEnd)
+                    };
+                    // Marquer l'intervalle comme occupé
+                    activeIntervals.push({ start: slotStart, end: slotEnd });
+                    // Avancer le scan avec un tampon de 10 min
+                    currentScanMinute = slotEnd + 10;
+                    break;
+                }
+            }
+
+            if (bookedSlot) {
+                const stamp = Date.now() + scheduled.length;
+                const progEvent = new Event({
+                    id: `ev_prog180_${targetDate}_${block.key}_${stamp}`,
+                    title: block.title,
+                    date: targetDate,
+                    startTime: bookedSlot.startTime,
+                    endTime: bookedSlot.endTime,
+                    duration: dur,
+                    targetDuration: dur,
+                    type: block.type,
+                    lockStatus: 'flexible',
+                    priority: block.priority,
+                    source: 'program_180',
+                    notes: `${block.notes} [clé: ${block.key}]`
+                });
+
+                await this.planningEngine.saveEvent(progEvent);
+                scheduled.push(progEvent);
+            }
+        }
+
+        const count = scheduled.length;
+        const message = count > 0
+            ? `${count} session${count > 1 ? 's' : ''} du Programme 3h insérée${count > 1 ? 's' : ''} dans tes créneaux libres pour le ${targetDate}.`
+            : `Le Programme 3h est déjà entièrement positionné pour le ${targetDate} !`;
+
+        return {
+            success: true,
+            scheduled,
+            count,
+            totalMinutes: 180,
+            message
+        };
+    }
 }

@@ -10,6 +10,9 @@ export class Book {
         this.chaptersRead = config.chaptersRead || 0;
         this.status = config.status || 'to_read'; // to_read, reading, finished
         this.targetDate = config.targetDate || null;
+        this.notes = config.notes || '';
+        this.keyIdeas = Array.isArray(config.keyIdeas) ? config.keyIdeas : (config.keyIdeas ? [config.keyIdeas] : []);
+        this.practicalApplications = Array.isArray(config.practicalApplications) ? config.practicalApplications : (config.practicalApplications ? [config.practicalApplications] : []);
         
         if (!config.status) this.updateProgress({});
     }

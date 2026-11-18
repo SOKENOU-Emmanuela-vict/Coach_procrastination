@@ -555,6 +555,9 @@ export class PlanningView {
                 <button id="btn-plan-course-revisions" class="planning-btn-import" title="Planifier automatiquement des créneaux de révision pour mes cours de la semaine">
                     <i class="bi bi-clock-history"></i> Révisions de cours
                 </button>
+                <button id="btn-schedule-program-180" class="planning-btn-import" title="Insérer les 5 blocs du Programme 3h (180 min strict) dans mes créneaux libres">
+                    <i class="bi bi-lightning-charge"></i> Programme 3h
+                </button>
                 <input type="file" id="input-import-timetable" accept="application/pdf,image/*,.docx,.xlsx,.csv" class="sr-only" hidden>
                 
                 <div class="planning-user-profile">
@@ -747,6 +750,31 @@ export class PlanningView {
                 } finally {
                     btnPlanRev.disabled = false;
                     btnPlanRev.innerHTML = oldHtml;
+                    await this.app.renderView('planning');
+                }
+            });
+        }
+
+        const btnPlanProg180 = this.container.querySelector('#btn-schedule-program-180');
+        if (btnPlanProg180) {
+            btnPlanProg180.addEventListener('click', async () => {
+                Motion.buttonTap(btnPlanProg180);
+                btnPlanProg180.disabled = true;
+                const oldHtml = btnPlanProg180.innerHTML;
+                btnPlanProg180.innerHTML = '<i class="bi bi-hourglass-split"></i> Planification 3h...';
+                try {
+                    const res = await this.app.scheduleDailyProgram180();
+                    if (this.app.notificationService) {
+                        await this.app.notificationService.requestPermission();
+                    }
+                    if (res && res.message) {
+                        alert(res.message);
+                    }
+                } catch (e) {
+                    alert("Erreur planification Programme 3h : " + e.message);
+                } finally {
+                    btnPlanProg180.disabled = false;
+                    btnPlanProg180.innerHTML = oldHtml;
                     await this.app.renderView('planning');
                 }
             });

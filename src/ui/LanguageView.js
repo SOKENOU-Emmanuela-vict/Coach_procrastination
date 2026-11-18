@@ -8,7 +8,7 @@ export class LanguageView {
             : (containerId || (typeof document !== 'undefined' ? document.getElementById('view-container') : null));
         this.app = app;
     }
-    
+
     async render(state) {
         if (!this.container) return;
         if (typeof document !== 'undefined' && document.body) {
@@ -18,8 +18,8 @@ export class LanguageView {
             }
         }
 
-        const languages = this.app.languageEngine 
-            ? await this.app.languageEngine.getLanguages() 
+        const languages = this.app.languageEngine
+            ? await this.app.languageEngine.getLanguages()
             : (state.userLanguages || []);
 
         const renderEmptyState = () => `
@@ -91,6 +91,39 @@ export class LanguageView {
                     </div>
                     <button class="btn-edit-goal language-action-btn" data-id="${lang.id}" title="Modifier l'objectif"><i class="bi bi-pencil"></i></button>
                 </div>
+
+                <!-- Routine Quotidienne 45 min (Programme Intensif) -->
+                ${(lang.pillars || /anglais|english/i.test(lang.name)) ? `
+                <div class="language-pillars-box" style="margin-top:0.75rem; padding:0.75rem; background:var(--bg-surface-alt, #f8f9fa); border-radius:8px; border:1px solid var(--border-color, #e5e7eb);">
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.5rem;">
+                        <strong style="font-size:0.85rem; color:var(--text-primary);"><i class="bi bi-clock-history"></i> Routine Quotidienne (45 min)</strong>
+                        <span class="badge badge-info" style="font-size:0.7rem;">4 Piliers</span>
+                    </div>
+                    ${(() => {
+                        const pil = lang.pillars || {
+                            vocab: { title: "Vocabulaire et phrases", duration: 10, doneToday: false },
+                            listening: { title: "Écoute active", duration: 10, doneToday: false },
+                            pronunciation: { title: "Répétition & prononciation", duration: 10, doneToday: false },
+                            conversation: { title: "Conversation active", duration: 15, doneToday: false }
+                        };
+                        return Object.entries(pil).map(([k, p]) => `
+                            <div style="display:flex; justify-content:space-between; align-items:center; padding:0.35rem 0; border-bottom:1px dashed var(--border-color, #e5e7eb);">
+                                <label style="display:flex; align-items:center; gap:0.5rem; font-size:0.8rem; cursor:pointer;">
+                                    <input type="checkbox" class="chk-toggle-pillar" data-lang-id="${lang.id}" data-pillar="${k}" ${p.doneToday ? 'checked' : ''}>
+                                    <span style="${p.doneToday ? 'text-decoration:line-through; color:var(--text-tertiary);' : 'color:var(--text-primary);'}">${escapeHtml(p.title)} (${p.duration} min)</span>
+                                </label>
+                                <span class="badge ${p.doneToday ? 'badge-success' : 'badge-secondary'}" style="font-size:0.65rem;">
+                                    ${p.doneToday ? 'Fait' : 'À faire'}
+                                </span>
+                            </div>
+                        `).join('');
+                    })()}
+                    ${(lang.targetMilestoneDate || /anglais|english/i.test(lang.name)) ? `
+                    <div style="margin-top:0.5rem; font-size:0.75rem; color:var(--accent-primary, #6366f1); font-weight:600;">
+                        🎯 Objectif 25 décembre : ${escapeHtml(lang.targetMilestoneTitle || 'Conversation orale prolongée de 2 heures')}
+                    </div>` : ''}
+                </div>
+                ` : ''}
 
                 <!-- Suivi (KPI réels) -->
                 <div>
@@ -224,12 +257,12 @@ export class LanguageView {
         </div>
 
         <!-- GRILLE DE CARTES OU ÉTAT VIDE -->
-        ${languages.length > 0 
-            ? `<div class="languages-grid">
+        ${languages.length > 0
+                ? `<div class="languages-grid">
                 ${languages.map(renderLanguageCard).join('')}
-               </div>` 
-            : renderEmptyState()
-        }
+               </div>`
+                : renderEmptyState()
+            }
     </div>
 </div>
 
@@ -284,7 +317,7 @@ export class LanguageView {
         const modalContent = this.container.querySelector('#language-modal-content');
         const btnClose = this.container.querySelector('#language-modal-close');
 
-        const closeModal = () => { 
+        const closeModal = () => {
             if (modal) {
                 modal.hidden = true;
                 modal.style.display = 'none';
@@ -382,6 +415,19 @@ export class LanguageView {
                 const id = btn.getAttribute('data-id');
                 const lang = languages.find(l => l.id === id);
                 if (lang) openLanguageForm(lang);
+            });
+        });
+
+        // Toggle des 4 piliers de la routine quotidienne
+        this.container.querySelectorAll('.chk-toggle-pillar').forEach(cb => {
+            cb.addEventListener('change', async () => {
+                const langId = cb.getAttribute('data-lang-id');
+                const pillarKey = cb.getAttribute('data-pillar');
+                const isDone = cb.checked;
+                if (this.app.toggleLanguagePillar) {
+                    await this.app.toggleLanguagePillar(langId, pillarKey, isDone);
+                    this.render(this.app.state);
+                }
             });
         });
 
@@ -532,9 +578,9 @@ export class LanguageView {
                         <label class="lang-form-label">Jours préférés</label>
                         <div class="lang-days-selection">
                             ${[
-                                ['monday', 'Lundi'], ['tuesday', 'Mardi'], ['wednesday', 'Mercredi'],
-                                ['thursday', 'Jeudi'], ['friday', 'Vendredi'], ['saturday', 'Samedi'], ['sunday', 'Dimanche']
-                            ].map(([k, label]) => `
+                    ['monday', 'Lundi'], ['tuesday', 'Mardi'], ['wednesday', 'Mercredi'],
+                    ['thursday', 'Jeudi'], ['friday', 'Vendredi'], ['saturday', 'Samedi'], ['sunday', 'Dimanche']
+                ].map(([k, label]) => `
                                 <label class="lang-day-check-label">
                                     <input type="checkbox" name="pref_day" value="${k}" ${days.includes(k) ? 'checked' : ''}>
                                     ${label}
@@ -581,7 +627,7 @@ export class LanguageView {
                 const id = btn.getAttribute('data-id');
                 const lang = languages.find(l => l.id === id);
                 if (!lang || !this.app.languageEngine || !this.app.planningEngine) return;
-                
+
                 const res = await this.app.languageEngine.generatePlanningSessions(id, this.app.planningEngine);
                 if (res.success) {
                     alert(`Super ! ${res.count} séances de ${lang.name} ont été générées dans ton planning sur les 4 prochaines semaines.`);
@@ -623,7 +669,7 @@ export class LanguageView {
                 const lang = languages.find(l => l.id === id);
                 if (!lang) return;
                 const tracking = lang.tracking || { sessionsCompleted: 0, minutesStudied: 0, vocabularyWords: 0 };
-                
+
                 openModal(
                     `<i class="bi bi-graph-up"></i> Ajuster le suivi : ${escapeHtml(lang.name)}`,
                     `

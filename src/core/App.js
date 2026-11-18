@@ -21,7 +21,7 @@ import { TimetableImportEngine, DEFAULT_GROUP } from '../engines/TimetableImport
 import { CourseProgressEngine } from '../engines/CourseProgressEngine.js';
 import { SubjectMatcher } from '../engines/SubjectMatcher.js';
 import { ExamRevisionPlanner } from '../ai/ExamRevisionPlanner.js';
-import { parseExamAnnouncement, parseGradeAnswer, parseGradeStatement, isNotYetAnswer, parseBookProgress, parsePersonalTaskCreation, parseTaskCompletion, parseItemUpdate, parseItemDeletion, parseCourseRevisionIntent } from '../ai/ChatIntentParser.js';
+import { parseExamAnnouncement, parseGradeAnswer, parseGradeStatement, isNotYetAnswer, parseBookProgress, parsePersonalTaskCreation, parseTaskCompletion, parseItemUpdate, parseItemDeletion, parseCourseRevisionIntent, parseDailyProgramIntent } from '../ai/ChatIntentParser.js';
 import { DailySnapshotEngine } from '../engines/DailySnapshotEngine.js';
 import { CourseRevisionScheduler } from '../engines/CourseRevisionScheduler.js';
 import { NotificationService } from '../services/NotificationService.js';
@@ -853,6 +853,31 @@ export class App {
         this.state.todayEvents = await this.planningEngine.getEventsForDate(this._todayStr());
 
         // Re-rendre la vue courante si on est dans le planning ou l'agenda
+        if (this.router && this.router.currentView === 'planning') {
+            await this.renderView('planning');
+        }
+
+        return result;
+    }
+
+    /**
+     * Planifie les 5 blocs du programme quotidien intensif (180 min strict) dans les créneaux libres du jour.
+     */
+    async scheduleDailyProgram180({ dateStr = null } = {}) {
+        const targetDate = dateStr || this._todayStr();
+        const result = await this.courseRevisionScheduler.scheduleDailyProgram180({
+            dateStr: targetDate
+        });
+
+        if (result.scheduled && result.scheduled.length > 0 && this.notificationService) {
+            await this.notificationService.scheduleWeekReminders(result.scheduled, 15);
+        }
+
+        if (this.state && this.state.calendarData) {
+            this.state.calendarData.events = await this.planningEngine.getEvents();
+        }
+        this.state.todayEvents = await this.planningEngine.getEventsForDate(this._todayStr());
+
         if (this.router && this.router.currentView === 'planning') {
             await this.renderView('planning');
         }
@@ -2033,6 +2058,9 @@ export class App {
         this.state.academicSemesters = await this.academicEngine.getSemesters();
         this.state.academicAssessments = await this.academicEngine.getAssessments();
         this.state.academicGrades = await this.academicEngine.getGrades();
+        if (typeof this.academicEngine.getCertifications === 'function') {
+            this.state.certifications = await this.academicEngine.getCertifications();
+        }
         const subjects = await this.academicEngine.getSubjects();
         const enriched = [];
         for (const s of subjects) {
@@ -2052,6 +2080,26 @@ export class App {
         }
         this.state.academicSubjects = enriched;
         return enriched;
+    }
+
+    async saveCertification(data) {
+        if (!this.academicEngine) return;
+        const res = await this.academicEngine.saveCertification(data);
+        await this.refreshAcademicSubjects();
+        return res;
+    }
+
+    async deleteCertification(id) {
+        if (!this.academicEngine) return;
+        await this.academicEngine.deleteCertification(id);
+        await this.refreshAcademicSubjects();
+    }
+
+    async toggleLanguagePillar(langId, pillarKey, isDone) {
+        if (!this.languageEngine || typeof this.languageEngine.toggleDailyPillar !== 'function') return null;
+        const updated = await this.languageEngine.toggleDailyPillar(langId, pillarKey, isDone);
+        this.state.userLanguages = await this.languageEngine.getLanguages();
+        return updated;
     }
 
     /**
@@ -2720,6 +2768,15 @@ export class App {
                     await this.scheduleWeeklyCourseRevisions();
                 } catch (e) {
                     AppLogger.error("Erreur auto revision dans le chat: " + e.message);
+                }
+            }
+
+            // Planification automatique du Programme 3h si demandée
+            if (parseDailyProgramIntent(text)) {
+                try {
+                    await this.scheduleDailyProgram180();
+                } catch (e) {
+                    AppLogger.error("Erreur auto programme 180 dans le chat: " + e.message);
                 }
             }
 

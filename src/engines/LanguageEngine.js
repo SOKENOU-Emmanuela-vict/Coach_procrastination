@@ -1,13 +1,47 @@
 import { Event } from '../models/Event.js';
 
+export const DEFAULT_PROGRAM_ENGLISH = {
+    id: 'lang_english',
+    name: 'Anglais',
+    icon: '🇬🇧',
+    level: 'A1',
+    goal: 'Progression vers A2 fonctionnel + conversation orale de 2h le 25 décembre 2026',
+    plan: {
+        sessionsPerWeek: 7,
+        duration: 45,
+        preferredDays: ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday']
+    },
+    pillars: {
+        vocab: { title: "Vocabulaire et phrases", duration: 10, doneToday: false },
+        listening: { title: "Écoute active", duration: 10, doneToday: false },
+        pronunciation: { title: "Répétition et prononciation", duration: 10, doneToday: false },
+        conversation: { title: "Conversation active", duration: 15, doneToday: false }
+    },
+    targetMilestoneDate: '2026-12-25',
+    targetMilestoneTitle: 'Conversation orale prolongée de 2 heures',
+    tracking: {
+        sessionsCompleted: 0,
+        minutesStudied: 0,
+        vocabularyWords: 0
+    },
+    resources: [
+        { id: 'res_bbc_learning', title: "BBC 6 Minute English (A2)", type: "video", value: "https://www.bbc.co.uk/learningenglish" },
+        { id: 'res_elsa_speak', title: "Prononciation & Répétition", type: "app", value: "https://elsaspeak.com" }
+    ]
+};
+
 export class LanguageEngine {
     constructor(storageProvider) {
         this.storage = storageProvider;
     }
 
     async getLanguages() {
-        const list = await this.storage.loadData('user_languages');
-        return Array.isArray(list) ? list : [];
+        let list = await this.storage.loadData('user_languages');
+        if (!list || !Array.isArray(list) || list.length === 0) {
+            list = [DEFAULT_PROGRAM_ENGLISH];
+            await this.storage.saveData('user_languages', list);
+        }
+        return list;
     }
 
     async saveLanguage(langData) {
@@ -40,6 +74,9 @@ export class LanguageEngine {
             level: langData.level !== undefined ? langData.level : (existing?.level || 'A1'),
             goal: langData.goal !== undefined ? langData.goal : (existing?.goal || ''),
             resources: Array.isArray(langData.resources) ? langData.resources : (existing?.resources || []),
+            pillars: langData.pillars || existing?.pillars || null,
+            targetMilestoneDate: langData.targetMilestoneDate || existing?.targetMilestoneDate || null,
+            targetMilestoneTitle: langData.targetMilestoneTitle || existing?.targetMilestoneTitle || null,
             plan: {
                 sessionsPerWeek: langData.plan?.sessionsPerWeek ?? existing?.plan?.sessionsPerWeek ?? 3,
                 duration: langData.plan?.duration ?? existing?.plan?.duration ?? 30,
@@ -74,6 +111,28 @@ export class LanguageEngine {
     async getLanguage(id) {
         const languages = await this.getLanguages();
         return languages.find(l => l.id === id) || null;
+    }
+
+    async toggleDailyPillar(langId, pillarKey, isDone) {
+        const lang = await this.getLanguage(langId);
+        if (!lang) return null;
+        if (!lang.pillars) {
+            lang.pillars = {
+                vocab: { title: "Vocabulaire et phrases", duration: 10, doneToday: false },
+                listening: { title: "Écoute active", duration: 10, doneToday: false },
+                pronunciation: { title: "Répétition et prononciation", duration: 10, doneToday: false },
+                conversation: { title: "Conversation active", duration: 15, doneToday: false }
+            };
+        }
+        if (lang.pillars[pillarKey]) {
+            lang.pillars[pillarKey].doneToday = Boolean(isDone);
+            if (isDone) {
+                lang.tracking = lang.tracking || { sessionsCompleted: 0, minutesStudied: 0, vocabularyWords: 0 };
+                lang.tracking.minutesStudied += lang.pillars[pillarKey].duration || 10;
+            }
+            await this.saveLanguage(lang);
+        }
+        return lang;
     }
 
     async addResource(langId, resource) {

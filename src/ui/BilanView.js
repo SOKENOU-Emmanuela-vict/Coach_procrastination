@@ -6,7 +6,7 @@ export class BilanView {
         this.container = typeof containerId === 'string' && typeof document !== 'undefined' ? document.getElementById(containerId) : (containerId || (typeof document !== 'undefined' ? document.getElementById('view-container') : null));
         this.app = app;
     }
-    
+
     render(data) {
         if (typeof document !== 'undefined' && document.body) {
             document.body.className = 'theme-light';
@@ -16,17 +16,17 @@ export class BilanView {
         }
 
         const { summary, checkIn, stats } = data || {};
-        
+
         const completedTasksCount = (stats && stats.completedTasksCount) ? stats.completedTasksCount : 0;
         const focusTime = (stats && !isNaN(stats.focusTime)) ? stats.focusTime : 0;
-        
+
         // Structure de CheckInEngine.buildDailySummary : { execution, planned, actual, ... }
         const execution = (summary && summary.execution) || {};
         const completionRate = execution.completionRate || 0;
         const completedSessions = summary ? (execution.completed || 0) : completedTasksCount;
         const actualMinutes = summary ? ((summary.actual && summary.actual.minutes) || 0) : focusTime;
         const plannedItems = (summary && summary.planned && summary.planned.items) || [];
-        
+
         const isReadonly = Boolean(checkIn) && !this.isEditing;
 
         const emptyDayNotice = (completedSessions === 0 && actualMinutes === 0 && plannedItems.length === 0)
@@ -49,6 +49,42 @@ export class BilanView {
             <p class="bilan-stat-row"><i class="bi bi-stopwatch coach-icon-info"></i> Temps d'étude actif : <strong>${actualMinutes} min</strong></p>
             ${emptyDayNotice}
         </div>
+
+        <!-- PROGRAMME INTENSIF 18 NOV - 25 DEC 2026 -->
+        <div class="bilan-program-card" style="margin-top:1.25rem; padding:1.25rem; background:var(--bg-surface, #ffffff); border-radius:12px; border:1px solid var(--border-color, #e5e7eb); box-shadow:0 2px 8px rgba(0,0,0,0.04);">
+            <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:0.75rem;">
+                <div>
+                    <span class="badge badge-primary" style="font-size:0.75rem; text-transform:uppercase; letter-spacing:0.5px;">Programme Intensif 18 Nov – 25 Déc 2026</span>
+                    <h3 style="font-size:1.05rem; font-weight:700; margin:0.25rem 0 0 0; color:var(--text-primary);"><i class="bi bi-lightning-charge-fill" style="color:var(--accent-primary, #6366f1);"></i> Progression Globale (111h • 3h/jour)</h3>
+                </div>
+                <div style="text-align:right;">
+                    <span style="font-size:0.85rem; font-weight:600; color:var(--text-secondary);">37 jours • Objectif 25 déc</span>
+                </div>
+            </div>
+            
+            <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap:0.75rem; margin-top:0.75rem;">
+                <div style="background:var(--bg-surface-alt, #f8f9fa); padding:0.6rem 0.8rem; border-radius:8px; border-left:3px solid #3b82f6;">
+                    <div style="font-size:0.75rem; color:var(--text-secondary); text-transform:uppercase; font-weight:600;">1. Formations (50m/j)</div>
+                    <strong style="font-size:0.85rem; color:var(--text-primary);">IoT, ML & Deep Learning</strong>
+                </div>
+                <div style="background:var(--bg-surface-alt, #f8f9fa); padding:0.6rem 0.8rem; border-radius:8px; border-left:3px solid #10b981;">
+                    <div style="font-size:0.75rem; color:var(--text-secondary); text-transform:uppercase; font-weight:600;">2. Grand Projet (45m/j)</div>
+                    <strong style="font-size:0.85rem; color:var(--text-primary);">6 Modules • Contexte Bénin</strong>
+                </div>
+                <div style="background:var(--bg-surface-alt, #f8f9fa); padding:0.6rem 0.8rem; border-radius:8px; border-left:3px solid #f59e0b;">
+                    <div style="font-size:0.75rem; color:var(--text-secondary); text-transform:uppercase; font-weight:600;">3. Anglais (45m/j)</div>
+                    <strong style="font-size:0.85rem; color:var(--text-primary);">A1 → A2 (Routine 4 Piliers)</strong>
+                </div>
+                <div style="background:var(--bg-surface-alt, #f8f9fa); padding:0.6rem 0.8rem; border-radius:8px; border-left:3px solid #8b5cf6;">
+                    <div style="font-size:0.75rem; color:var(--text-secondary); text-transform:uppercase; font-weight:600;">4. Lectures (25m/j)</div>
+                    <strong style="font-size:0.85rem; color:var(--text-primary);">6 Livres de Fond</strong>
+                </div>
+                <div style="background:var(--bg-surface-alt, #f8f9fa); padding:0.6rem 0.8rem; border-radius:8px; border-left:3px solid #ec4899;">
+                    <div style="font-size:0.75rem; color:var(--text-secondary); text-transform:uppercase; font-weight:600;">5. Deux Pas (15m/j)</div>
+                    <strong style="font-size:0.85rem; color:var(--text-primary);">1 Perso + 1 Pro quotidien</strong>
+                </div>
+            </div>
+        </div>
         `;
 
         if (isReadonly) {
@@ -60,6 +96,39 @@ export class BilanView {
             <h3 class="bilan-success-title"><i class="bi bi-check2-circle"></i> Bilan du jour validé</h3>
             <p class="bilan-success-details">Énergie : <strong>${escapeHtml(checkIn.energy || 'Moyenne')}</strong> | Sommeil : <strong>${sleepDisplay}</strong> | Évaluation : <strong>${escapeHtml(checkIn.dayAssessment || 'Complétée')}</strong></p>
             ${checkIn.blockers && checkIn.blockers.length > 0 ? `<p class="bilan-success-blockers"><em>Blocages :</em> ${escapeHtml(checkIn.blockers.join(', '))}</p>` : ''}
+            
+            ${(checkIn.personalStep || checkIn.professionalStep) ? `
+            <div class="bilan-steps-display-card" style="margin-top:1rem; padding:1rem; background:var(--bg-surface-alt, #f8f9fa); border-radius:8px; border:1px solid var(--border-color, #e5e7eb);">
+                <h4 style="font-size:0.95rem; font-weight:700; margin-bottom:0.75rem; color:var(--text-primary);"><i class="bi bi-compass"></i> Mes Deux Pas du Jour</h4>
+                
+                ${checkIn.personalStep ? `
+                <div class="bilan-step-row" style="margin-bottom:0.5rem;">
+                    <span class="badge ${checkIn.personalStep.status === 'completed' ? 'badge-success' : (checkIn.personalStep.status === 'partial' ? 'badge-warning' : 'badge-secondary')}">
+                        ${checkIn.personalStep.status === 'completed' ? '✓ Réalisé' : (checkIn.personalStep.status === 'partial' ? 'Partiel' : 'À faire')}
+                    </span>
+                    <div style="display:inline-block; margin-left:0.5rem;">
+                        <strong>Pas Personnel :</strong> ${escapeHtml(checkIn.personalStep.action || 'Non défini')}
+                        ${checkIn.personalStep.expectedResult ? `<div style="font-size:0.85rem; color:var(--text-secondary);"><em>Attendu :</em> ${escapeHtml(checkIn.personalStep.expectedResult)}</div>` : ''}
+                        ${checkIn.personalStep.reflection ? `<div style="font-size:0.85rem; color:var(--text-secondary);"><em>Réflexion :</em> ${escapeHtml(checkIn.personalStep.reflection)}</div>` : ''}
+                    </div>
+                </div>
+                ` : ''}
+
+                ${checkIn.professionalStep ? `
+                <div class="bilan-step-row" style="margin-top:0.5rem;">
+                    <span class="badge ${checkIn.professionalStep.status === 'completed' ? 'badge-success' : (checkIn.professionalStep.status === 'partial' ? 'badge-warning' : 'badge-secondary')}">
+                        ${checkIn.professionalStep.status === 'completed' ? '✓ Réalisé' : (checkIn.professionalStep.status === 'partial' ? 'Partiel' : 'À faire')}
+                    </span>
+                    <div style="display:inline-block; margin-left:0.5rem;">
+                        <strong>Pas Professionnel :</strong> ${escapeHtml(checkIn.professionalStep.action || 'Non défini')}
+                        ${checkIn.professionalStep.expectedResult ? `<div style="font-size:0.85rem; color:var(--text-secondary);"><em>Attendu :</em> ${escapeHtml(checkIn.professionalStep.expectedResult)}</div>` : ''}
+                        ${checkIn.professionalStep.reflection ? `<div style="font-size:0.85rem; color:var(--text-secondary);"><em>Réflexion :</em> ${escapeHtml(checkIn.professionalStep.reflection)}</div>` : ''}
+                    </div>
+                </div>
+                ` : ''}
+            </div>
+            ` : ''}
+
             <div class="bilan-actions-row">
                 <button type="button" id="btn-edit-checkin" class="btn btn-secondary btn-sm"><i class="bi bi-pencil"></i> Modifier le bilan</button>
                 <button type="button" id="btn-delete-checkin" class="btn btn-secondary btn-sm text-danger"><i class="bi bi-trash"></i> Supprimer le bilan</button>
@@ -88,6 +157,16 @@ export class BilanView {
             const curSleepQuality = checkIn?.sleep?.quality || 'fair';
             const curAssessment = checkIn?.dayAssessment || 'completed';
             const curBlockers = Array.isArray(checkIn?.blockers) ? checkIn.blockers.join('\n') : (checkIn?.blockers || '');
+
+            const curPersonalAction = checkIn?.personalStep?.action || '';
+            const curPersonalExpected = checkIn?.personalStep?.expectedResult || '';
+            const curPersonalStatus = checkIn?.personalStep?.status || 'pending';
+            const curPersonalReflection = checkIn?.personalStep?.reflection || '';
+
+            const curProAction = checkIn?.professionalStep?.action || '';
+            const curProExpected = checkIn?.professionalStep?.expectedResult || '';
+            const curProStatus = checkIn?.professionalStep?.status || 'pending';
+            const curProReflection = checkIn?.professionalStep?.reflection || '';
 
             html += `
         <div class="bilan-form-card">
@@ -127,6 +206,46 @@ export class BilanView {
             <div class="bilan-form-group">
                 <label class="bilan-form-label"><i class="bi bi-cone-striped"></i> Qu'est-ce qui m'a bloqué ou ralenti ? (Optionnel)</label>
                 <textarea id="chk-blockers" class="form-textarea bilan-textarea-full" rows="2">${escapeHtml(curBlockers)}</textarea>
+            </div>
+
+            <!-- DEUX PAS DU JOUR (AXE E - PROGRAMME INTENSIF) -->
+            <div class="bilan-form-section mt-4 pt-3" style="border-top:1px solid var(--border-color, #e5e7eb);">
+                <h4 style="font-size:1rem; font-weight:700; margin-bottom:0.25rem; color:var(--text-primary);"><i class="bi bi-compass"></i> Mes Deux Pas du Jour (Programme Intensif)</h4>
+                <p style="font-size:0.85rem; color:var(--text-secondary); margin-bottom:1rem;">
+                    Deux actions concrètes, mesurables et vérifiables intégrées à ta journée.
+                </p>
+
+                <!-- 1. Pas personnel -->
+                <div style="background:var(--bg-surface-alt, #f9fafb); border-radius:8px; border:1px solid var(--border-color, #e5e7eb); padding:0.85rem; margin-bottom:0.85rem;">
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.5rem;">
+                        <strong style="font-size:0.9rem;"><i class="bi bi-person-heart"></i> 1. Pas Personnel</strong>
+                        <select id="chk-personal-status" class="form-select form-select-sm" style="width:auto; padding:0.2rem 0.5rem; font-size:0.8rem;">
+                            <option value="pending" ${curPersonalStatus === 'pending' ? 'selected' : ''}>À faire</option>
+                            <option value="completed" ${curPersonalStatus === 'completed' ? 'selected' : ''}>Réalisé</option>
+                            <option value="partial" ${curPersonalStatus === 'partial' ? 'selected' : ''}>Partiel</option>
+                            <option value="missed" ${curPersonalStatus === 'missed' ? 'selected' : ''}>Reporté</option>
+                        </select>
+                    </div>
+                    <input type="text" id="chk-personal-action" class="form-input form-input-sm mb-2" placeholder="Action concrète (ex: Engager une conversation avec une personne peu connue...)" value="${escapeHtml(curPersonalAction)}">
+                    <input type="text" id="chk-personal-expected" class="form-input form-input-sm mb-2" placeholder="Résultat attendu mesurable (ex: Échanger 5 min positivement)" value="${escapeHtml(curPersonalExpected)}">
+                    <textarea id="chk-personal-reflection" class="form-textarea form-textarea-sm" rows="1" placeholder="Courte réflexion sur ce que j'ai appris ou ressenti...">${escapeHtml(curPersonalReflection)}</textarea>
+                </div>
+
+                <!-- 2. Pas professionnel -->
+                <div style="background:var(--bg-surface-alt, #f9fafb); border-radius:8px; border:1px solid var(--border-color, #e5e7eb); padding:0.85rem; margin-bottom:0.85rem;">
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.5rem;">
+                        <strong style="font-size:0.9rem;"><i class="bi bi-briefcase"></i> 2. Pas Professionnel</strong>
+                        <select id="chk-pro-status" class="form-select form-select-sm" style="width:auto; padding:0.2rem 0.5rem; font-size:0.8rem;">
+                            <option value="pending" ${curProStatus === 'pending' ? 'selected' : ''}>À faire</option>
+                            <option value="completed" ${curProStatus === 'completed' ? 'selected' : ''}>Réalisé</option>
+                            <option value="partial" ${curProStatus === 'partial' ? 'selected' : ''}>Partiel</option>
+                            <option value="missed" ${curProStatus === 'missed' ? 'selected' : ''}>Reporté</option>
+                        </select>
+                    </div>
+                    <input type="text" id="chk-pro-action" class="form-input form-input-sm mb-2" placeholder="Action concrète (ex: Développer le module 1 IoT, publier un commit, tester PyTorch...)" value="${escapeHtml(curProAction)}">
+                    <input type="text" id="chk-pro-expected" class="form-input form-input-sm mb-2" placeholder="Résultat attendu mesurable (ex: Code testé et versionné sur GitHub)" value="${escapeHtml(curProExpected)}">
+                    <textarea id="chk-pro-reflection" class="form-textarea form-textarea-sm" rows="1" placeholder="Courte réflexion sur le résultat technique obtenu...">${escapeHtml(curProReflection)}</textarea>
+                </div>
             </div>
 
             ${followupOptions}
@@ -199,11 +318,21 @@ export class BilanView {
                 const sleepQuality = document.getElementById('chk-sleep-quality').value;
                 const assessment = document.getElementById('chk-assessment').value;
                 const blockersTxt = document.getElementById('chk-blockers').value.trim();
-                
+
                 const needsFollowUp = [];
                 document.querySelectorAll('input[name="needsFollowUp"]:checked').forEach(cb => {
                     needsFollowUp.push(cb.value);
                 });
+
+                const personalAction = (document.getElementById('chk-personal-action')?.value || '').trim();
+                const personalExpected = (document.getElementById('chk-personal-expected')?.value || '').trim();
+                const personalStatus = document.getElementById('chk-personal-status')?.value || 'pending';
+                const personalReflection = (document.getElementById('chk-personal-reflection')?.value || '').trim();
+
+                const proAction = (document.getElementById('chk-pro-action')?.value || '').trim();
+                const proExpected = (document.getElementById('chk-pro-expected')?.value || '').trim();
+                const proStatus = document.getElementById('chk-pro-status')?.value || 'pending';
+                const proReflection = (document.getElementById('chk-pro-reflection')?.value || '').trim();
 
                 const payload = {
                     date: summary ? summary.date : this.app.getPedagogicalDate(),
@@ -214,7 +343,19 @@ export class BilanView {
                     },
                     dayAssessment: assessment,
                     blockers: blockersTxt ? [blockersTxt] : [],
-                    needsFollowUp: needsFollowUp
+                    needsFollowUp: needsFollowUp,
+                    personalStep: personalAction ? {
+                        action: personalAction,
+                        expectedResult: personalExpected,
+                        status: personalStatus,
+                        reflection: personalReflection
+                    } : null,
+                    professionalStep: proAction ? {
+                        action: proAction,
+                        expectedResult: proExpected,
+                        status: proStatus,
+                        reflection: proReflection
+                    } : null
                 };
 
                 this.app.submitCheckIn(payload);
