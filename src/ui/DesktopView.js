@@ -1,5 +1,6 @@
 import { escapeHtml } from '../utils/html.js';
 import { Motion } from './motion.js';
+import { DEFAULT_PROGRAM_ENGLISH } from '../engines/LanguageEngine.js';
 
 export class DesktopView {
     constructor(containerId, app) {
@@ -36,10 +37,50 @@ export class DesktopView {
         dateStr = dateStr.charAt(0).toUpperCase() + dateStr.slice(1);
         const currentTimeDisplay = new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
 
-        // Langues réelles enregistrées
+        // Langues réelles enregistrées (Anglais garanti par défaut)
         const userLanguages = (this.app.languageEngine && typeof this.app.languageEngine.getAllLanguagesSync === 'function')
             ? this.app.languageEngine.getAllLanguagesSync()
-            : (state.userLanguages || []);
+            : ((state.userLanguages && state.userLanguages.length > 0) ? state.userLanguages : [DEFAULT_PROGRAM_ENGLISH]);
+
+        // Programme Intensif (18 nov - 25 déc 2026, 111h, 3h/j)
+        const targetEnd = new Date('2026-12-25T23:59:59');
+        const targetStart = new Date('2026-11-18T00:00:00');
+        const msPerDay = 1000 * 60 * 60 * 24;
+        const totalProgramDays = 37;
+        const totalProgramHours = 111;
+        const daysRemaining = Math.max(0, Math.ceil((targetEnd - pedaDate) / msPerDay));
+        const daysElapsed = Math.max(1, Math.min(37, Math.floor((pedaDate - targetStart) / msPerDay) + 1));
+        const progressDaysPercent = Math.min(100, Math.round((daysElapsed / totalProgramDays) * 100));
+
+        // Axe A : Certifications & Formations
+        const certList = Array.isArray(state.certifications) ? state.certifications : [];
+        const certDoneCount = certList.filter(c => c && c.status === 'completed').length;
+        const certTotalCount = certList.length || 4;
+
+        // Axe B : Grand Projet Innovant
+        const projectList = Array.isArray(state.projects) ? state.projects : [];
+        const grandProj = projectList.find(p => p.id === 'proj_grand_programme_2026') || null;
+        const grandProjPhase = "Phase 1 : Diagnostic & Choix (3 problèmes réels)";
+
+        // Axe C : Anglais A1 vers A2
+        const englishLang = userLanguages.find(l => l.id === 'lang_english' || /anglais|english/i.test(l.name)) || DEFAULT_PROGRAM_ENGLISH;
+        const englishPillars = englishLang.pillars || {
+            vocab: { title: "Vocabulaire", duration: 10, doneToday: false },
+            listening: { title: "Écoute", duration: 10, doneToday: false },
+            pronunciation: { title: "Prononciation", duration: 10, doneToday: false },
+            conversation: { title: "Conversation", duration: 15, doneToday: false }
+        };
+        const pilDoneCount = Object.values(englishPillars).filter(p => p && p.doneToday).length;
+
+        // Axe D : 6 Livres
+        const bookList = Array.isArray(state.books) ? state.books : [];
+        const booksReadCount = bookList.filter(b => b.status === 'completed').length;
+        const totalBooksCount = bookList.length || 6;
+
+        // Axe E : Deux Pas Quotidiens
+        const checkIn = state.todayCheckIn || {};
+        const personalStep = checkIn.personalStep || { action: '', expectedResult: '', done: false };
+        const professionalStep = checkIn.professionalStep || { action: '', expectedResult: '', done: false };
 
         const xpPercent = Math.min(100, ((state.userProfile?.gamification?.xp || 0) / (state.userProfile?.gamification?.nextLevelXp || 1000)) * 100);
 
@@ -111,6 +152,102 @@ export class DesktopView {
         <!-- GRILLE PRINCIPALE (NOTION STYLE) -->
         <div class="bureau-grid">
             
+            <!-- BANDEAU DU PROGRAMME INTENSIF (18 NOV - 25 DÉC 2026) -->
+            <div class="bureau-program-banner card bureau-grid-span-3">
+                <div class="bureau-program-header">
+                    <div class="bureau-program-title-wrap">
+                        <div class="bureau-program-badge">
+                            <i class="bi bi-fire"></i> Programme Intensif · 111h Total
+                        </div>
+                        <h2 class="bureau-program-title">Programme du 18 Novembre au 25 Décembre 2026</h2>
+                        <span class="bureau-program-meta">
+                            <strong>3h / jour strict (180 min)</strong> • J-${daysRemaining} (${daysElapsed} / ${totalProgramDays} jours) • Objectifs concrets & vérifiables
+                        </span>
+                    </div>
+                    <div class="bureau-program-action-wrap">
+                        <button type="button" id="btn-desktop-plan-program" class="btn btn-primary bureau-btn-plan-prog" title="Placer automatiquement les 5 blocs (180 min) dans mes créneaux libres d'aujourd'hui">
+                            <i class="bi bi-lightning-charge-fill"></i> Planifier mes 3h aujourd'hui
+                        </button>
+                    </div>
+                </div>
+
+                <div class="bureau-program-progress-bar" title="Progression du programme : Jour ${daysElapsed} sur ${totalProgramDays}">
+                    <div class="bureau-program-progress-fill" style="width: ${progressDaysPercent}%;"></div>
+                </div>
+
+                <!-- 5 AXES EN GRILLE COMPACTE -->
+                <div class="bureau-program-axes-grid">
+                    
+                    <!-- AXE A : Formations & Certifications -->
+                    <div class="bureau-program-axis-card">
+                        <div class="bureau-program-axis-top">
+                            <span class="bureau-program-axis-tag"><i class="bi bi-mortarboard"></i> Axe A · 50 min/j</span>
+                            <span class="bureau-program-axis-count">${certDoneCount}/${certTotalCount}</span>
+                        </div>
+                        <h4 class="bureau-program-axis-name">Certifications & Formations</h4>
+                        <p class="bureau-program-axis-desc">Cisco IoT, Kaggle ML, NVIDIA DL PyTorch</p>
+                        <button type="button" class="bureau-program-axis-btn bureau-nav-item" data-view="academic">
+                            Voir dans École &rarr;
+                        </button>
+                    </div>
+
+                    <!-- AXE B : Grand Projet Innovant -->
+                    <div class="bureau-program-axis-card">
+                        <div class="bureau-program-axis-top">
+                            <span class="bureau-program-axis-tag"><i class="bi bi-cpu"></i> Axe B · 45 min/j</span>
+                            <span class="bureau-program-axis-count">6 Modules</span>
+                        </div>
+                        <h4 class="bureau-program-axis-name">Grand Projet Innovant</h4>
+                        <p class="bureau-program-axis-desc">${escapeHtml(grandProjPhase)}</p>
+                        <button type="button" class="bureau-program-axis-btn bureau-nav-item" data-view="academic">
+                            Accéder au Projet &rarr;
+                        </button>
+                    </div>
+
+                    <!-- AXE C : Anglais A1 vers A2 -->
+                    <div class="bureau-program-axis-card">
+                        <div class="bureau-program-axis-top">
+                            <span class="bureau-program-axis-tag"><i class="bi bi-globe"></i> Axe C · 45 min/j</span>
+                            <span class="bureau-program-axis-count">${pilDoneCount}/4 piliers</span>
+                        </div>
+                        <h4 class="bureau-program-axis-name">Anglais : A1 &rarr; A2</h4>
+                        <p class="bureau-program-axis-desc">Vocabulaire, Écoute, Répétition, Conversation</p>
+                        <button type="button" class="bureau-program-axis-btn bureau-nav-item" data-view="languages">
+                            Pratiquer l'Anglais &rarr;
+                        </button>
+                    </div>
+
+                    <!-- AXE D : 6 Livres Dév Perso -->
+                    <div class="bureau-program-axis-card">
+                        <div class="bureau-program-axis-top">
+                            <span class="bureau-program-axis-tag"><i class="bi bi-book"></i> Axe D · 25 min/j</span>
+                            <span class="bureau-program-axis-count">${booksReadCount}/${totalBooksCount} lus</span>
+                        </div>
+                        <h4 class="bureau-program-axis-name">6 Livres Dév. Perso</h4>
+                        <p class="bureau-program-axis-desc">Covey, Clear, Carnegie x2, McKeown, Newport</p>
+                        <button type="button" class="bureau-program-axis-btn bureau-nav-item" data-view="life">
+                            Ouvrir mes Lectures &rarr;
+                        </button>
+                    </div>
+
+                    <!-- AXE E : Deux Pas Quotidiens -->
+                    <div class="bureau-program-axis-card">
+                        <div class="bureau-program-axis-top">
+                            <span class="bureau-program-axis-tag"><i class="bi bi-check2-circle"></i> Axe E · 15 min/j</span>
+                            <span class="bureau-program-axis-count">${(personalStep.done ? 1 : 0) + (professionalStep.done ? 1 : 0)}/2 pas</span>
+                        </div>
+                        <h4 class="bureau-program-axis-name">Deux Pas Quotidiens</h4>
+                        <p class="bureau-program-axis-desc">
+                            👤 Perso: ${personalStep.done ? '✅ Fait' : '⏳ À faire'} · 💼 Pro: ${professionalStep.done ? '✅ Fait' : '⏳ À faire'}
+                        </p>
+                        <button type="button" class="bureau-program-axis-btn bureau-nav-item" data-view="bilan">
+                            Faire mon Bilan &rarr;
+                        </button>
+                    </div>
+
+                </div>
+            </div>
+
             <!-- 1. SESSION EN COURS -->
             <div class="bureau-session-card">
                 ${(() => {
@@ -247,26 +384,29 @@ export class DesktopView {
             <!-- 5. PROGRÈS LANGUES -->
             <div class="card">
                 <div class="card-header">
-                    <h3 class="card-title">Progrès langues</h3>
+                    <h3 class="card-title bureau-card-title-icon">
+                        <i class="bi bi-globe"></i> Progrès langues
+                    </h3>
                 </div>
                 <div class="card-body">
                     <div class="bureau-lang-list">
                         ${(() => {
-                            if (!userLanguages || userLanguages.length === 0) {
-                                return '<div class="bureau-empty">Aucune langue enregistrée.</div>';
-                            }
-                            return userLanguages.slice(0, 3).map((l) => {
+                            const listToRender = (userLanguages && userLanguages.length > 0) ? userLanguages : [DEFAULT_PROGRAM_ENGLISH];
+                            return listToRender.slice(0, 3).map((l) => {
                                 const completed = l.tracking?.sessionsCompleted || 0;
-                                const target = (l.studyPlan?.sessionsPerWeek || 3) * 4;
+                                const target = (l.plan?.sessionsPerWeek || 7) * 4;
                                 const prog = target > 0 ? Math.min(100, Math.round((completed / target) * 100)) : 0;
+                                const pil = l.pillars || {};
+                                const pilCount = Object.keys(pil).length;
+                                const pilDone = Object.values(pil).filter(p => p && p.doneToday).length;
                                 return `
                                 <div class="bureau-lang-item">
                                     <div class="bureau-lang-circle">
                                         ${prog}%
                                     </div>
                                     <div>
-                                        <strong class="bureau-lang-title">${escapeHtml(l.title || l.name)}</strong>
-                                        <span class="bureau-lang-sub">${escapeHtml(l.level || 'Non défini')} · ${completed} séance${completed > 1 ? 's' : ''}</span>
+                                        <strong class="bureau-lang-title">${escapeHtml(l.icon || '🌐')} ${escapeHtml(l.title || l.name)}</strong>
+                                        <span class="bureau-lang-sub">${escapeHtml(l.level || 'A1')} · ${completed} séance${completed > 1 ? 's' : ''} ${pilCount > 0 ? `· ${pilDone}/${pilCount} piliers faits` : ''}</span>
                                     </div>
                                 </div>`;
                             }).join('');
@@ -430,6 +570,27 @@ export class DesktopView {
                 }
             });
         });
+
+        // Planification automatique du Programme 3h (180 min)
+        const btnPlanProg = this.container.querySelector('#btn-desktop-plan-program');
+        if (btnPlanProg) {
+            btnPlanProg.addEventListener('click', async () => {
+                Motion.buttonTap(btnPlanProg);
+                try {
+                    if (typeof this.app.scheduleDailyProgram180 === 'function') {
+                        const res = await this.app.scheduleDailyProgram180();
+                        if (res && res.success) {
+                            alert(`🎯 Programme Intensif (180 min) :\n\n${res.message}`);
+                            if (this.app.renderView) await this.app.renderView('planning');
+                        } else {
+                            alert(res?.reason || "Créneaux libres insuffisants pour placer les 180 min aujourd'hui.");
+                        }
+                    }
+                } catch (e) {
+                    alert("Erreur lors de la planification : " + e.message);
+                }
+            });
+        }
 
         const coachRemindersCard = this.container.querySelector('#desktop-coach-reminders');
         if (coachRemindersCard) {

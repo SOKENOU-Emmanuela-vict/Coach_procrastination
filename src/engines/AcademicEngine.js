@@ -166,6 +166,17 @@ export class AcademicEngine {
         if (!items || !Array.isArray(items) || items.length === 0) {
             items = DEFAULT_PROGRAM_CERTIFICATIONS;
             await this.storage.saveData('acad_certifications', items);
+        } else {
+            let updated = false;
+            for (const defCert of DEFAULT_PROGRAM_CERTIFICATIONS) {
+                if (!items.some(c => c.id === defCert.id)) {
+                    items.push(defCert);
+                    updated = true;
+                }
+            }
+            if (updated) {
+                await this.storage.saveData('acad_certifications', items);
+            }
         }
         return items;
     }

@@ -9,6 +9,13 @@ export class LanguageView {
         this.app = app;
     }
 
+    async syncAndRender() {
+        if (this.app && this.app.languageEngine) {
+            this.app.state.userLanguages = await this.app.languageEngine.getLanguages();
+        }
+        await this.render(this.app.state);
+    }
+
     async render(state) {
         if (!this.container) return;
         if (typeof document !== 'undefined' && document.body) {
@@ -394,7 +401,7 @@ export class LanguageView {
                     });
                 }
                 closeModal();
-                this.render(this.app.state);
+                await this.syncAndRender();
             });
         };
 
@@ -426,7 +433,7 @@ export class LanguageView {
                 const isDone = cb.checked;
                 if (this.app.toggleLanguagePillar) {
                     await this.app.toggleLanguagePillar(langId, pillarKey, isDone);
-                    this.render(this.app.state);
+                    await this.syncAndRender();
                 }
             });
         });
@@ -443,7 +450,7 @@ export class LanguageView {
                     if (this.app.languageEngine) {
                         await this.app.languageEngine.deleteLanguage(id);
                     }
-                    this.render(this.app.state);
+                    await this.syncAndRender();
                 }
             });
         });
@@ -457,7 +464,7 @@ export class LanguageView {
                 const val = prompt("Modifier le niveau actuel (ex: A1, A2, B1, B2, C1, C2) :", lang.level || 'A1');
                 if (val && val.trim()) {
                     await this.app.languageEngine.saveLanguage({ ...lang, level: val.trim().toUpperCase() });
-                    this.render(this.app.state);
+                    await this.syncAndRender();
                 }
             });
         });
@@ -471,7 +478,7 @@ export class LanguageView {
                 const val = prompt("Modifier l'objectif visé :", lang.goal || '');
                 if (val !== null) {
                     await this.app.languageEngine.saveLanguage({ ...lang, goal: val.trim() });
-                    this.render(this.app.state);
+                    await this.syncAndRender();
                 }
             });
         });
@@ -521,7 +528,7 @@ export class LanguageView {
                     await this.app.languageEngine.addResource(langId, { title, type, value });
                 }
                 closeModal();
-                this.render(this.app.state);
+                await this.syncAndRender();
             });
         };
 
@@ -551,7 +558,7 @@ export class LanguageView {
                 const resTitle = res ? res.title : 'cette ressource';
                 if (confirm(`Supprimer définitivement la ressource "${resTitle}" ?`)) {
                     await this.app.languageEngine.deleteResource(langId, resId);
-                    this.render(this.app.state);
+                    await this.syncAndRender();
                 }
             });
         });
@@ -609,7 +616,7 @@ export class LanguageView {
                 };
                 await this.app.languageEngine.saveLanguage(lang);
                 closeModal();
-                this.render(this.app.state);
+                await this.syncAndRender();
             });
         };
 
@@ -643,7 +650,7 @@ export class LanguageView {
             btn.addEventListener('click', async () => {
                 const id = btn.getAttribute('data-id');
                 await this.app.languageEngine.updateTracking(id, { sessionsDelta: 1, minutesDelta: 30 });
-                this.render(this.app.state);
+                await this.syncAndRender();
             });
         });
 
@@ -651,7 +658,7 @@ export class LanguageView {
             btn.addEventListener('click', async () => {
                 const id = btn.getAttribute('data-id');
                 await this.app.languageEngine.updateTracking(id, { minutesDelta: 30 });
-                this.render(this.app.state);
+                await this.syncAndRender();
             });
         });
 
@@ -659,7 +666,7 @@ export class LanguageView {
             btn.addEventListener('click', async () => {
                 const id = btn.getAttribute('data-id');
                 await this.app.languageEngine.updateTracking(id, { vocabDelta: 10 });
-                this.render(this.app.state);
+                await this.syncAndRender();
             });
         });
 
@@ -699,7 +706,7 @@ export class LanguageView {
                     if (confirm(`Réinitialiser tout le suivi de ${lang.name} à 0 (séances, minutes, vocabulaire) ?`)) {
                         await this.app.languageEngine.resetTracking(id);
                         closeModal();
-                        this.render(this.app.state);
+                        await this.syncAndRender();
                     }
                 });
                 modalContent.querySelector('#form-tracking')?.addEventListener('submit', async (e) => {
@@ -709,7 +716,7 @@ export class LanguageView {
                     const vocab = parseInt(modalContent.querySelector('#track-vocab').value, 10) || 0;
                     await this.app.languageEngine.updateTracking(id, { sessions, minutes, vocab });
                     closeModal();
-                    this.render(this.app.state);
+                    await this.syncAndRender();
                 });
             });
         });

@@ -192,6 +192,17 @@ export class ProjectEngine {
         if (!raw || !Array.isArray(raw) || raw.length === 0) {
             raw = ProjectEngine.DEFAULT_PROGRAM_BOOKS;
             await this.storage.saveData('books', raw);
+        } else {
+            let updated = false;
+            for (const defBook of ProjectEngine.DEFAULT_PROGRAM_BOOKS) {
+                if (!raw.some(b => b.id === defBook.id || (b.title && b.title.toLowerCase().includes(defBook.title.toLowerCase().slice(0, 15))))) {
+                    raw.push(defBook);
+                    updated = true;
+                }
+            }
+            if (updated) {
+                await this.storage.saveData('books', raw);
+            }
         }
         return raw.map(b => new Book(b));
     }

@@ -1,11 +1,11 @@
-import { DesktopView } from '../ui/DesktopView.js?v=101';
-import { AcademicView } from '../ui/AcademicView.js?v=102';
-import { PlanningView } from '../ui/PlanningView.js?v=101';
-import { FocusView } from '../ui/FocusView.js?v=10';
-import { BilanView } from '../ui/BilanView.js?v=4';
-import { CoachChatView } from '../ui/CoachChatView.js?v=3';
-import { LifeView } from '../ui/LifeView.js?v=99';
-import { LanguageView } from '../ui/LanguageView.js?v=99';
+import { DesktopView } from '../ui/DesktopView.js?v=105';
+import { AcademicView } from '../ui/AcademicView.js?v=105';
+import { PlanningView } from '../ui/PlanningView.js?v=103';
+import { FocusView } from '../ui/FocusView.js?v=11';
+import { BilanView } from '../ui/BilanView.js?v=5';
+import { CoachChatView } from '../ui/CoachChatView.js?v=4';
+import { LifeView } from '../ui/LifeView.js?v=101';
+import { LanguageView } from '../ui/LanguageView.js?v=101';
 
 export class Router {
     constructor(containerId, app) {

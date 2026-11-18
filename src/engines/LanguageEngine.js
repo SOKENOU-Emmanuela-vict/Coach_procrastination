@@ -33,6 +33,7 @@ export const DEFAULT_PROGRAM_ENGLISH = {
 export class LanguageEngine {
     constructor(storageProvider) {
         this.storage = storageProvider;
+        this.languagesCache = null;
     }
 
     async getLanguages() {
@@ -40,8 +41,25 @@ export class LanguageEngine {
         if (!list || !Array.isArray(list) || list.length === 0) {
             list = [DEFAULT_PROGRAM_ENGLISH];
             await this.storage.saveData('user_languages', list);
+        } else {
+            // S'assurer que l'Anglais avec ses 4 piliers est toujours présent
+            const englishIndex = list.findIndex(l => l.id === 'lang_english' || /anglais|english/i.test(l.name));
+            if (englishIndex === -1) {
+                list.push(DEFAULT_PROGRAM_ENGLISH);
+                await this.storage.saveData('user_languages', list);
+            } else if (!list[englishIndex].pillars) {
+                list[englishIndex].pillars = DEFAULT_PROGRAM_ENGLISH.pillars;
+                list[englishIndex].targetMilestoneDate = list[englishIndex].targetMilestoneDate || DEFAULT_PROGRAM_ENGLISH.targetMilestoneDate;
+                list[englishIndex].targetMilestoneTitle = list[englishIndex].targetMilestoneTitle || DEFAULT_PROGRAM_ENGLISH.targetMilestoneTitle;
+                await this.storage.saveData('user_languages', list);
+            }
         }
+        this.languagesCache = list;
         return list;
+    }
+
+    getAllLanguagesSync() {
+        return this.languagesCache || [DEFAULT_PROGRAM_ENGLISH];
     }
 
     async saveLanguage(langData) {
@@ -98,6 +116,7 @@ export class LanguageEngine {
         }
 
         await this.storage.saveData('user_languages', languages);
+        this.languagesCache = languages;
         return lang;
     }
 
@@ -105,6 +124,7 @@ export class LanguageEngine {
         let languages = await this.getLanguages();
         languages = languages.filter(l => l.id !== id);
         await this.storage.saveData('user_languages', languages);
+        this.languagesCache = languages;
         return true;
     }
 
